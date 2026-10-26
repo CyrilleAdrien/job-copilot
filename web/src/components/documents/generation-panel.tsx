@@ -42,10 +42,16 @@ export function GenerationPanel({ offerId }: { offerId: number }) {
   const [language, setLanguage] = useState<LanguageChoice>("auto");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [previousError, setPreviousError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchGenerations(offerId)
-      .then((list) => setGeneration(list[0] ?? null))
+      .then((list) => {
+        // Un échec passé ne bloque pas : on repart des options, avec le message en rappel.
+        const last = list[0] ?? null;
+        if (last?.status === "error") setPreviousError(last.error);
+        setGeneration(last?.status === "error" ? null : last);
+      })
       .catch((e: ApiError) => {
         setError(e);
         setGeneration(null);
@@ -84,6 +90,7 @@ export function GenerationPanel({ offerId }: { offerId: number }) {
       });
       setGeneration(started);
       setConfiguring(false);
+      setPreviousError(null);
     } catch (e) {
       setError(e as ApiError);
     } finally {
@@ -147,6 +154,11 @@ export function GenerationPanel({ offerId }: { offerId: number }) {
                   onChange={setLanguage}
                 />
               </div>
+              {previousError && (
+                <p className="text-[13px] text-text-tertiary">
+                  Dernière tentative : {previousError}
+                </p>
+              )}
               {missingModel && (
                 <p className="rounded-[10px] bg-warning-soft px-3 py-2.5 text-[13px] text-warning">
                   Le modèle {llm?.model} n&apos;est pas encore téléchargé. Lance{" "}
@@ -172,7 +184,7 @@ export function GenerationPanel({ offerId }: { offerId: number }) {
           {view === "error" && generation && (
             <>
               <ErrorBanner error={new ApiError(generation.error ?? "La génération a échoué.", 500)} />
-              <Button variant="secondary" className="w-fit" onClick={() => setConfiguring(true)}>
+              <Button variant="secondary" className="w-fit" onClick={() => setGeneration(null)}>
                 <RotateCcw aria-hidden />
                 Réessayer
               </Button>

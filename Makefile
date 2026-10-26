@@ -17,8 +17,14 @@ logs:
 ready: ## Affiche l'état de tous les services et de leurs dépendances
 	curl -s http://127.0.0.1:$${GATEWAY_PORT:-8000}/ready | python3 -m json.tool
 
-models: ## Télécharge le modèle LLM dans Ollama (environ 4,7 Go)
-	docker compose exec ollama ollama pull $${OLLAMA_MODEL:-qwen2.5:7b}
+MODEL := $(or $(shell grep -s '^OLLAMA_MODEL=' .env | cut -d= -f2),qwen2.5:7b)
+
+models: ## Télécharge le modèle LLM (environ 4,7 Go), dans Ollama natif si OLLAMA_URL le désigne
+	@if grep -qs '^OLLAMA_URL=.*host.docker.internal' .env; then \
+		ollama pull $(MODEL); \
+	else \
+		docker compose exec ollama ollama pull $(MODEL); \
+	fi
 
 lint:
 	uv run ruff check .

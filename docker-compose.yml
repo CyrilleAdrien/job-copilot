@@ -4,7 +4,8 @@ x-env: &env
   DATABASE_URL: postgresql://${POSTGRES_USER:-jobcopilot}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-jobcopilot}
   REDIS_URL: redis://redis:6379/0
   S3_ENDPOINT: http://s3:8333
-  OLLAMA_URL: http://ollama:11434
+  # Sur Mac, Ollama installé nativement utilise le GPU : OLLAMA_URL=http://host.docker.internal:11434
+  OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
   OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
 
 x-service: &service
