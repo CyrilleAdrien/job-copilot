@@ -1,0 +1,17 @@
+[project]
+name = "jobcopilot-common"
+version = "0.1.0"
+description = "Briques partagées des services job-copilot : configuration et health checks"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic-settings>=2.6",
+    "asyncpg>=0.30",
+    "redis>=5.2",
+    "httpx>=0.28",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

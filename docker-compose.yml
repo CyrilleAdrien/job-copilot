@@ -1,0 +1,111 @@
+name: job-copilot
+
+x-service: &service
+  build:
+    context: .
+    dockerfile: services/Dockerfile
+  restart: unless-stopped
+  environment:
+    DATABASE_URL: postgresql://${POSTGRES_USER:-jobcopilot}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-jobcopilot}
+    REDIS_URL: redis://redis:6379/0
+    S3_ENDPOINT: http://minio:9000
+    OLLAMA_URL: http://ollama:11434
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [internal]
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args: { SERVICE: gateway }
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8000}:8000"
+    depends_on: [profile, jobs, documents, applications, mail, calendar]
+    networks: [internal]
+
+  profile:
+    <<: *service
+    build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: profile } }
+
+  jobs:
+    <<: *service
+    build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: jobs } }
+
+  documents:
+    <<: *service
+    build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: documents } }
+
+  applications:
+    <<: *service
+    build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: applications } }
+
+  mail:
+    <<: *service
+    build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: mail } }
+
+  calendar:
+    <<: *service
+    build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: calendar } }
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jobcopilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-jobcopilot}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-jobcopilot}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-too}
+    volumes:
+      - minio-data:/data
+    networks: [internal]
+
+  ollama:
+    image: ollama/ollama:0.5.4
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  ollama-data:

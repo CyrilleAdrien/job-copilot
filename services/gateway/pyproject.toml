@@ -1,0 +1,13 @@
+[project]
+name = "jobcopilot-gateway"
+version = "0.1.0"
+description = "Point d'entrée unique de l'API : routage vers les services"
+requires-python = ">=3.12"
+dependencies = ["jobcopilot-common"]
+
+[tool.uv.sources]
+jobcopilot-common = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
