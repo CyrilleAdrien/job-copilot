@@ -50,6 +50,10 @@ jobs:
         run: |
           curl -sf http://127.0.0.1:8000/health
           curl -sf -o /dev/null http://127.0.0.1:3000/design
+          for i in $(seq 1 12); do
+            curl -sf http://127.0.0.1:8000/ready > /dev/null && break
+            sleep 5
+          done
           curl -s http://127.0.0.1:8000/ready | tee ready.json
           python3 -c "import json; r = json.load(open('ready.json')); assert r['status'] == 'ok', r"
       - if: failure()

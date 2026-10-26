@@ -5,7 +5,7 @@
 
 /*
  * Design tokens. Inspiration Kaggle : fond blanc, texte anthracite,
- * bleu vif pour les actions, violet réservé à ce qui vient de l'IA.
+ * bleu adouci pour les actions, violet réservé à ce qui vient de l'IA.
  */
 :root {
   --background: #ffffff;
@@ -19,9 +19,9 @@
   --text-secondary: #5f6368;
   --text-tertiary: #80868b;
 
-  --accent: #20beff;
-  --accent-strong: #0072b5;
-  --accent-soft: #e8f7ff;
+  --accent: #5aa7dd;
+  --accent-strong: #2f6e9e;
+  --accent-soft: #eef5fb;
 
   --ai: #7c5cff;
   --ai-strong: #5b3fd9;
@@ -51,9 +51,9 @@
   --text-secondary: #a0a6ae;
   --text-tertiary: #7d838c;
 
-  --accent: #20beff;
-  --accent-strong: #4ccbff;
-  --accent-soft: rgb(32 190 255 / 0.12);
+  --accent: #6aaedf;
+  --accent-strong: #8dbfe4;
+  --accent-soft: rgb(106 174 223 / 0.12);
 
   --ai: #9b85ff;
   --ai-strong: #b4a3ff;
