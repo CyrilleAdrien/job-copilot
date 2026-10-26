@@ -45,6 +45,26 @@ L'API du profil est servie par la gateway :
 | `GET` | `/api/profile/export` | Télécharger le `profile.yaml` |
 | `POST` | `/api/profile/import` | Importer un `profile.yaml` (`content-type: application/yaml`) |
 
+## Offres
+
+L'écran Offres interroge les sources à partir des critères du profil (postes, lieux, rayon, contrats) et affiche les offres les plus récentes d'abord. La fenêtre de publication (24 h, 3, 7, 14 ou 30 jours) part de celle du profil et se change à la volée. Le tri par pertinence utilise un score de 0 à 100, calculé sans LLM : intitulé (40), technologies citées (35), séniorité (10), contrat (10), télétravail (5). Les offres qui contiennent un mot exclu ou qui ne correspondent ni au poste ni aux technologies sont écartées. Une même offre publiée sur deux sources n'apparaît qu'une fois.
+
+Les deux sources sont gratuites. Renseigne leurs clés dans `.env`, puis relance avec `make up` :
+
+| Source | Inscription | Variables |
+| --- | --- | --- |
+| France Travail | [francetravail.io](https://francetravail.io), application avec l'API « Offres d'emploi v2 » | `FRANCE_TRAVAIL_CLIENT_ID`, `FRANCE_TRAVAIL_CLIENT_SECRET` |
+| Adzuna | [developer.adzuna.com](https://developer.adzuna.com) | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` |
+
+Sans clé, `JOBS_DEMO=true` active des offres fictives pour essayer l'outil. Une collecte est mise en cache 15 minutes dans Redis. Le bouton Actualiser force une nouvelle collecte.
+
+| Méthode | Chemin | Rôle |
+| --- | --- | --- |
+| `GET` | `/api/jobs/offers?sort=date\|relevance&max_age_days=7` | Offres de la fenêtre, triées |
+| `GET` | `/api/jobs/offers/{id}` | Détail d'une offre avec sa description complète |
+| `POST` | `/api/jobs/refresh?force=true` | Collecter les offres auprès des sources |
+| `GET` | `/api/jobs/sources` | Sources connues et configurées |
+
 ## Développement
 
 ```bash
