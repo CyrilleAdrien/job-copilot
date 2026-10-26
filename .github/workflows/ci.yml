@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cp .env.example .env
+      - run: cp .env.example .env && echo "JOBS_DEMO=true" >> .env
       - run: docker compose config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 180
       - name: Tous les services répondent
@@ -71,6 +71,12 @@ jobs:
             -H "content-type: application/yaml" --data-binary @examples/profile.example.yaml > /dev/null
           curl -sf http://127.0.0.1:8000/api/profile/ | python3 -c "import json, sys; assert json.load(sys.stdin)['identity']['full_name'] == 'Alex Martin'"
           curl -sf -o /dev/null http://127.0.0.1:3000/api/profile/
+      - name: Les offres de démonstration se collectent et se trient par date
+        run: |
+          curl -sf -X POST http://127.0.0.1:8000/api/jobs/refresh | tee refresh.json
+          python3 -c "import json; r = json.load(open('refresh.json')); assert r['stored'] > 0, r"
+          curl -sf http://127.0.0.1:3000/api/jobs/offers > offers.json
+          python3 -c "import json; d = [o['published_at'] for o in json.load(open('offers.json'))['items']]; assert d and d == sorted(d, reverse=True), d"
       - if: failure()
         run: docker compose logs
       - if: always()

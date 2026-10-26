@@ -37,7 +37,7 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(segment.value)}
             className={cn(
-              "relative h-7 rounded-full px-3 text-[13px] font-medium transition-colors duration-150",
+              "relative h-7 whitespace-nowrap rounded-full px-3 text-[13px] font-medium transition-colors duration-150",
               selected ? "text-text" : "text-text-secondary hover:text-text",
             )}
           >

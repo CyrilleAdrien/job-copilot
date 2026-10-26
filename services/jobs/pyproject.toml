@@ -3,7 +3,7 @@ name = "jobcopilot-jobs"
 version = "0.1.0"
 description = "Collecte et scoring des offres"
 requires-python = ">=3.12"
-dependencies = ["jobcopilot-common"]
+dependencies = ["jobcopilot-common", "alembic>=1.14"]
 
 [tool.uv.sources]
 jobcopilot-common = { workspace = true }

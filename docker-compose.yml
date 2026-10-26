@@ -1,15 +1,17 @@
 name: job-copilot
 
+x-env: &env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-jobcopilot}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-jobcopilot}
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT: http://s3:8333
+  OLLAMA_URL: http://ollama:11434
+
 x-service: &service
   build:
     context: .
     dockerfile: services/Dockerfile
   restart: unless-stopped
-  environment:
-    DATABASE_URL: postgresql://${POSTGRES_USER:-jobcopilot}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-jobcopilot}
-    REDIS_URL: redis://redis:6379/0
-    S3_ENDPOINT: http://s3:8333
-    OLLAMA_URL: http://ollama:11434
+  environment: *env
   depends_on:
     postgres:
       condition: service_healthy
@@ -46,6 +48,13 @@ services:
   jobs:
     <<: *service
     build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: jobs } }
+    environment:
+      <<: *env
+      FRANCE_TRAVAIL_CLIENT_ID: ${FRANCE_TRAVAIL_CLIENT_ID:-}
+      FRANCE_TRAVAIL_CLIENT_SECRET: ${FRANCE_TRAVAIL_CLIENT_SECRET:-}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      JOBS_DEMO: ${JOBS_DEMO:-false}
 
   documents:
     <<: *service

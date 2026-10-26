@@ -10,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-async function parseError(response: Response): Promise<ApiError> {
+export async function parseError(response: Response): Promise<ApiError> {
   const body = await response.json().catch(() => null);
   const detail = body?.detail;
   if (typeof detail === "string") return new ApiError(detail, response.status);
