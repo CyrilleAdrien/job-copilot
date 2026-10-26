@@ -19,7 +19,7 @@ from jobcopilot_documents.schemas import (
 )
 
 LANGUAGE_NAMES = {"fr": "français", "en": "anglais"}
-OFFER_LIMIT = 4000
+OFFER_LIMIT = 3000
 
 SYSTEM = (
     "Tu aides un candidat à adapter son CV et sa lettre à une offre d'emploi. "

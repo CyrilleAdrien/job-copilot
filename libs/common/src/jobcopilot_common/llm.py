@@ -24,7 +24,12 @@ class Ollama:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None):
         self.url = settings.ollama_url
         self.model = settings.ollama_model
-        self.client = client or httpx.AsyncClient(timeout=settings.llm_timeout)
+        self.timeout = settings.llm_timeout
+        self.context = settings.llm_context
+        # Sur processeur, un 7B peut mettre plusieurs minutes à répondre.
+        self.client = client or httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.llm_timeout, connect=10.0)
+        )
 
     async def complete[T: BaseModel](self, system: str, prompt: str, schema: type[T]) -> T:
         payload = {
@@ -35,15 +40,28 @@ class Ollama:
             ],
             "format": schema.model_json_schema(),
             "stream": False,
-            "options": {"temperature": 0.2},
+            # Fenêtre assez large pour l'offre et le profil (Ollama tronque au-delà, sans le dire),
+            # et modèle gardé en mémoire entre les appels d'une même génération.
+            "options": {"temperature": 0.2, "num_ctx": self.context},
+            "keep_alive": "30m",
         }
         last_error: Exception | None = None
         # Un modèle 7B sort parfois un JSON incomplet : un second essai suffit en pratique.
         for _ in range(2):
             try:
                 response = await self.client.post(f"{self.url}/api/chat", json=payload)
+            except httpx.TimeoutException as exc:
+                raise LLMError(
+                    f"Le modèle n'a pas répondu en {self.timeout:.0f} s. Sur processeur, augmente "
+                    "LLM_TIMEOUT ou essaie un modèle plus léger (OLLAMA_MODEL)."
+                ) from exc
+            except httpx.ConnectError as exc:
+                raise LLMError("Ollama est injoignable : vérifie que le conteneur tourne.") from exc
             except httpx.HTTPError as exc:
-                raise LLMError("Ollama est injoignable.") from exc
+                raise LLMError(
+                    "Ollama s'est arrêté pendant la génération, souvent faute de mémoire : "
+                    "un modèle 7B demande environ 6 Go libres pour Docker."
+                ) from exc
             if response.status_code == 404:
                 raise LLMError(f"Le modèle {self.model} n'est pas installé : lance `make models`.")
             if response.status_code != 200:

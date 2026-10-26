@@ -208,7 +208,8 @@ function Progress({ generation }: { generation: Generation }) {
         current={currentStep(generation)}
       />
       <p className="text-[13px] text-text-tertiary" aria-live="polite">
-        {elapsed} s · le modèle tourne sur ton ordinateur, compte 10 à 40 secondes.
+        {elapsed} s · le modèle tourne sur ton ordinateur : quelques secondes avec une carte graphique,
+        plusieurs minutes sur processeur seul.
       </p>
     </div>
   );

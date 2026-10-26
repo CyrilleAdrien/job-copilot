@@ -34,6 +34,7 @@ async def test_complete_sends_schema_and_parses_answer():
     assert body["format"]["properties"]["value"]["type"] == "integer"
     assert body["messages"][0] == {"role": "system", "content": "système"}
     assert body["stream"] is False
+    assert body["options"]["num_ctx"] == 8192
 
 
 async def test_invalid_json_is_retried_once():
@@ -49,6 +50,22 @@ async def test_invalid_json_twice_raises():
 async def test_missing_model_is_explained():
     with pytest.raises(LLMError, match="make models"):
         await ollama(lambda _: httpx.Response(404)).complete("s", "q", Answer)
+
+
+async def test_slow_model_reports_the_timeout():
+    def slow(request):
+        raise httpx.ReadTimeout("timeout", request=request)
+
+    with pytest.raises(LLMError, match="LLM_TIMEOUT"):
+        await ollama(slow).complete("s", "q", Answer)
+
+
+async def test_crash_mentions_memory():
+    def crash(request):
+        raise httpx.RemoteProtocolError("closed", request=request)
+
+    with pytest.raises(LLMError, match="mémoire"):
+        await ollama(crash).complete("s", "q", Answer)
 
 
 async def test_unreachable_ollama():
