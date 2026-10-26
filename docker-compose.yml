@@ -5,6 +5,7 @@ x-env: &env
   REDIS_URL: redis://redis:6379/0
   S3_ENDPOINT: http://s3:8333
   OLLAMA_URL: http://ollama:11434
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
 
 x-service: &service
   build:
@@ -59,6 +60,9 @@ services:
   documents:
     <<: *service
     build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: documents } }
+    environment:
+      <<: *env
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
     depends_on:
       postgres:
         condition: service_healthy

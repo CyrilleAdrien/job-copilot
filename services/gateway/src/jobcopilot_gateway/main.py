@@ -3,12 +3,14 @@ import os
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 
 SERVICES = ["profile", "jobs", "documents", "applications", "mail", "calendar"]
 TIMEOUT = float(os.getenv("CHECK_TIMEOUT", "2.0")) + 2
 PROXY_TIMEOUT = 60.0
 FORWARDED_HEADERS = ("content-type", "accept")
-RETURNED_HEADERS = ("content-type", "content-disposition")
+RETURNED_HEADERS = ("content-type", "content-disposition", "cache-control")
 
 
 def service_url(name: str) -> str:
@@ -50,25 +52,37 @@ async def readiness(response: Response) -> dict:
     tags=["proxy"],
 )
 async def proxy(service: str, path: str, request: Request) -> Response:
-    """Transmet /api/<service>/<chemin> au service, qui reste invisible depuis l'extérieur."""
+    """Transmet /api/<service>/<chemin> au service, qui reste invisible depuis l'extérieur.
+
+    La réponse est relayée au fil de l'eau : les flux SSE (progression d'une génération)
+    arrivent au navigateur sans attendre la fin.
+    """
     if service not in SERVICES:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Service inconnu : {service}")
     headers = {key: request.headers[key] for key in FORWARDED_HEADERS if key in request.headers}
+    client = httpx.AsyncClient(timeout=PROXY_TIMEOUT)
+    upstream_request = client.build_request(
+        request.method,
+        f"{service_url(service)}/{path}",
+        params=request.query_params,
+        content=await request.body(),
+        headers=headers,
+    )
     try:
-        async with httpx.AsyncClient(timeout=PROXY_TIMEOUT) as client:
-            upstream = await client.request(
-                request.method,
-                f"{service_url(service)}/{path}",
-                params=request.query_params,
-                content=await request.body(),
-                headers=headers,
-            )
+        upstream = await client.send(upstream_request, stream=True)
     except httpx.HTTPError as exc:
+        await client.aclose()
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, f"Le service {service} ne répond pas."
         ) from exc
-    return Response(
-        upstream.content,
+
+    async def close() -> None:
+        await upstream.aclose()
+        await client.aclose()
+
+    return StreamingResponse(
+        upstream.aiter_bytes(),
         status_code=upstream.status_code,
         headers={key: upstream.headers[key] for key in RETURNED_HEADERS if key in upstream.headers},
+        background=BackgroundTask(close),
     )

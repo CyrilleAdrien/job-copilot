@@ -52,7 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cp .env.example .env && echo "JOBS_DEMO=true" >> .env
+      - run: |
+          cp .env.example .env
+          echo "JOBS_DEMO=true" >> .env
+          echo "LLM_PROVIDER=demo" >> .env
       - run: docker compose config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 180
       - name: Tous les services répondent
@@ -77,6 +80,18 @@ jobs:
           python3 -c "import json; r = json.load(open('refresh.json')); assert r['stored'] > 0, r"
           curl -sf http://127.0.0.1:3000/api/jobs/offers > offers.json
           python3 -c "import json; d = [o['published_at'] for o in json.load(open('offers.json'))['items']]; assert d and d == sorted(d, reverse=True), d"
+      - name: Un CV et une lettre se génèrent en PDF pour une offre
+        run: |
+          OFFER=$(python3 -c "import json; print(json.load(open('offers.json'))['items'][0]['id'])")
+          curl -sf -X POST http://127.0.0.1:8000/api/documents/generations \
+            -H "content-type: application/json" -d "{\"offer_id\": $OFFER}" > generation.json
+          ID=$(python3 -c "import json; print(json.load(open('generation.json'))['id'])")
+          curl -sf -N --max-time 60 http://127.0.0.1:3000/api/documents/generations/$ID/events | tee events.txt
+          grep -q "^event: done" events.txt
+          curl -sf http://127.0.0.1:8000/api/documents/generations/$ID > generation.json
+          for DOC in $(python3 -c "import json; print(' '.join(d['id'] for d in json.load(open('generation.json'))['documents']))"); do
+            curl -sf http://127.0.0.1:8000/api/documents/documents/$DOC/pdf | head -c 4 | grep -q "%PDF"
+          done
       - if: failure()
         run: docker compose logs
       - if: always()

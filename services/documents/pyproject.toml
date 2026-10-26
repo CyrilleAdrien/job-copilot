@@ -3,7 +3,12 @@ name = "jobcopilot-documents"
 version = "0.1.0"
 description = "Génération des CV et lettres, stockage S3"
 requires-python = ">=3.12"
-dependencies = ["jobcopilot-common"]
+dependencies = [
+    "alembic>=1.20.1",
+    "boto3>=1.43.119",
+    "jobcopilot-common",
+    "typst>=0.15.0",
+]
 
 [tool.uv.sources]
 jobcopilot-common = { workspace = true }

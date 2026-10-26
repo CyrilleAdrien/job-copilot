@@ -1,6 +1,7 @@
 "use client";
 
-import { Banknote, ChevronDown, ExternalLink, House, MapPin } from "lucide-react";
+import { Banknote, ChevronDown, ExternalLink, House, MapPin, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -140,12 +141,20 @@ export function JobCard({ offer, now }: { offer: Offer; now: Date }) {
                 <span className="text-xs text-text-tertiary">
                   Source : {sourceLabels[offer.source] ?? offer.source}
                 </span>
-                <Button variant="secondary" size="sm" asChild>
-                  <a href={offer.url} target="_blank" rel="noreferrer">
-                    Voir l&apos;offre
-                    <ExternalLink aria-hidden />
-                  </a>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" asChild>
+                    <a href={offer.url} target="_blank" rel="noreferrer">
+                      Voir l&apos;offre
+                      <ExternalLink aria-hidden />
+                    </a>
+                  </Button>
+                  <Button variant="ai" size="sm" asChild>
+                    <Link href={`/offres/${offer.id}`}>
+                      <Sparkles aria-hidden />
+                      Préparer la candidature
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </div>
           </motion.div>
