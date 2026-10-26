@@ -9,6 +9,15 @@ jobs:
   python:
     name: Lint et tests Python
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: jobcopilot_test
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
@@ -56,6 +65,12 @@ jobs:
           done
           curl -s http://127.0.0.1:8000/ready | tee ready.json
           python3 -c "import json; r = json.load(open('ready.json')); assert r['status'] == 'ok', r"
+      - name: Le profil d'exemple s'importe puis se relit via la gateway
+        run: |
+          curl -sf -X POST http://127.0.0.1:8000/api/profile/import \
+            -H "content-type: application/yaml" --data-binary @examples/profile.example.yaml > /dev/null
+          curl -sf http://127.0.0.1:8000/api/profile/ | python3 -c "import json, sys; assert json.load(sys.stdin)['identity']['full_name'] == 'Alex Martin'"
+          curl -sf -o /dev/null http://127.0.0.1:3000/api/profile/
       - if: failure()
         run: docker compose logs
       - if: always()

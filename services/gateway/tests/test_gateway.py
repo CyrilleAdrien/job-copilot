@@ -39,3 +39,40 @@ async def test_fetch_ready_reports_unreachable_service():
     async with httpx.AsyncClient(transport=httpx.MockTransport(refuse)) as client:
         result = await main.fetch_ready(client, "jobs")
     assert result == {"service": "jobs", "status": "unreachable", "error": "ConnectError"}
+
+
+def mock_upstream(monkeypatch, handler):
+    real_client = httpx.AsyncClient
+
+    def client(*args, **kwargs):
+        return real_client(*args, **kwargs, transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(main.httpx, "AsyncClient", client)
+
+
+def test_proxy_forwards_method_path_query_and_body(monkeypatch):
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(method=request.method, url=str(request.url), body=request.content)
+        return httpx.Response(201, json={"ok": True})
+
+    mock_upstream(monkeypatch, handler)
+    response = TestClient(main.app).put("/api/profile/import?dry=1", content=b"a: 1")
+    assert response.status_code == 201
+    assert response.json() == {"ok": True}
+    assert seen == {"method": "PUT", "url": "http://profile:8000/import?dry=1", "body": b"a: 1"}
+
+
+def test_proxy_rejects_unknown_service():
+    response = TestClient(main.app).get("/api/billing/")
+    assert response.status_code == 404
+
+
+def test_proxy_reports_unreachable_service(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    mock_upstream(monkeypatch, handler)
+    response = TestClient(main.app).get("/api/profile/")
+    assert response.status_code == 502

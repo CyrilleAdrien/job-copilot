@@ -1,3 +1,17 @@
-from jobcopilot_common import create_service_app
+from contextlib import asynccontextmanager
 
-app = create_service_app("profile", dependencies=["postgres", "redis"])
+from fastapi import FastAPI
+
+from jobcopilot_common import create_service_app, get_settings
+from jobcopilot_profile.api import router
+from jobcopilot_profile.migrate import upgrade
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await upgrade(get_settings().database_url)
+    yield
+
+
+app = create_service_app("profile", dependencies=["postgres", "redis"], lifespan=lifespan)
+app.include_router(router)

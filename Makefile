@@ -1,4 +1,4 @@
-.PHONY: setup up down logs ready models lint test web
+.PHONY: setup up down logs ready models lint test test-db web
 
 setup: ## Prépare le fichier .env et l'environnement Python de dev
 	test -f .env || cp .env.example .env
@@ -25,7 +25,11 @@ lint:
 	uv run ruff format --check .
 	cd web && npm run lint && npm run typecheck
 
-test:
+test-db: ## Postgres jetable pour les tests (port 5433)
+	docker run -d --rm --name jobcopilot-test-db -p 5433:5432 \
+		-e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=jobcopilot_test postgres:16-alpine
+
+test: ## Nécessite `make test-db` une fois
 	uv run pytest
 	cd web && npm test
 

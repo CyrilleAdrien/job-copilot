@@ -1,16 +1,23 @@
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+
 from fastapi import FastAPI, Response, status
 
 from jobcopilot_common import health
 from jobcopilot_common.config import get_settings
 
 
-def create_service_app(name: str, dependencies: list[str]) -> FastAPI:
+def create_service_app(
+    name: str,
+    dependencies: list[str],
+    lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]] | None = None,
+) -> FastAPI:
     """Crée l'application FastAPI d'un service avec /health (vivant) et /ready (dépendances)."""
     unknown = set(dependencies) - health.CHECKS.keys()
     if unknown:
         raise ValueError(f"Dépendances inconnues : {sorted(unknown)}")
 
-    app = FastAPI(title=f"job-copilot {name}", version="0.1.0")
+    app = FastAPI(title=f"job-copilot {name}", version="0.1.0", lifespan=lifespan)
 
     @app.get("/health", tags=["health"])
     async def liveness() -> dict[str, str]:

@@ -1,0 +1,70 @@
+# Profil d'exemple (fictif). Copie ce fichier, remplace les valeurs par les tiennes,
+# puis importe-le depuis l'écran Profil. Les dates d'expérience sont au format AAAA-MM.
+identity:
+  full_name: Alex Martin
+  headline: Ingénieur DevOps / SRE
+  email: alex.martin@example.com
+  phone: "+33 6 00 00 00 00"
+  location: Paris / Île-de-France
+  availability: Disponible immédiatement
+  summary: >-
+    Ingénieur diplômé avec 2 ans d'expérience en production et DevOps sur des applications
+    critiques. J'automatise les tâches récurrentes en Python et Bash et j'orchestre les chaînes
+    CI/CD sur Docker et Kubernetes.
+  links:
+    - label: GitHub
+      url: https://github.com/alex-martin
+    - label: LinkedIn
+      url: https://www.linkedin.com/in/alex-martin
+
+search:
+  roles: [Ingénieur SRE, Ingénieur DevOps, Platform Engineer]
+  technologies: [Kubernetes, Docker, Python, Terraform, GitLab CI]
+  excluded_keywords: [Stage]
+  seniority: mid
+  contract_types: [cdi]
+  locations: [Paris]
+  radius_km: 30
+  remote: hybrid
+  salary_min: 45000
+  max_age_days: 7
+
+experiences:
+  - title: Ingénieur de Production / DevOps
+    company: Banque Exemple
+    location: Paris
+    contract: Alternance
+    start: 2024-09
+    end: 2026-09
+    context: Exploitation d'applications critiques et migration d'un socle de transfert de fichiers.
+    groups:
+      - title: Disponibilité et stabilité
+        bullets:
+          - Résolu plus de 50 incidents N2/N3 en menant l'analyse de causes racines sous Linux.
+          - Automatisé la création de tickets d'incident au premier échec d'un batch.
+      - title: Automatisation et CI/CD
+        bullets:
+          - Ramené les mises en production à 20 min en refondant les pipelines Jenkins.
+    technologies: [Linux, Python, Bash, Jenkins, Kubernetes]
+
+education:
+  - degree: Diplôme d'ingénieur, Big Data et IA
+    school: École d'ingénieurs Exemple
+    year: 2026
+
+skills:
+  - name: CI/CD et automatisation
+    items: [Jenkins, GitLab CI, Git, Infrastructure as Code]
+  - name: Conteneurs et cloud
+    items: [Docker, Kubernetes, GCP]
+  - name: Supervision
+    items: [ELK, Grafana, Zabbix]
+
+languages:
+  - name: Français
+    level: Natif
+  - name: Anglais
+    level: B2 (TOEIC 830)
+
+soft_skills: [Rigueur, Calme en incident, Travail en équipe]
+interests: [Football, Veille SRE]
