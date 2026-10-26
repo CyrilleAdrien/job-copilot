@@ -3,7 +3,7 @@ name = "jobcopilot-profile"
 version = "0.1.0"
 description = "Profil, expériences et critères de recherche"
 requires-python = ">=3.12"
-dependencies = ["jobcopilot-common"]
+dependencies = ["jobcopilot-common", "alembic>=1.14", "pyyaml>=6.0"]
 
 [tool.uv.sources]
 jobcopilot-common = { workspace = true }

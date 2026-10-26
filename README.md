@@ -32,9 +32,23 @@ make models   # télécharge le modèle LLM (environ 4,7 Go)
 
 L'application s'ouvre sur http://localhost:3000. Le catalogue des composants est sur http://localhost:3000/design.
 
+## Profil
+
+Au premier lancement, http://localhost:3000/bienvenue propose deux chemins : remplir le profil en quatre étapes (identité, recherche, expériences, compétences) ou importer un `profile.yaml`. Le fichier [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet. Le profil s'exporte depuis l'écran Profil pour être sauvegardé ou modifié à la main.
+
+L'API du profil est servie par la gateway :
+
+| Méthode | Chemin | Rôle |
+| --- | --- | --- |
+| `GET` | `/api/profile/` | Lire le profil (404 tant qu'il n'existe pas) |
+| `PUT` | `/api/profile/` | Remplacer le profil |
+| `GET` | `/api/profile/export` | Télécharger le `profile.yaml` |
+| `POST` | `/api/profile/import` | Importer un `profile.yaml` (`content-type: application/yaml`) |
+
 ## Développement
 
 ```bash
+make test-db  # Postgres jetable pour les tests, une fois
 make lint
 make test
 make web      # front en mode développement
@@ -48,6 +62,7 @@ libs/common/       configuration et health checks partagés
 services/<nom>/    un service FastAPI par dossier
 services/Dockerfile image commune aux services
 infra/postgres/    initialisation des schémas
+examples/          profil d'exemple au format YAML
 ```
 
 ## Design

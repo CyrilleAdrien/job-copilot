@@ -2,10 +2,13 @@ import asyncio
 import os
 
 import httpx
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 
 SERVICES = ["profile", "jobs", "documents", "applications", "mail", "calendar"]
 TIMEOUT = float(os.getenv("CHECK_TIMEOUT", "2.0")) + 2
+PROXY_TIMEOUT = 60.0
+FORWARDED_HEADERS = ("content-type", "accept")
+RETURNED_HEADERS = ("content-type", "content-disposition")
 
 
 def service_url(name: str) -> str:
@@ -39,3 +42,33 @@ async def readiness(response: Response) -> dict:
     if not ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return {"status": "ok" if ready else "degraded", "services": services}
+
+
+@app.api_route(
+    "/api/{service}/{path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    tags=["proxy"],
+)
+async def proxy(service: str, path: str, request: Request) -> Response:
+    """Transmet /api/<service>/<chemin> au service, qui reste invisible depuis l'extérieur."""
+    if service not in SERVICES:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Service inconnu : {service}")
+    headers = {key: request.headers[key] for key in FORWARDED_HEADERS if key in request.headers}
+    try:
+        async with httpx.AsyncClient(timeout=PROXY_TIMEOUT) as client:
+            upstream = await client.request(
+                request.method,
+                f"{service_url(service)}/{path}",
+                params=request.query_params,
+                content=await request.body(),
+                headers=headers,
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, f"Le service {service} ne répond pas."
+        ) from exc
+    return Response(
+        upstream.content,
+        status_code=upstream.status_code,
+        headers={key: upstream.headers[key] for key in RETURNED_HEADERS if key in upstream.headers},
+    )
