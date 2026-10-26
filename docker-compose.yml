@@ -18,6 +18,16 @@ x-service: &service
   networks: [internal]
 
 services:
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    environment:
+      API_URL: http://gateway:8000
+    depends_on: [gateway]
+    networks: [internal]
+
   gateway:
     build:
       context: .
