@@ -29,7 +29,7 @@ export const mainNav: NavItem[] = [
 export const secondaryNav: NavItem[] = [
   { href: "/profil", label: "Profil", icon: UserRound },
   { href: "/design", label: "Design system", icon: Palette },
-  { href: "/reglages", label: "Réglages", icon: Settings, step: 5 },
+  { href: "/reglages", label: "Réglages", icon: Settings, step: 10 },
 ];
 
 export const allNav = [...mainNav, ...secondaryNav];

@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     s3_endpoint: str = "http://s3:8333"
     ollama_url: str = "http://ollama:11434"
+    ollama_model: str = "qwen2.5:7b"
+    llm_timeout: float = 600.0
+    llm_context: int = 8192
     check_timeout: float = 2.0
 
 
