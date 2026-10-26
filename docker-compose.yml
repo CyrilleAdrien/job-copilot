@@ -18,6 +18,16 @@ x-service: &service
   networks: [internal]
 
 services:
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    environment:
+      API_URL: http://gateway:8000
+    depends_on: [gateway]
+    networks: [internal]
+
   gateway:
     build:
       context: .
@@ -40,6 +50,13 @@ services:
   documents:
     <<: *service
     build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: documents } }
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
 
   applications:
     <<: *service
@@ -90,6 +107,13 @@ services:
     command: ["server", "-s3", "-dir=/data"]
     volumes:
       - s3-data:/data
+    healthcheck:
+      # La passerelle S3 n'ouvre son port qu'une fois le filer prêt (15 à 20 s).
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8333"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
     networks: [internal]
 
   ollama:

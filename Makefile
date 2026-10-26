@@ -1,8 +1,9 @@
-.PHONY: setup up down logs ready models lint test
+.PHONY: setup up down logs ready models lint test web
 
 setup: ## Prépare le fichier .env et l'environnement Python de dev
 	test -f .env || cp .env.example .env
 	uv sync --all-packages
+	cd web && npm ci
 
 up: ## Construit et démarre toute la stack
 	docker compose up -d --build
@@ -22,6 +23,11 @@ models: ## Télécharge le modèle LLM dans Ollama (environ 4,7 Go)
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
+	cd web && npm run lint && npm run typecheck
 
 test:
 	uv run pytest
+	cd web && npm test
+
+web: ## Lance le front en mode développement sur http://localhost:3000
+	cd web && npm run dev
