@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://jobcopilot:jobcopilot@postgres:5432/jobcopilot"
     redis_url: str = "redis://redis:6379/0"
-    s3_endpoint: str = "http://minio:9000"
+    s3_endpoint: str = "http://s3:8333"
     ollama_url: str = "http://ollama:11434"
     check_timeout: float = 2.0
 

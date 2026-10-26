@@ -29,8 +29,11 @@ async def check_redis(settings: Settings) -> None:
 
 
 async def check_s3(settings: Settings) -> None:
+    # Toute réponse HTTP hors 5xx prouve que le stockage répond, quelle que soit
+    # l'implémentation S3 : une requête anonyme reçoit souvent 403.
     async with httpx.AsyncClient(timeout=settings.check_timeout) as client:
-        response = await client.get(f"{settings.s3_endpoint}/minio/health/live")
+        response = await client.get(settings.s3_endpoint)
+    if response.status_code >= 500:
         response.raise_for_status()
 
 

@@ -16,7 +16,7 @@ Projet en cours de construction.
 | `mail` | Lecture IMAP et classement des réponses |
 | `calendar` | Entretiens, synchro CalDAV et .ics |
 
-Infrastructure locale : PostgreSQL 16 (un schéma par service), Redis 7 (cache et bus d'événements), MinIO (stockage compatible S3) et Ollama (LLM local).
+Infrastructure locale : PostgreSQL 16 (un schéma par service), Redis 7 (cache et bus d'événements), SeaweedFS (stockage compatible S3) et Ollama (LLM local).
 
 ## Démarrage
 
