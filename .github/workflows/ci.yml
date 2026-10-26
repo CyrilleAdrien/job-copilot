@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  python:
+    name: Lint et tests Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-packages --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+
+  docker:
+    name: Build et démarrage de la stack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build --wait --wait-timeout 180
+      - name: Tous les services répondent
+        run: |
+          curl -sf http://127.0.0.1:8000/health
+          curl -s http://127.0.0.1:8000/ready | tee ready.json
+          python3 -c "import json; r = json.load(open('ready.json')); assert r['status'] == 'ok', r"
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v
