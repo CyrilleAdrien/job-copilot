@@ -162,6 +162,20 @@ export function draftReadiness(item: ApplicationSummary, now: Date = new Date())
   return { cv, letter, missing: !cv || !letter, late: waitingDays > DRAFT_LATE_DAYS };
 }
 
+/** Favoris qui n'ont pas encore de candidature, sans doublon d'une recherche à l'autre. */
+export function pendingFavorites<T extends { id: number }>(
+  favorites: { search: string; offer: T }[],
+  items: Pick<ApplicationSummary, "offer_id">[],
+): { search: string; offer: T }[] {
+  const taken = new Set(items.map((item) => item.offer_id));
+  const seen = new Set<number>();
+  return favorites.filter(({ offer }) => {
+    if (taken.has(offer.id) || seen.has(offer.id)) return false;
+    seen.add(offer.id);
+    return true;
+  });
+}
+
 export type Period = "all" | "7" | "30" | "90";
 
 export type Filters = {
@@ -182,6 +196,27 @@ export function isFiltering(filters: Filters) {
     filters.search !== "all" ||
     filters.period !== "all" ||
     filters.missingDocuments
+  );
+}
+
+/** Nombre de filtres actifs, hors texte (affiché sur le bouton « Filtres »). */
+export function activeFilterCount(filters: Filters) {
+  return (
+    filters.statuses.length +
+    Number(filters.search !== "all") +
+    Number(filters.period !== "all") +
+    Number(filters.missingDocuments)
+  );
+}
+
+/** Les favoris s'affichent dans « À envoyer » tant qu'aucun filtre ne les écarterait. */
+export function showsFavorites(filters: Filters) {
+  return (
+    filters.query.trim() === "" &&
+    filters.search === "all" &&
+    filters.period === "all" &&
+    !filters.missingDocuments &&
+    (filters.statuses.length === 0 || filters.statuses.includes("draft"))
   );
 }
 

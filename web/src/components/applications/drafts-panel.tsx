@@ -29,7 +29,7 @@ export function DraftsPanel({
   const drafts = items
     .filter((item) => item.status === "draft")
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   if (drafts.length === 0) return null;
   const late = drafts.filter((item) => draftReadiness(item, now).late).length;
 

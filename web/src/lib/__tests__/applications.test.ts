@@ -8,6 +8,9 @@ import {
   isFiltering,
   latestDocumentIds,
   mailtoUrl,
+  pendingFavorites,
+  activeFilterCount,
+  showsFavorites,
   type ApplicationSummary,
 } from "@/lib/applications";
 
@@ -98,5 +101,28 @@ describe("draftReadiness", () => {
     expect(draftReadiness(base, now)).toEqual({ cv: false, letter: false, missing: true, late: true });
     const ready = { ...base, cv_document_id: "c", letter_document_id: "l", created_at: "2026-10-09T12:00:00Z" };
     expect(draftReadiness(ready, now)).toEqual({ cv: true, letter: true, missing: false, late: false });
+  });
+});
+
+describe("pendingFavorites", () => {
+  it("drops favorites that already have an application and duplicates across searches", () => {
+    const favorites = [
+      { search: "a", offer: { id: 1 } },
+      { search: "a", offer: { id: 2 } },
+      { search: "b", offer: { id: 2 } },
+      { search: "b", offer: { id: 3 } },
+    ];
+    expect(pendingFavorites(favorites, [{ offer_id: 1 }, { offer_id: null }]).map((f) => f.offer.id)).toEqual([2, 3]);
+  });
+});
+
+describe("activeFilterCount and showsFavorites", () => {
+  it("counts filters other than text and hides favorites when a filter would exclude them", () => {
+    expect(activeFilterCount(emptyFilters)).toBe(0);
+    expect(activeFilterCount({ ...emptyFilters, statuses: ["sent", "draft"], missingDocuments: true })).toBe(3);
+    expect(showsFavorites(emptyFilters)).toBe(true);
+    expect(showsFavorites({ ...emptyFilters, statuses: ["draft"] })).toBe(true);
+    expect(showsFavorites({ ...emptyFilters, statuses: ["sent"] })).toBe(false);
+    expect(showsFavorites({ ...emptyFilters, query: "sre" })).toBe(false);
   });
 });

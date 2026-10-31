@@ -121,6 +121,14 @@ export async function fetchOffers(
   return response.json();
 }
 
+/** Tous les favoris d'une recherche (jusqu'à 200), pour l'écran Candidatures. */
+export async function fetchFavorites(search: string): Promise<Offer[]> {
+  const params = new URLSearchParams({ sort: "date", favorites: "true", limit: "200", search });
+  const response = await fetch(`/api/jobs/offers?${params}`, { cache: "no-store" });
+  if (!response.ok) throw await parseError(response);
+  return ((await response.json()) as OfferList).items;
+}
+
 export async function fetchOffer(id: number, search?: string): Promise<OfferDetail> {
   const query = search ? `?${new URLSearchParams({ search })}` : "";
   const response = await fetch(`/api/jobs/offers/${id}${query}`, { cache: "no-store" });

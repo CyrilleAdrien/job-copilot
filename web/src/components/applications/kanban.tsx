@@ -1,13 +1,15 @@
 "use client";
 
-import { FileText, GripVertical, MoreHorizontal } from "lucide-react";
+import { FileText, GripVertical, MoreHorizontal, Plus, Star } from "lucide-react";
+import Link from "next/link";
 import { LayoutGroup, motion } from "motion/react";
 import { useState, type DragEvent } from "react";
 
 import { tones, toneBar, toneText } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Menu } from "@/components/ui/menu";
 import { byStatus, statusOrder, type ApplicationSummary } from "@/lib/applications";
-import { timeAgo } from "@/lib/jobs";
+import { timeAgo, type Offer } from "@/lib/jobs";
 import { spring } from "@/lib/motion";
 import { applicationStatuses, type ApplicationStatus } from "@/lib/statuses";
 import { cn } from "@/lib/utils";
@@ -24,8 +26,13 @@ export function Kanban({
   now,
   onOpen,
   onMove,
+  favorites = [],
+  onCreate,
 }: {
   items: ApplicationSummary[];
+  /** Favoris sans candidature, montrés au bas de « À envoyer ». */
+  favorites?: { search: string; offer: Offer }[];
+  onCreate?: (offerId: number, search: string) => void;
   /** Colonnes affichées (toutes par défaut, ou les statuts filtrés). */
   columns?: ApplicationStatus[];
   now: Date;
@@ -44,7 +51,7 @@ export function Kanban({
 
   return (
     <LayoutGroup>
-      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-4" role="list" aria-label="Candidatures par statut">
+      <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-4" role="list" aria-label="Candidatures par statut">
         {columns.map((status) => {
           const { label, icon: Icon, tone } = applicationStatuses[status];
           const column = groups[status];
@@ -63,12 +70,12 @@ export function Kanban({
               }}
               onDrop={(event) => drop(event, status)}
               className={cn(
-                "relative flex w-64 shrink-0 flex-col gap-2 rounded-card border bg-background-subtle p-2 transition-colors",
+                "relative flex w-72 shrink-0 flex-col gap-3 rounded-card border bg-background-subtle p-3 transition-colors",
                 over === status ? "border-accent-strong/50 bg-accent-soft/50" : "border-border",
               )}
             >
               <span className={cn("absolute inset-x-0 -top-px h-[3px] rounded-t-card", toneBar[tone])} aria-hidden />
-              <header className="flex items-center gap-2 px-1.5 pb-1 pt-1.5">
+              <header className="flex items-center gap-2 px-1 pb-1 pt-1">
                 <Icon className={cn("size-4", toneText[tone])} strokeWidth={1.75} aria-hidden />
                 <h2 className="text-[13px] font-semibold">{label}</h2>
                 <span
@@ -80,11 +87,14 @@ export function Kanban({
                   {column.length}
                 </span>
               </header>
-              <div className="flex min-h-24 flex-col gap-2">
+              <div className="flex min-h-24 flex-col gap-3">
                 {column.map((item) => (
                   <KanbanCard key={item.id} item={item} now={now} onOpen={onOpen} onMove={onMove} />
                 ))}
-                {column.length === 0 && (
+                {status === "draft" && favorites.length > 0 && (
+                  <FavoriteGroup favorites={favorites} onCreate={onCreate} />
+                )}
+                {column.length === 0 && !(status === "draft" && favorites.length > 0) && (
                   <p className="px-1.5 py-4 text-center text-[12px] text-text-tertiary">Glisse une carte ici</p>
                 )}
               </div>
@@ -115,7 +125,7 @@ function KanbanCard({
       layoutId={`application-${item.id}`}
       transition={spring.smooth}
       className={cn(
-        "group relative rounded-[10px] border border-border bg-surface p-3 pl-3.5 shadow-card transition-opacity",
+        "group relative rounded-[10px] border border-border bg-surface p-4 shadow-card transition-opacity",
         dragging && "opacity-40",
       )}
     >
@@ -128,7 +138,7 @@ function KanbanCard({
           setDragging(true);
         }}
         onDragEnd={() => setDragging(false)}
-        className="flex cursor-grab flex-col gap-1.5 active:cursor-grabbing"
+        className="flex cursor-grab flex-col gap-2 active:cursor-grabbing"
       >
         <button
           type="button"
@@ -164,5 +174,44 @@ function KanbanCard({
         />
       </div>
     </motion.article>
+  );
+}
+
+/** Offres en favori sans candidature : une carte en pointillés, transformée d'un clic. */
+function FavoriteGroup({
+  favorites,
+  onCreate,
+}: {
+  favorites: { search: string; offer: Offer }[];
+  onCreate?: (offerId: number, search: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 pt-1">
+      <p className="flex items-center gap-1.5 px-1 text-[12px] font-medium text-text-tertiary">
+        <Star className="size-3.5" aria-hidden />
+        Favoris sans candidature
+        <span className="tabular-nums">{favorites.length}</span>
+      </p>
+      {favorites.map(({ search, offer }) => (
+        <motion.article
+          key={offer.id}
+          layout
+          layoutId={`favorite-${offer.id}`}
+          transition={spring.smooth}
+          className="flex flex-col gap-2 rounded-[10px] border border-dashed border-border-strong bg-surface/60 p-4"
+        >
+          <Link href={`/offres/${offer.id}`} className="text-[13px] font-semibold leading-snug hover:text-accent-strong">
+            {offer.title}
+          </Link>
+          <p className="truncate text-[12px] text-text-secondary">{offer.company ?? "Entreprise non précisée"}</p>
+          {onCreate && (
+            <Button variant="secondary" size="sm" className="mt-1 self-start" onClick={() => onCreate(offer.id, search)}>
+              <Plus aria-hidden />
+              Créer la candidature
+            </Button>
+          )}
+        </motion.article>
+      ))}
+    </div>
   );
 }

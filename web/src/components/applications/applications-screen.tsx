@@ -21,6 +21,8 @@ import { fetchProfile } from "@/lib/api";
 import {
   ApiError,
   createApplication,
+  pendingFavorites,
+  showsFavorites,
   emptyFilters,
   fetchApplications,
   filterApplications,
@@ -29,7 +31,7 @@ import {
   type ApplicationSummary,
   type Filters,
 } from "@/lib/applications";
-import { timeAgo } from "@/lib/jobs";
+import { fetchFavorites, timeAgo, type Offer } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
 import type { ApplicationStatus } from "@/lib/statuses";
 
@@ -46,6 +48,7 @@ export function ApplicationsScreen() {
   const [now] = useState(() => new Date());
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [searchNames, setSearchNames] = useState<Record<string, string>>({});
+  const [favorites, setFavorites] = useState<{ search: string; offer: Offer }[]>([]);
 
   useEffect(() => {
     fetchApplications().then(setItems).catch((e: ApiError) => {
@@ -55,7 +58,16 @@ export function ApplicationsScreen() {
     fetchProfile()
       .then((profile) => {
         setSignature(profile?.identity.full_name ?? "");
-        setSearchNames(Object.fromEntries((profile?.searches ?? []).map((search) => [search.id, search.name])));
+        const searches = profile?.searches ?? [];
+        setSearchNames(Object.fromEntries(searches.map((search) => [search.id, search.name])));
+        // Favoris de chaque recherche active : ceux sans candidature s'affichent dans « À envoyer ».
+        return Promise.all(
+          searches
+            .filter((search) => !search.archived)
+            .map((search) =>
+              fetchFavorites(search.id).then((offers) => offers.map((offer) => ({ search: search.id, offer }))),
+            ),
+        ).then((lists) => setFavorites(lists.flat()));
       })
       .catch(() => undefined);
     try {
@@ -84,6 +96,18 @@ export function ApplicationsScreen() {
     setItems((current) => current && current.map((item) => (item.id === updated.id ? updated : item)));
 
   const visible = items ? filterApplications(items, filters, now) : [];
+  const pending = items ? pendingFavorites(favorites, items) : [];
+  const shownFavorites = showsFavorites(filters) ? pending : [];
+
+  /** Un favori devient une candidature « À envoyer » ; il quitte alors la liste des favoris en attente. */
+  async function createFromFavorite(offerId: number, search: string) {
+    try {
+      const created = await createApplication({ offer_id: offerId, search });
+      setItems((current) => [created, ...(current ?? []).filter((item) => item.id !== created.id)]);
+    } catch (e) {
+      setError(e as ApiError);
+    }
+  }
 
   /** Déplacement optimiste : la carte change de colonne tout de suite, et revient si l'appel échoue. */
   function move(id: string, status: ApplicationStatus) {
@@ -134,7 +158,7 @@ export function ApplicationsScreen() {
             <Skeleton key={index} className="h-72 w-64 shrink-0 rounded-card" />
           ))}
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && pending.length === 0 ? (
         <EmptyState
           icon={FileStack}
           title="Aucune candidature pour l'instant"
@@ -152,8 +176,9 @@ export function ApplicationsScreen() {
           }
         />
       ) : (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-6">
+          <DraftsPanel items={items} now={now} onOpen={show} onSent={(id) => move(id, "sent")} />
+          <div className="flex flex-wrap items-center gap-3">
             <SegmentedControl
               label="Affichage"
               segments={[
@@ -163,15 +188,14 @@ export function ApplicationsScreen() {
               value={view}
               onChange={changeView}
             />
-            <span className="text-[13px] tabular-nums text-text-tertiary" aria-live="polite">
+            <FilterBar items={items} filters={filters} searchNames={searchNames} onChange={setFilters} />
+            <span className="ml-auto text-[13px] tabular-nums text-text-tertiary" aria-live="polite">
               {visible.length === items.length
                 ? `${items.length} candidature${items.length > 1 ? "s" : ""}`
                 : `${visible.length} sur ${items.length}`}
             </span>
           </div>
-          <DraftsPanel items={items} now={now} onOpen={show} onSent={(id) => move(id, "sent")} />
-          <FilterBar items={items} filters={filters} searchNames={searchNames} onChange={setFilters} />
-          {visible.length === 0 ? (
+          {visible.length === 0 && shownFavorites.length === 0 ? (
             <EmptyState
               icon={SearchX}
               title="Aucune candidature ne correspond"
@@ -192,6 +216,8 @@ export function ApplicationsScreen() {
                     now={now}
                     onOpen={show}
                     onMove={move}
+                    favorites={shownFavorites}
+                    onCreate={createFromFavorite}
                   />
                 ) : (
                   <ApplicationList items={visible} now={now} onOpen={show} />
