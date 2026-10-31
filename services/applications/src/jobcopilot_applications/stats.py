@@ -30,7 +30,8 @@ MIN_SAMPLE = 3
 WAITING = {"sent", "followed_up"}
 FOLLOW_UP_DAYS = 7
 WEEKS = 12
-CACHE_KEY = "applications:stats"
+# Version du format dans la clé : un nouveau champ ne relit jamais un ancien cache.
+CACHE_KEY = "applications:stats:v2"
 CACHE_TTL = 15 * 60
 
 log = logging.getLogger(__name__)
@@ -141,9 +142,11 @@ def compute_stats(rows: list[ApplicationRow], now: datetime | None = None) -> St
 async def cached(cache: Redis) -> Stats | None:
     try:
         raw = await cache.get(CACHE_KEY)
+        return Stats.model_validate(json.loads(raw)) if raw else None
     except Exception:  # noqa: BLE001
+        # Cache illisible ou d'un ancien format : on recalcule plutôt que d'échouer.
+        log.warning("statistiques en cache ignorées", exc_info=True)
         return None
-    return Stats.model_validate(json.loads(raw)) if raw else None
 
 
 async def store(cache: Redis, stats: Stats) -> None:

@@ -160,3 +160,11 @@ def test_outcomes_by_search_rank_the_profile_that_gets_the_most_tests_and_interv
 def test_no_best_search_without_enough_progress():
     rows = [application("rejected", 30, ("rejected", 20), search="data") for _ in range(3)]
     assert stats.compute_stats(rows, NOW).best_search is None
+
+
+async def test_unreadable_cache_is_ignored(client, cache):
+    """Un cache d'un ancien format (sans by_search, par exemple) ne fait pas échouer /stats."""
+    await cache.set(stats.CACHE_KEY, '{"total": 1}')
+    response = await client.get("/stats")
+    assert response.status_code == 200
+    assert response.json()["by_search"] == []

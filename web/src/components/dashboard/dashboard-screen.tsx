@@ -65,7 +65,7 @@ export function DashboardScreen() {
       <PageHeader title="Tableau de bord" description="Où en sont tes candidatures, et ce qui t'attend." />
       <AnimatePresence>{error && <div className="pb-4"><ErrorBanner error={error} /></div>}</AnimatePresence>
 
-      {stats === null ? (
+      {stats === null && error ? null : stats === null ? (
         <div className="flex flex-col gap-6" aria-busy aria-label="Chargement du tableau de bord">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }, (_, index) => (
