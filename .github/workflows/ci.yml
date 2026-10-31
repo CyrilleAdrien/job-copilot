@@ -56,6 +56,8 @@ jobs:
           cp .env.example .env
           echo "JOBS_DEMO=true" >> .env
           echo "LLM_PROVIDER=demo" >> .env
+          echo "MAIL_DEMO=true" >> .env
+          make secret
       - run: docker compose config --quiet
       - run: docker compose up -d --build --wait --wait-timeout 180
       - name: Tous les services répondent
@@ -92,6 +94,13 @@ jobs:
           for DOC in $(python3 -c "import json; print(' '.join(d['id'] for d in json.load(open('generation.json'))['documents']))"); do
             curl -sf http://127.0.0.1:8000/api/documents/documents/$DOC/pdf | head -c 4 | grep -q "%PDF"
           done
+      - name: La boîte de démonstration se connecte et se lit
+        run: |
+          curl -sf -X POST http://127.0.0.1:8000/api/mail/accounts \
+            -H "content-type: application/json" -d '{"email": "demo@job-copilot.local", "host": "demo"}' > /dev/null
+          curl -sf -X POST http://127.0.0.1:8000/api/mail/sync | tee sync.json
+          python3 -c "import json; r = json.load(open('sync.json')); assert r['accounts'] == 1 and not r['errors'], r"
+          curl -sf http://127.0.0.1:3000/api/mail/accounts | python3 -c "import json, sys; a = json.load(sys.stdin); assert 'password' not in str(a), a"
       - if: failure()
         run: docker compose logs
       - if: always()

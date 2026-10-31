@@ -23,7 +23,7 @@ export const mainNav: NavItem[] = [
   { href: "/offres", label: "Offres", icon: BriefcaseBusiness },
   { href: "/candidatures", label: "Candidatures", icon: FileStack },
   { href: "/calendrier", label: "Calendrier", icon: CalendarDays, step: 10 },
-  { href: "/boite-de-reception", label: "Boîte de réception", icon: Inbox, step: 9 },
+  { href: "/boite-de-reception", label: "Boîte de réception", icon: Inbox },
 ];
 
 export const secondaryNav: NavItem[] = [
