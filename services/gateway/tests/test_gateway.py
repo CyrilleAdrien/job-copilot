@@ -76,3 +76,17 @@ def test_proxy_reports_unreachable_service(monkeypatch):
     mock_upstream(monkeypatch, handler)
     response = TestClient(main.app).get("/api/profile/")
     assert response.status_code == 502
+
+
+def test_proxy_relays_event_streams(monkeypatch):
+    body = b"event: progress\ndata: {}\n\nevent: done\ndata: {}\n\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        headers = {"content-type": "text/event-stream", "cache-control": "no-cache"}
+        return httpx.Response(200, headers=headers, content=body)
+
+    mock_upstream(monkeypatch, handler)
+    response = TestClient(main.app).get("/api/documents/generations/x/events")
+    assert response.headers["content-type"] == "text/event-stream"
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.content == body

@@ -4,7 +4,9 @@ x-env: &env
   DATABASE_URL: postgresql://${POSTGRES_USER:-jobcopilot}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-jobcopilot}
   REDIS_URL: redis://redis:6379/0
   S3_ENDPOINT: http://s3:8333
-  OLLAMA_URL: http://ollama:11434
+  # Sur Mac, Ollama installé nativement utilise le GPU : OLLAMA_URL=http://host.docker.internal:11434
+  OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
 
 x-service: &service
   build:
@@ -59,6 +61,10 @@ services:
   documents:
     <<: *service
     build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: documents } }
+    environment:
+      <<: *env
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-600}
     depends_on:
       postgres:
         condition: service_healthy
@@ -125,8 +131,11 @@ services:
       start_period: 10s
     networks: [internal]
 
+  # Démarré seulement avec le profil « ollama » (COMPOSE_PROFILES=ollama dans .env).
+  # Sur Mac, on s'en passe au profit d'Ollama installé nativement.
   ollama:
     image: ollama/ollama:0.40.11
+    profiles: [ollama]
     restart: unless-stopped
     volumes:
       - ollama-data:/root/.ollama
