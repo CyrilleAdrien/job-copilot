@@ -263,11 +263,12 @@ export function SearchStep({ profile, update, errors, focus }: StepProps) {
           />
           <div className="grid gap-4 md:grid-cols-[1fr_140px]">
             <TagInput
-              label="Localisations"
+              label="Zone de recherche"
               value={search.locations}
               onChange={(locations) => set((draft) => void (draft.locations = locations))}
-              placeholder="Paris, Lyon..."
-              suggestions={suggestions.cities}
+              placeholder="Paris, Gironde (33), Île-de-France, Belgique..."
+              hint="Ville, département, région ou pays. Le rayon ne s'applique qu'aux villes."
+              suggestions={suggestions.places}
             />
             <Input
               label="Rayon (km)"

@@ -98,13 +98,21 @@ export function isFresh(iso: string, now: Date = new Date()): boolean {
   return now.getTime() - new Date(iso).getTime() < 24 * 3600 * 1000;
 }
 
+/** Offres par page sur l'écran Offres. */
+export const PAGE_SIZE = 20;
+
 export async function fetchOffers(
   sort: SortOrder,
   days?: Window,
   search?: string,
   favorites = false,
+  page = 0,
 ): Promise<OfferList> {
-  const params = new URLSearchParams({ sort, limit: "100" });
+  const params = new URLSearchParams({
+    sort,
+    limit: String(PAGE_SIZE),
+    offset: String(page * PAGE_SIZE),
+  });
   if (favorites) params.set("favorites", "true");
   if (days) params.set("max_age_days", String(days));
   if (search) params.set("search", search);
@@ -136,6 +144,13 @@ export async function setFavorite(id: number, favorite: boolean, search?: string
     method: favorite ? "PUT" : "DELETE",
   });
   if (!response.ok) throw await parseError(response);
+}
+
+/** Pages numérotées autour de la page courante, avec la première et la dernière. */
+export function pageItems(page: number, pages: number): (number | "gap")[] {
+  const shown = new Set([0, pages - 1, page - 1, page, page + 1].filter((n) => n >= 0 && n < pages));
+  const sorted = [...shown].sort((a, b) => a - b);
+  return sorted.flatMap((n, index) => (index > 0 && n - sorted[index - 1] > 1 ? ["gap" as const, n] : [n]));
 }
 
 export { ApiError };

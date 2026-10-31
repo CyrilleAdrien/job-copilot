@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isFresh, timeAgo } from "@/lib/jobs";
+import { isFresh, pageItems, timeAgo } from "@/lib/jobs";
 
 const now = new Date("2026-10-26T12:00:00Z");
 
@@ -20,5 +20,13 @@ describe("isFresh", () => {
   it("signale les offres de moins de 24 h", () => {
     expect(isFresh("2026-10-26T01:00:00Z", now)).toBe(true);
     expect(isFresh("2026-10-25T11:00:00Z", now)).toBe(false);
+  });
+});
+
+describe("pageItems", () => {
+  it("montre la première, la dernière et les voisines de la page courante", () => {
+    expect(pageItems(0, 3)).toEqual([0, 1, 2]);
+    expect(pageItems(5, 10)).toEqual([0, "gap", 4, 5, 6, "gap", 9]);
+    expect(pageItems(0, 10)).toEqual([0, 1, "gap", 9]);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Filter, KeyRound, RefreshCw, SearchX, Star, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, KeyRound, RefreshCw, SearchX, Star, UserRound } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,6 +21,8 @@ import {
   sortOrders,
   timeAgo,
   windows,
+  PAGE_SIZE,
+  pageItems,
   type OfferList,
   type RefreshResult,
   type SortOrder,
@@ -42,6 +44,7 @@ export function OffersScreen() {
   const [syncing, setSyncing] = useState(false);
   const [noProfile, setNoProfile] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [page, setPage] = useState(0);
   const [view, setView] = useState<"all" | "favorites">("all");
   const [now, setNow] = useState(() => new Date());
   const latest = useRef(0);
@@ -56,6 +59,7 @@ export function OffersScreen() {
     async (window: Window, order: SortOrder, searchId: string | undefined, force = false) => {
       const call = ++latest.current;
       setSyncing(true);
+      setPage(0);
       setError(null);
       try {
         const result = await refreshOffers(window, force, searchId);
@@ -112,6 +116,7 @@ export function OffersScreen() {
   function changeSearch(searchId: string) {
     setSearch(searchId);
     setView("all");
+    setPage(0);
     storeSearch(searchId);
     setList(null);
     setRefresh(null);
@@ -120,15 +125,26 @@ export function OffersScreen() {
 
   function changeSort(order: SortOrder) {
     setSort(order);
+    setPage(0);
     if (view === "favorites") fetchOffers(order, undefined, search, true).then(setList).catch(fail);
     else if (days) fetchOffers(order, days, search).then(setList).catch(fail);
   }
 
   function changeView(next: "all" | "favorites") {
     setView(next);
+    setPage(0);
     setList(null);
     if (next === "favorites") fetchOffers(sort, undefined, search, true).then(setList).catch(fail);
     else if (days) fetchOffers(sort, days, search).then(setList).catch(fail);
+  }
+
+  function goToPage(next: number) {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const favorites = view === "favorites";
+    fetchOffers(sort, favorites ? undefined : (days ?? undefined), search, favorites, next)
+      .then(setList)
+      .catch(fail);
   }
 
   /** Bascule optimiste : l'étoile change tout de suite, et revient en arrière si l'appel échoue. */
@@ -155,6 +171,7 @@ export function OffersScreen() {
 
   function changeWindow(window: Window) {
     setDays(window);
+    setPage(0);
     fetchOffers(sort, window, search).then(setList).catch(fail);
     sync(window, sort, search);
   }
@@ -359,6 +376,10 @@ export function OffersScreen() {
           </AnimatePresence>
         </ul>
       )}
+
+      {list && list.total > PAGE_SIZE && (
+        <Pagination page={page} pages={Math.ceil(list.total / PAGE_SIZE)} onChange={goToPage} />
+      )}
     </>
   );
 }
@@ -405,6 +426,49 @@ function StatusLine({
         </>
       )}
     </div>
+  );
+}
+
+function Pagination({ page, pages, onChange }: { page: number; pages: number; onChange: (page: number) => void }) {
+  return (
+    <nav aria-label="Pagination" className="flex items-center justify-center gap-1 pt-6">
+      <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => onChange(page - 1)}>
+        <ChevronLeft aria-hidden />
+        Précédent
+      </Button>
+      {pageItems(page, pages).map((item, index) =>
+        item === "gap" ? (
+          <span key={`gap-${index}`} className="px-1 text-sm text-text-tertiary" aria-hidden>
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            aria-current={item === page ? "page" : undefined}
+            aria-label={`Page ${item + 1}`}
+            onClick={() => item !== page && onChange(item)}
+            className={cn(
+              "relative flex size-8 items-center justify-center rounded-full text-[13px] font-medium tabular-nums transition-colors",
+              item === page ? "text-accent-strong" : "text-text-secondary hover:bg-surface-hover hover:text-text",
+            )}
+          >
+            {item === page && (
+              <motion.span
+                layoutId="page-current"
+                transition={spring.snappy}
+                className="absolute inset-0 rounded-full border border-accent-strong/40 bg-accent-soft"
+              />
+            )}
+            <span className="relative">{item + 1}</span>
+          </button>
+        ),
+      )}
+      <Button variant="ghost" size="sm" disabled={page >= pages - 1} onClick={() => onChange(page + 1)}>
+        Suivant
+        <ChevronRight aria-hidden />
+      </Button>
+    </nav>
   );
 }
 

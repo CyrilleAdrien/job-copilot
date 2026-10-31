@@ -11,7 +11,7 @@ import {
   validateSearch,
 } from "@/lib/profile";
 import { pickSearch } from "@/lib/search-choice";
-import { filterSuggestions } from "@/lib/suggestions";
+import { filterSuggestions, places } from "@/lib/suggestions";
 
 describe("validation des étapes", () => {
   it("exige le nom et le titre", () => {
@@ -134,5 +134,13 @@ describe("suggestions", () => {
 
   it("écarte les valeurs déjà choisies", () => {
     expect(filterSuggestions(["Python", "SQL"], "", ["python"])).toEqual(["SQL"]);
+  });
+});
+
+describe("places", () => {
+  it("propose régions, départements et pays en plus des villes", () => {
+    expect(filterSuggestions(places, "gironde")).toEqual(["Gironde (33)"]);
+    expect(filterSuggestions(places, "ile")).toContain("Île-de-France");
+    expect(filterSuggestions(places, "belg")).toEqual(["Belgique"]);
   });
 });

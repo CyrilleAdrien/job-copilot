@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, FileUp, PenLine } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -62,6 +63,8 @@ export function ProfileWizard() {
   const [errors, setErrors] = useState<StepErrors>({});
   const [apiError, setApiError] = useState<ApiError | null>(null);
   const [saving, setSaving] = useState(false);
+  // Profil déjà enregistré : on navigue librement entre les étapes et on peut enregistrer à tout moment.
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     // Liens de la page Profil : ?recherche=nouvelle ou ?recherche=<id> ouvrent l'étape Recherches
@@ -81,6 +84,7 @@ export function ProfileWizard() {
         }
         setProfile(loaded);
         setStarted(existing !== null);
+        setEditing(existing !== null);
       })
       .catch((error: ApiError) => {
         setProfile(emptyProfile());
@@ -98,7 +102,7 @@ export function ProfileWizard() {
     });
 
   const go = (target: number) => {
-    if (target > current) {
+    if (target > current && !editing) {
       const stepErrors = steps[current].validate?.(profile) ?? {};
       setErrors(stepErrors);
       if (Object.keys(stepErrors).length) return;
@@ -109,6 +113,18 @@ export function ProfileWizard() {
   };
 
   const save = async () => {
+    // Toutes les étapes sont vérifiées : on ouvre la première qui a une erreur.
+    for (const [index, item] of steps.entries()) {
+      const stepErrors = item.validate?.(profile) ?? {};
+      if (Object.keys(stepErrors).length) {
+        setErrors(stepErrors);
+        setDirection(index > current ? 1 : -1);
+        setCurrent(index);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+    setErrors({});
     setSaving(true);
     setApiError(null);
     try {
@@ -136,7 +152,11 @@ export function ProfileWizard() {
 
   return (
     <div className="flex flex-col gap-8">
-      <StepIndicator current={current} onSelect={(index) => index < current && go(index)} />
+      <StepIndicator
+        current={current}
+        free={editing}
+        onSelect={(index) => (editing || index < current) && index !== current && go(index)}
+      />
 
       <AnimatePresence mode="wait" custom={direction} initial={false}>
         <motion.section
@@ -163,23 +183,45 @@ export function ProfileWizard() {
           <ArrowLeft aria-hidden />
           Retour
         </Button>
-        {isLast ? (
-          <Button variant="accent" onClick={save} loading={saving}>
-            <Check aria-hidden />
-            Enregistrer mon profil
-          </Button>
-        ) : (
-          <Button onClick={() => go(current + 1)}>
-            Continuer
-            <ArrowRight aria-hidden />
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {editing && (
+            <Button variant="ghost" asChild>
+              <Link href="/profil">Annuler</Link>
+            </Button>
+          )}
+          {editing && !isLast && (
+            <Button variant="secondary" onClick={save} loading={saving}>
+              <Check aria-hidden />
+              Enregistrer
+            </Button>
+          )}
+          {isLast ? (
+            <Button variant="accent" onClick={save} loading={saving}>
+              <Check aria-hidden />
+              Enregistrer mon profil
+            </Button>
+          ) : (
+            <Button onClick={() => go(current + 1)}>
+              Continuer
+              <ArrowRight aria-hidden />
+            </Button>
+          )}
+        </div>
       </footer>
     </div>
   );
 }
 
-function StepIndicator({ current, onSelect }: { current: number; onSelect: (index: number) => void }) {
+function StepIndicator({
+  current,
+  free,
+  onSelect,
+}: {
+  current: number;
+  /** Toutes les étapes sont accessibles (modification d'un profil existant). */
+  free: boolean;
+  onSelect: (index: number) => void;
+}) {
   return (
     <ol className="flex items-center gap-2" aria-label="Étapes">
       {steps.map((step, index) => {
@@ -189,7 +231,7 @@ function StepIndicator({ current, onSelect }: { current: number; onSelect: (inde
             <button
               type="button"
               onClick={() => onSelect(index)}
-              disabled={state !== "done"}
+              disabled={free ? state === "active" : state !== "done"}
               aria-current={state === "active" ? "step" : undefined}
               className="group flex flex-col gap-2 text-left disabled:cursor-default"
             >
@@ -205,7 +247,7 @@ function StepIndicator({ current, onSelect }: { current: number; onSelect: (inde
                 className={cn(
                   "text-xs font-medium transition-colors",
                   state === "pending" ? "text-text-tertiary" : "text-text",
-                  state === "done" && "group-hover:text-accent-strong",
+                  (state === "done" || (free && state === "pending")) && "group-hover:text-accent-strong",
                 )}
               >
                 {step.label}
