@@ -170,3 +170,14 @@ describe("bestSearchSummary", () => {
     );
   });
 });
+
+describe("edgeSpeed", () => {
+  it("scrolls faster as the card nears an edge, not at all in the middle", async () => {
+    const { edgeSpeed } = await import("@/components/applications/kanban");
+    expect(edgeSpeed(500, 0, 1000)).toBe(0);
+    expect(edgeSpeed(0, 0, 1000)).toBe(-22);
+    expect(edgeSpeed(1000, 0, 1000)).toBe(22);
+    expect(edgeSpeed(950, 0, 1000)).toBeGreaterThan(0);
+    expect(edgeSpeed(950, 0, 1000)).toBeLessThan(22);
+  });
+});
