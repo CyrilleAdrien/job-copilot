@@ -4,6 +4,7 @@ import { FileText, GripVertical, MoreHorizontal } from "lucide-react";
 import { LayoutGroup, motion } from "motion/react";
 import { useState, type DragEvent } from "react";
 
+import { tones, toneBar, toneText } from "@/components/ui/badge";
 import { Menu } from "@/components/ui/menu";
 import { byStatus, statusOrder, type ApplicationSummary } from "@/lib/applications";
 import { timeAgo } from "@/lib/jobs";
@@ -19,11 +20,14 @@ const DRAG_TYPE = "application/x-jobcopilot-application";
  */
 export function Kanban({
   items,
+  columns = statusOrder,
   now,
   onOpen,
   onMove,
 }: {
   items: ApplicationSummary[];
+  /** Colonnes affichées (toutes par défaut, ou les statuts filtrés). */
+  columns?: ApplicationStatus[];
   now: Date;
   onOpen: (id: string) => void;
   onMove: (id: string, status: ApplicationStatus) => void;
@@ -41,8 +45,8 @@ export function Kanban({
   return (
     <LayoutGroup>
       <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-4" role="list" aria-label="Candidatures par statut">
-        {statusOrder.map((status) => {
-          const { label, icon: Icon } = applicationStatuses[status];
+        {columns.map((status) => {
+          const { label, icon: Icon, tone } = applicationStatuses[status];
           const column = groups[status];
           return (
             <section
@@ -59,14 +63,22 @@ export function Kanban({
               }}
               onDrop={(event) => drop(event, status)}
               className={cn(
-                "flex w-64 shrink-0 flex-col gap-2 rounded-card border bg-background-subtle p-2 transition-colors",
+                "relative flex w-64 shrink-0 flex-col gap-2 rounded-card border bg-background-subtle p-2 transition-colors",
                 over === status ? "border-accent-strong/50 bg-accent-soft/50" : "border-border",
               )}
             >
-              <header className="flex items-center gap-2 px-1.5 pb-1 pt-1">
-                <Icon className="size-4 text-text-tertiary" strokeWidth={1.75} aria-hidden />
+              <span className={cn("absolute inset-x-0 -top-px h-[3px] rounded-t-card", toneBar[tone])} aria-hidden />
+              <header className="flex items-center gap-2 px-1.5 pb-1 pt-1.5">
+                <Icon className={cn("size-4", toneText[tone])} strokeWidth={1.75} aria-hidden />
                 <h2 className="text-[13px] font-semibold">{label}</h2>
-                <span className="ml-auto text-[12px] tabular-nums text-text-tertiary">{column.length}</span>
+                <span
+                  className={cn(
+                    "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium tabular-nums",
+                    tones[tone],
+                  )}
+                >
+                  {column.length}
+                </span>
               </header>
               <div className="flex min-h-24 flex-col gap-2">
                 {column.map((item) => (
@@ -96,16 +108,18 @@ function KanbanCard({
   onMove: (id: string, status: ApplicationStatus) => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const { tone } = applicationStatuses[item.status];
   return (
     <motion.article
       layout
       layoutId={`application-${item.id}`}
       transition={spring.smooth}
       className={cn(
-        "group relative rounded-[10px] border border-border bg-surface p-3 shadow-card transition-opacity",
+        "group relative rounded-[10px] border border-border bg-surface p-3 pl-3.5 shadow-card transition-opacity",
         dragging && "opacity-40",
       )}
     >
+      <span className={cn("absolute -left-px inset-y-[-1px] w-[3px] rounded-l-[10px]", toneBar[tone])} aria-hidden />
       <div
         draggable
         onDragStart={(event) => {

@@ -1,11 +1,12 @@
 "use client";
 
-import { FileStack, FileText, Plus } from "lucide-react";
+import { FileStack, FileText, Plus, SearchX } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ApplicationSheet } from "@/components/applications/application-sheet";
+import { FilterBar } from "@/components/applications/filter-bar";
 import { Kanban } from "@/components/applications/kanban";
 import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
@@ -19,9 +20,13 @@ import { fetchProfile } from "@/lib/api";
 import {
   ApiError,
   createApplication,
+  emptyFilters,
   fetchApplications,
+  filterApplications,
+  statusOrder,
   updateApplication,
   type ApplicationSummary,
+  type Filters,
 } from "@/lib/applications";
 import { timeAgo } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
@@ -38,6 +43,8 @@ export function ApplicationsScreen() {
   const [signature, setSignature] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
   const [now] = useState(() => new Date());
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [searchNames, setSearchNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchApplications().then(setItems).catch((e: ApiError) => {
@@ -45,7 +52,10 @@ export function ApplicationsScreen() {
       setItems([]);
     });
     fetchProfile()
-      .then((profile) => setSignature(profile?.identity.full_name ?? ""))
+      .then((profile) => {
+        setSignature(profile?.identity.full_name ?? "");
+        setSearchNames(Object.fromEntries((profile?.searches ?? []).map((search) => [search.id, search.name])));
+      })
       .catch(() => undefined);
     try {
       const stored = window.localStorage.getItem(VIEW_KEY);
@@ -71,6 +81,8 @@ export function ApplicationsScreen() {
 
   const replace = (updated: ApplicationSummary) =>
     setItems((current) => current && current.map((item) => (item.id === updated.id ? updated : item)));
+
+  const visible = items ? filterApplications(items, filters, now) : [];
 
   /** Déplacement optimiste : la carte change de colonne tout de suite, et revient si l'appel échoue. */
   function move(id: string, status: ApplicationStatus) {
@@ -150,19 +162,41 @@ export function ApplicationsScreen() {
               value={view}
               onChange={changeView}
             />
-            <span className="text-[13px] text-text-tertiary">
-              {items.length} candidature{items.length > 1 ? "s" : ""}
+            <span className="text-[13px] tabular-nums text-text-tertiary" aria-live="polite">
+              {visible.length === items.length
+                ? `${items.length} candidature${items.length > 1 ? "s" : ""}`
+                : `${visible.length} sur ${items.length}`}
             </span>
           </div>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={view} {...fadeUp} transition={spring.smooth}>
-              {view === "kanban" ? (
-                <Kanban items={items} now={now} onOpen={show} onMove={move} />
-              ) : (
-                <ApplicationList items={items} now={now} onOpen={show} />
-              )}
-            </motion.div>
-          </AnimatePresence>
+          <FilterBar items={items} filters={filters} searchNames={searchNames} onChange={setFilters} />
+          {visible.length === 0 ? (
+            <EmptyState
+              icon={SearchX}
+              title="Aucune candidature ne correspond"
+              description="Change ou retire un filtre pour en voir plus."
+              action={
+                <Button variant="secondary" onClick={() => setFilters(emptyFilters)}>
+                  Réinitialiser les filtres
+                </Button>
+              }
+            />
+          ) : (
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={view} {...fadeUp} transition={spring.smooth}>
+                {view === "kanban" ? (
+                  <Kanban
+                    items={visible}
+                    columns={filters.statuses.length ? statusOrder.filter((s) => filters.statuses.includes(s)) : statusOrder}
+                    now={now}
+                    onOpen={show}
+                    onMove={move}
+                  />
+                ) : (
+                  <ApplicationList items={visible} now={now} onOpen={show} />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          )}
         </div>
       )}
 

@@ -3,7 +3,27 @@ import type { HTMLAttributes } from "react";
 import { applicationStatuses, type ApplicationStatus, type Tone } from "@/lib/statuses";
 import { cn } from "@/lib/utils";
 
-const tones: Record<Tone, string> = {
+/** Couleur de texte ou d'icône de chaque tonalité. */
+export const toneText: Record<Tone, string> = {
+  neutral: "text-text-tertiary",
+  accent: "text-accent-strong",
+  ai: "text-ai-strong",
+  success: "text-success",
+  warning: "text-warning",
+  danger: "text-danger",
+};
+
+/** Couleur pleine, pour un liseré ou une pastille. */
+export const toneBar: Record<Tone, string> = {
+  neutral: "bg-border-strong",
+  accent: "bg-accent-strong",
+  ai: "bg-ai",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
+};
+
+export const tones: Record<Tone, string> = {
   neutral: "bg-surface-hover text-text-secondary",
   accent: "bg-accent-soft text-accent-strong",
   ai: "bg-ai-soft text-ai-strong",

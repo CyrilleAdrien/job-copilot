@@ -151,4 +151,48 @@ export function byStatus<T extends ApplicationSummary>(items: T[]): Record<Appli
   return groups;
 }
 
+export type Period = "all" | "7" | "30" | "90";
+
+export type Filters = {
+  query: string;
+  statuses: ApplicationStatus[];
+  /** Profil de recherche d'origine ; "manual" pour les candidatures ajoutées à la main. */
+  search: string;
+  period: Period;
+  missingDocuments: boolean;
+};
+
+export const emptyFilters: Filters = { query: "", statuses: [], search: "all", period: "all", missingDocuments: false };
+
+export function isFiltering(filters: Filters) {
+  return (
+    filters.query.trim() !== "" ||
+    filters.statuses.length > 0 ||
+    filters.search !== "all" ||
+    filters.period !== "all" ||
+    filters.missingDocuments
+  );
+}
+
+const fold = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+/** Filtres de l'écran Candidatures. La période porte sur la date d'envoi, ou de création à défaut. */
+export function filterApplications<T extends ApplicationSummary>(items: T[], filters: Filters, now: Date = new Date()): T[] {
+  const words = fold(filters.query).split(/\s+/).filter(Boolean);
+  const since = filters.period === "all" ? null : now.getTime() - Number(filters.period) * 24 * 3600 * 1000;
+  return items.filter((item) => {
+    if (filters.statuses.length && !filters.statuses.includes(item.status)) return false;
+    if (filters.search === "manual" ? item.source !== "manuel" : filters.search !== "all" && item.search_id !== filters.search)
+      return false;
+    if (since !== null && new Date(item.applied_at ?? item.created_at).getTime() < since) return false;
+    if (filters.missingDocuments && item.cv_document_id && item.letter_document_id) return false;
+    const haystack = fold([item.title, item.company, item.location].filter(Boolean).join(" "));
+    return words.every((word) => haystack.includes(word));
+  });
+}
+
 export { ApiError };

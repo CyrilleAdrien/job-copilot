@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { byStatus, latestDocumentIds, mailtoUrl, type ApplicationSummary } from "@/lib/applications";
+import {
+  byStatus,
+  emptyFilters,
+  filterApplications,
+  isFiltering,
+  latestDocumentIds,
+  mailtoUrl,
+  type ApplicationSummary,
+} from "@/lib/applications";
 
 const base: ApplicationSummary = {
   id: "a",
@@ -52,5 +60,33 @@ describe("mailtoUrl", () => {
     expect(url.startsWith("mailto:rh@nimbus.fr?subject=Candidature%20%3A%20Ing")).toBe(true);
     expect(decodeURIComponent(url)).toContain("Alex Martin");
     expect(url).not.toContain("+");
+  });
+});
+
+describe("filterApplications", () => {
+  const now = new Date("2026-10-31T12:00:00Z");
+  const items: ApplicationSummary[] = [
+    { ...base, id: "a", search_id: "devops", cv_document_id: "c", letter_document_id: "l", applied_at: "2026-10-30T10:00:00Z" },
+    { ...base, id: "b", title: "Data Engineer", company: "Brume Énergie", search_id: "data", status: "sent" },
+    { ...base, id: "c", title: "Ingénieur Cloud", source: "manuel", search_id: null, status: "rejected" },
+  ];
+  const ids = (filters: Partial<typeof emptyFilters>) =>
+    filterApplications(items, { ...emptyFilters, ...filters }, now).map((item) => item.id);
+
+  it("sans filtre, garde tout", () => {
+    expect(ids({})).toEqual(["a", "b", "c"]);
+    expect(isFiltering(emptyFilters)).toBe(false);
+  });
+  it("filtre par texte sans tenir compte des accents", () => {
+    expect(ids({ query: "brume energie" })).toEqual(["b"]);
+    expect(ids({ query: "ingenieur" })).toEqual(["a", "c"]);
+  });
+  it("filtre par statut, recherche d'origine, période et documents", () => {
+    expect(ids({ statuses: ["sent", "rejected"] })).toEqual(["b", "c"]);
+    expect(ids({ search: "data" })).toEqual(["b"]);
+    expect(ids({ search: "manual" })).toEqual(["c"]);
+    expect(ids({ period: "7" })).toEqual(["a"]);
+    expect(ids({ missingDocuments: true })).toEqual(["b", "c"]);
+    expect(isFiltering({ ...emptyFilters, period: "30" })).toBe(true);
   });
 });
