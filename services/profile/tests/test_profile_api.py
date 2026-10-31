@@ -167,3 +167,23 @@ def test_example_profile_is_valid():
     example = Path(__file__).parents[3] / "examples" / "profile.example.yaml"
     profile = load_profile(example.read_text())
     assert [search.id for search in profile.searches] == ["devops", "data-engineer"]
+
+
+async def test_archive_restore_and_delete_a_search(client):
+    await client.put("/", json=PROFILE)
+    archived = (await client.post("/searches/data-engineer/archive")).json()
+    assert [s["archived"] for s in archived["searches"]] == [False, True]
+    # La dernière recherche active ne peut être ni archivée ni supprimée.
+    assert (await client.post("/searches/devops/archive")).status_code == 409
+    assert (await client.delete("/searches/devops")).status_code == 409
+    restored = (await client.post("/searches/data-engineer/restore")).json()
+    assert not restored["searches"][1]["archived"]
+    deleted = (await client.delete("/searches/devops")).json()
+    assert [s["id"] for s in deleted["searches"]] == ["data-engineer"]
+    assert (await client.delete("/searches/inconnue")).status_code == 404
+
+
+async def test_a_profile_keeps_one_active_search(client):
+    searches = [{**search, "archived": True} for search in PROFILE["searches"]]
+    response = await client.put("/", json={**PROFILE, "searches": searches})
+    assert response.status_code == 422

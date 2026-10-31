@@ -56,6 +56,8 @@ export type SearchProfile = {
   match_mode: MatchMode;
   focus_skills: string[];
   min_skills: number;
+  /** Masquée de l'écran Offres, gardée au profil. */
+  archived: boolean;
 };
 
 export type Profile = {
@@ -152,7 +154,22 @@ export function emptySearch(name = ""): SearchProfile {
     match_mode: "domain",
     focus_skills: [],
     min_skills: 2,
+    archived: false,
   };
+}
+
+/**
+ * Ajoute une recherche : vide, ou copiée d'une recherche existante (identifiant ou position).
+ * Renvoie la position de la nouvelle recherche. La copie garde tout sauf le nom et l'identifiant.
+ */
+export function addSearch(profile: Profile, from?: string | number): number {
+  const source =
+    typeof from === "number" ? profile.searches[from] : profile.searches.find((search) => from && search.id === from);
+  const search = source
+    ? { ...structuredClone(source), id: "", name: `${source.name} (copie)`, archived: false }
+    : emptySearch(`Recherche ${profile.searches.length + 1}`);
+  profile.searches.push(search);
+  return profile.searches.length - 1;
 }
 
 /** Compétences proposées pour le mode « Mes compétences » : technos de la recherche et du profil. */
@@ -237,6 +254,8 @@ export function validateSearch(profile: Profile): StepErrors {
     if (search.match_mode === "skills" && !search.focus_skills.length && !search.technologies.length)
       errors[`${index}.focus_skills`] = "Choisis les compétences à faire ressortir.";
   });
+  if (profile.searches.every((search) => search.archived))
+    errors["0.archived"] = "Garde au moins une recherche active.";
   return errors;
 }
 

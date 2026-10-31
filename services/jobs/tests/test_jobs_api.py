@@ -208,3 +208,62 @@ async def test_search_profile_is_chosen_by_id(client):
     assert (await client.get("/offers", params={"search": "data"})).json()["search"] == "data"
     missing = await client.get("/offers", params={"search": "inconnu"})
     assert missing.status_code == 404
+
+
+async def test_favorites_belong_to_a_search_and_survive_the_window(client):
+    await client.post("/refresh")
+    ids = {item["url"][-1]: item["id"] for item in (await client.get("/offers")).json()["items"]}
+    assert (await client.put(f"/offers/{ids['a']}/favorite")).status_code == 204
+    assert (await client.put(f"/offers/{ids['a']}/favorite")).status_code == 204
+    assert (await client.put("/offers/999999/favorite")).status_code == 404
+
+    listed = {
+        item["url"][-1]: item["favorite"] for item in (await client.get("/offers")).json()["items"]
+    }
+    assert listed == {"a": True, "b": False}
+    # « a » a 30 h : hors de la fenêtre de 24 h, mais toujours dans les favoris.
+    starred = (await client.get("/offers", params={"favorites": True, "max_age_days": 1})).json()
+    assert [item["url"][-1] for item in starred["items"]] == ["a"]
+    assert (await client.get(f"/offers/{ids['a']}")).json()["favorite"] is True
+
+    other = CRITERIA.model_copy(update={"id": "data"})
+    app.dependency_overrides[get_criteria] = lambda: other
+    assert (await client.get("/offers", params={"favorites": True})).json()["items"] == []
+
+    app.dependency_overrides[get_criteria] = lambda: CRITERIA
+    assert (await client.delete(f"/offers/{ids['a']}/favorite")).status_code == 204
+    assert (await client.get("/offers", params={"favorites": True})).json()["total"] == 0
+
+
+async def test_purge_keeps_favorites(client, database):
+    from jobcopilot_common.db import get_sessionmaker
+    from jobcopilot_jobs import repository
+
+    await client.post("/refresh")
+    [offer] = [i for i in (await client.get("/offers")).json()["items"] if i["url"].endswith("/a")]
+    await client.put(f"/offers/{offer['id']}/favorite")
+    async with get_sessionmaker()() as session:
+        await repository.purge_before(session, NOW + timedelta(days=1))
+        remaining = await repository.offers_since(session, NOW - timedelta(days=30))
+    assert [row.id for row in remaining] == [offer["id"]]
+
+
+async def test_first_active_search_is_the_default(client):
+    del app.dependency_overrides[get_criteria]
+
+    def archived_first(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "searches": [
+                    {"id": "old", "name": "Old", "roles": ["DevOps"], "archived": True},
+                    {"id": "new", "name": "New", "roles": ["SRE"]},
+                ]
+            },
+        )
+
+    app.dependency_overrides[get_http] = lambda: httpx.AsyncClient(
+        transport=httpx.MockTransport(archived_first)
+    )
+    assert (await client.get("/offers")).json()["search"] == "new"
+    assert (await client.get("/offers", params={"search": "old"})).json()["search"] == "old"

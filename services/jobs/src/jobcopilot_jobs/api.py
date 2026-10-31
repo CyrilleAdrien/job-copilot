@@ -45,7 +45,11 @@ def snippet(description: str, length: int = 240) -> str:
 
 
 def to_offer(
-    row: OfferRow, criteria: Criteria, detail: bool = False, strict: bool = True
+    row: OfferRow,
+    criteria: Criteria,
+    detail: bool = False,
+    strict: bool = True,
+    favorite: bool = False,
 ) -> OfferDetail | Offer | None:
     """L'offre notée pour ce profil de recherche, ou None si elle est écartée.
 
@@ -69,6 +73,7 @@ def to_offer(
         "score": match.score,
         "matched": match.matched,
         "remote": match.remote,
+        "favorite": favorite,
     }
     return OfferDetail(**fields, description=row.description) if detail else Offer(**fields)
 
@@ -80,20 +85,34 @@ async def list_offers(
     criteria: Profile,
     max_age_days: Window,
     sort: Sort = "date",
+    favorites: bool = False,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> OfferList:
-    """Offres de la fenêtre choisie (celle du profil par défaut), les plus récentes d'abord."""
+    """Offres de la fenêtre choisie (celle du profil par défaut), les plus récentes d'abord.
+
+    `favorites=true` renvoie les favoris de la recherche, sans filtre de date ni de seuil.
+    """
     days = max_age_days or criteria.max_age_days
-    rows = await repository.offers_since(session, datetime.now(UTC) - timedelta(days=days))
-    offers = [offer for row in rows if (offer := to_offer(row, criteria))]
-    below_threshold = sum(
-        1
-        for row in rows
-        if (match := score_offer(criteria, row.title, row.description, row.contract)).on_topic
-        and not match.excluded
-        and not match.enough_skills
-    )
+    starred = await repository.favorite_ids(session, criteria.id)
+    if favorites:
+        rows = await repository.favorites(session, criteria.id)
+        offers = [
+            offer for row in rows if (offer := to_offer(row, criteria, strict=False, favorite=True))
+        ]
+        below_threshold = 0
+    else:
+        rows = await repository.offers_since(session, datetime.now(UTC) - timedelta(days=days))
+        offers = [
+            offer for row in rows if (offer := to_offer(row, criteria, favorite=row.id in starred))
+        ]
+        below_threshold = sum(
+            1
+            for row in rows
+            if (match := score_offer(criteria, row.title, row.description, row.contract)).on_topic
+            and not match.excluded
+            and not match.enough_skills
+        )
     if sort == "date":
         offers.sort(key=lambda offer: (offer.published_at, offer.score), reverse=True)
     else:
@@ -113,7 +132,12 @@ async def list_offers(
 @router.get("/offers/{offer_id}", response_model=OfferDetail)
 async def read_offer(offer_id: int, session: Session, criteria: Profile) -> OfferDetail:
     row = await repository.get_offer(session, offer_id)
-    offer = to_offer(row, criteria, detail=True, strict=False) if row else None
+    starred = await repository.favorite_ids(session, criteria.id)
+    offer = (
+        to_offer(row, criteria, detail=True, strict=False, favorite=row.id in starred)
+        if row
+        else None
+    )
     if offer is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Offre introuvable.")
     return offer
@@ -137,6 +161,19 @@ async def refresh_offers(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Une actualisation est déjà en cours."
         ) from exc
+
+
+@router.put("/offers/{offer_id}/favorite", status_code=status.HTTP_204_NO_CONTENT)
+async def add_favorite(offer_id: int, session: Session, criteria: Profile) -> None:
+    """Met l'offre en favori pour la recherche choisie (paramètre `search`)."""
+    if await repository.get_offer(session, offer_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Offre introuvable.")
+    await repository.set_favorite(session, criteria.id, offer_id, True)
+
+
+@router.delete("/offers/{offer_id}/favorite", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_favorite(offer_id: int, session: Session, criteria: Profile) -> None:
+    await repository.set_favorite(session, criteria.id, offer_id, False)
 
 
 @router.get("/sources", response_model=list[SourceInfo])

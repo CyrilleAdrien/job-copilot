@@ -59,7 +59,8 @@ async def get_criteria(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Service profil indisponible.")
     searches = [Criteria.model_validate(item) for item in response.json()["searches"]]
     if search is None:
-        return searches[0]
+        # La première recherche active ; une recherche archivée reste lisible par son identifiant.
+        return next((item for item in searches if not item.archived), searches[0])
     for criteria in searches:
         if criteria.id == search:
             return criteria

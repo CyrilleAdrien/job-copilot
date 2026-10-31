@@ -1,4 +1,5 @@
 import {
+  addSearch,
   emptyExperience,
   emptyProfile,
   emptySearch,
@@ -35,6 +36,14 @@ describe("validation des étapes", () => {
     profile.searches[0] = { ...profile.searches[0], roles: ["Data Engineer"], match_mode: "skills" };
     expect(validateSearch(profile)).toHaveProperty("0.focus_skills");
     profile.searches[0].technologies = ["Python"];
+    expect(validateSearch(profile)).toEqual({});
+  });
+
+  it("garde au moins une recherche active", () => {
+    const profile = emptyProfile();
+    profile.searches[0] = { ...profile.searches[0], roles: ["DevOps"], archived: true };
+    expect(validateSearch(profile)).toHaveProperty("0.archived");
+    profile.searches.push({ ...emptySearch("Data"), roles: ["Data Engineer"] });
     expect(validateSearch(profile)).toEqual({});
   });
 
@@ -96,6 +105,18 @@ describe("recherches", () => {
     profile.skills = [{ name: "Data", items: ["python", "Airflow"] }];
     const search = { ...emptySearch("Data"), technologies: ["Python", "SQL"] };
     expect(skillPool(profile, search)).toEqual(["Python", "SQL", "Airflow"]);
+  });
+
+  it("ajoute une recherche vide ou copiée d'une autre", () => {
+    const profile = emptyProfile();
+    profile.searches[0] = { ...profile.searches[0], id: "data", name: "Data Engineer", roles: ["Data Engineer"] };
+    expect(addSearch(profile)).toBe(1);
+    expect(profile.searches[1].roles).toEqual([]);
+    expect(addSearch(profile, "data")).toBe(2);
+    expect(profile.searches[2]).toMatchObject({ id: "", name: "Data Engineer (copie)", roles: ["Data Engineer"] });
+    profile.searches[2].roles.push("Analytics Engineer");
+    expect(profile.searches[0].roles).toEqual(["Data Engineer"]);
+    expect(addSearch(profile, 0)).toBe(3);
   });
 
   it("garde la recherche retenue si elle existe encore", () => {

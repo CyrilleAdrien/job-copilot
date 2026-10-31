@@ -137,6 +137,7 @@ class SearchProfile(Schema):
         default=[], description="Compétences à faire ressortir (les technologies si vide)"
     )
     min_skills: int = Field(default=2, ge=1, le=10, description="Compétences citées au minimum")
+    archived: bool = Field(default=False, description="Masquée de l'écran Offres, gardée au profil")
 
 
 class Profile(Schema):
@@ -173,4 +174,10 @@ class Profile(Schema):
                 candidate, suffix = f"{base[:36]}-{suffix}", suffix + 1
             search.id = candidate
             taken.add(candidate)
+        return self
+
+    @model_validator(mode="after")
+    def one_active_search(self) -> "Profile":
+        if all(search.archived for search in self.searches):
+            raise ValueError("Garde au moins une recherche active.")
         return self

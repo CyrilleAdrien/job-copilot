@@ -18,6 +18,7 @@ export type Offer = {
   score: number;
   matched: string[];
   remote: "remote" | "hybrid" | null;
+  favorite: boolean;
 };
 
 export type OfferDetail = Offer & { description: string };
@@ -95,8 +96,14 @@ export function isFresh(iso: string, now: Date = new Date()): boolean {
   return now.getTime() - new Date(iso).getTime() < 24 * 3600 * 1000;
 }
 
-export async function fetchOffers(sort: SortOrder, days?: Window, search?: string): Promise<OfferList> {
+export async function fetchOffers(
+  sort: SortOrder,
+  days?: Window,
+  search?: string,
+  favorites = false,
+): Promise<OfferList> {
   const params = new URLSearchParams({ sort, limit: "100" });
+  if (favorites) params.set("favorites", "true");
   if (days) params.set("max_age_days", String(days));
   if (search) params.set("search", search);
   const response = await fetch(`/api/jobs/offers?${params}`, { cache: "no-store" });
@@ -118,6 +125,15 @@ export async function refreshOffers(days: Window, force = false, search?: string
   const response = await fetch(`/api/jobs/refresh?${params}`, { method: "POST" });
   if (!response.ok) throw await parseError(response);
   return response.json();
+}
+
+/** Ajoute ou retire une offre des favoris de la recherche. */
+export async function setFavorite(id: number, favorite: boolean, search?: string): Promise<void> {
+  const query = search ? `?${new URLSearchParams({ search })}` : "";
+  const response = await fetch(`/api/jobs/offers/${id}/favorite${query}`, {
+    method: favorite ? "PUT" : "DELETE",
+  });
+  if (!response.ok) throw await parseError(response);
 }
 
 export { ApiError };

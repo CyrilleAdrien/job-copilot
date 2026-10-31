@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, fetchProfile, saveProfile } from "@/lib/api";
 import { spring } from "@/lib/motion";
 import {
+  addSearch,
   emptyProfile,
   toPayload,
   validateBackground,
@@ -56,15 +57,24 @@ export function ProfileWizard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [started, setStarted] = useState(false);
   const [current, setCurrent] = useState(0);
+  const [focus, setFocus] = useState<number | undefined>(undefined);
   const [direction, setDirection] = useState(1);
   const [errors, setErrors] = useState<StepErrors>({});
   const [apiError, setApiError] = useState<ApiError | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // ?recherche=nouvelle ou ?recherche=<id> : ouvre l'étape Recherches sur une nouvelle recherche,
+    // vide ou copiée de celle indiquée (bouton « + » de l'écran Offres).
+    const wanted = new URLSearchParams(window.location.search).get("recherche");
     fetchProfile()
       .then((existing) => {
-        setProfile(existing ?? emptyProfile());
+        const loaded = existing ?? emptyProfile();
+        if (existing && wanted) {
+          setFocus(addSearch(loaded, wanted === "nouvelle" ? undefined : wanted));
+          setCurrent(steps.findIndex((step) => step.id === "search"));
+        }
+        setProfile(loaded);
         setStarted(existing !== null);
       })
       .catch((error: ApiError) => {
@@ -137,7 +147,7 @@ export function ProfileWizard() {
             <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{step.title}</h1>
             <p className="text-[15px] text-text-secondary">{step.description}</p>
           </header>
-          {step.Component ? <step.Component profile={profile} update={update} errors={errors} /> : <ProfileView profile={toPayload(profile)} />}
+          {step.Component ? <step.Component profile={profile} update={update} errors={errors} focus={focus} /> : <ProfileView profile={toPayload(profile)} />}
         </motion.section>
       </AnimatePresence>
 

@@ -31,6 +31,35 @@ async def remove_profile(session: Session) -> None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Aucun profil configuré.")
 
 
+NO_SEARCH = "Recherche introuvable."
+LAST_SEARCH = "Garde au moins une recherche active : crée-en une autre avant."
+
+
+async def change_search(action) -> Profile:
+    try:
+        return await action
+    except repository.SearchNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NO_SEARCH) from exc
+    except repository.LastSearch as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, LAST_SEARCH) from exc
+
+
+@router.post("/searches/{search_id}/archive", response_model=Profile)
+async def archive_search(search_id: str, session: Session) -> Profile:
+    """Masque la recherche de l'écran Offres sans la perdre."""
+    return await change_search(repository.update_search(session, search_id, archived=True))
+
+
+@router.post("/searches/{search_id}/restore", response_model=Profile)
+async def restore_search(search_id: str, session: Session) -> Profile:
+    return await change_search(repository.update_search(session, search_id, archived=False))
+
+
+@router.delete("/searches/{search_id}", response_model=Profile)
+async def delete_search(search_id: str, session: Session) -> Profile:
+    return await change_search(repository.delete_search(session, search_id))
+
+
 @router.get("/export")
 async def export_profile(session: Session) -> Response:
     profile = await repository.get_profile(session)

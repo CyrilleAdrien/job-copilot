@@ -1,6 +1,6 @@
 "use client";
 
-import { Filter, KeyRound, RefreshCw, SearchX, UserRound } from "lucide-react";
+import { Archive, Copy, Filter, KeyRound, Plus, RefreshCw, SearchX, Star, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,13 +10,15 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Menu } from "@/components/ui/menu";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { JobCardSkeleton } from "@/components/ui/skeleton";
-import { fetchProfile } from "@/lib/api";
+import { archiveSearch, deleteSearch, fetchProfile } from "@/lib/api";
 import {
   ApiError,
   fetchOffers,
   refreshOffers,
+  setFavorite,
   sortOrders,
   timeAgo,
   windows,
@@ -27,7 +29,7 @@ import {
   type Window,
 } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
-import type { SearchProfile } from "@/lib/profile";
+import type { Profile, SearchProfile } from "@/lib/profile";
 import { pickSearch, storeSearch, storedSearch } from "@/lib/search-choice";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +43,8 @@ export function OffersScreen() {
   const [syncing, setSyncing] = useState(false);
   const [noProfile, setNoProfile] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [view, setView] = useState<"all" | "favorites">("all");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const latest = useRef(0);
 
@@ -95,11 +99,12 @@ export function OffersScreen() {
     fetchProfile()
       .then((profile) => {
         if (!profile) return setNoProfile(true);
+        const active = profile.searches.filter((item) => !item.archived);
         const chosen = pickSearch(
-          profile.searches.map((item) => item.id),
+          active.map((item) => item.id),
           storedSearch(),
         );
-        setSearches(profile.searches);
+        setSearches(active);
         setSearch(chosen);
         return open(chosen, "date");
       })
@@ -108,6 +113,8 @@ export function OffersScreen() {
 
   function changeSearch(searchId: string) {
     setSearch(searchId);
+    setView("all");
+    setConfirmDelete(false);
     storeSearch(searchId);
     setList(null);
     setRefresh(null);
@@ -116,7 +123,59 @@ export function OffersScreen() {
 
   function changeSort(order: SortOrder) {
     setSort(order);
-    if (days) fetchOffers(order, days, search).then(setList).catch(fail);
+    if (view === "favorites") fetchOffers(order, undefined, search, true).then(setList).catch(fail);
+    else if (days) fetchOffers(order, days, search).then(setList).catch(fail);
+  }
+
+  function changeView(next: "all" | "favorites") {
+    setView(next);
+    setList(null);
+    if (next === "favorites") fetchOffers(sort, undefined, search, true).then(setList).catch(fail);
+    else if (days) fetchOffers(sort, days, search).then(setList).catch(fail);
+  }
+
+  /** Bascule optimiste : l'étoile change tout de suite, et revient en arrière si l'appel échoue. */
+  function toggleFavorite(offerId: number, favorite: boolean) {
+    const apply = (value: boolean) =>
+      setList((current) =>
+        current && {
+          ...current,
+          items:
+            view === "favorites" && !value
+              ? current.items.filter((item) => item.id !== offerId)
+              : current.items.map((item) => (item.id === offerId ? { ...item, favorite: value } : item)),
+          total: view === "favorites" && !value ? current.total - 1 : current.total,
+        },
+      );
+    const before = list;
+    apply(favorite);
+    setFavorite(offerId, favorite, search).catch((e) => {
+      setList(before);
+      fail(e as ApiError);
+    });
+  }
+
+  /** Après archivage ou suppression : garde les recherches actives et ouvre la suivante. */
+  function afterSearchChange(profile: Profile) {
+    const active = profile.searches.filter((item) => !item.archived);
+    setSearches(active);
+    setConfirmDelete(false);
+    if (active.length > 0) changeSearch(active[0].id);
+  }
+
+  function archiveCurrent() {
+    if (!search) return;
+    setError(null);
+    archiveSearch(search).then(afterSearchChange).catch(fail);
+  }
+
+  function deleteCurrent() {
+    if (!search) return;
+    setError(null);
+    deleteSearch(search).then(afterSearchChange).catch((e) => {
+      setConfirmDelete(false);
+      fail(e as ApiError);
+    });
   }
 
   function changeWindow(window: Window) {
@@ -165,25 +224,95 @@ export function OffersScreen() {
         }
       />
 
-      {searches.length > 1 && (
-        <div className="pb-3">
-          <SegmentedControl
-            label="Recherche"
-            segments={searches.map((item) => ({ value: item.id, label: item.name }))}
-            value={search ?? searches[0].id}
-            onChange={changeSearch}
+      {searches.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 pb-3">
+          {searches.length > 1 && (
+            <SegmentedControl
+              label="Recherche"
+              segments={searches.map((item) => ({ value: item.id, label: item.name }))}
+              value={search ?? searches[0].id}
+              onChange={changeSearch}
+            />
+          )}
+          <Menu
+            label="Nouvelle recherche"
+            trigger={<Plus className="size-4" aria-hidden />}
+            items={[
+              { label: "Nouvelle recherche", href: "/bienvenue?recherche=nouvelle", icon: <Plus aria-hidden /> },
+              ...searches.map((item) => ({
+                label: `À partir de « ${item.name} »`,
+                href: `/bienvenue?recherche=${encodeURIComponent(item.id)}`,
+                icon: <Copy aria-hidden />,
+              })),
+              ...(current
+                ? [
+                    {
+                      label: `Archiver « ${current.name} »`,
+                      icon: <Archive aria-hidden />,
+                      onSelect: archiveCurrent,
+                      separated: true,
+                    },
+                    {
+                      label: `Supprimer « ${current.name} »`,
+                      icon: <Trash2 aria-hidden />,
+                      onSelect: () => setConfirmDelete(true),
+                      tone: "danger" as const,
+                    },
+                  ]
+                : []),
+            ]}
           />
         </div>
       )}
 
+      <AnimatePresence>
+        {confirmDelete && current && (
+          <motion.div {...fadeUp} transition={spring.smooth} className="pb-3">
+            <div
+              role="alertdialog"
+              aria-label="Confirmer la suppression"
+              className="flex flex-wrap items-center gap-3 rounded-card border border-danger/30 bg-danger-soft px-4 py-3 text-sm"
+            >
+              <Trash2 className="size-4 shrink-0 text-danger" aria-hidden />
+              <p className="flex-1 text-text-secondary">
+                Supprimer la recherche <span className="font-medium text-text">« {current.name} »</span> et
+                ses favoris ? Pour la mettre de côté sans rien perdre, archive-la plutôt.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
+                  Annuler
+                </Button>
+                <Button variant="secondary" size="sm" onClick={archiveCurrent}>
+                  Archiver
+                </Button>
+                <Button variant="danger" size="sm" onClick={deleteCurrent}>
+                  Supprimer
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <div className="flex flex-wrap items-center gap-2">
           <SegmentedControl
-            label="Date de publication"
-            segments={windows}
-            value={days ? (String(days) as `${Window}`) : "7"}
-            onChange={(value) => changeWindow(Number(value) as Window)}
+            label="Affichage"
+            segments={[
+              { value: "all", label: "Toutes" },
+              { value: "favorites", label: "Favoris" },
+            ]}
+            value={view}
+            onChange={changeView}
           />
+          {view === "all" && (
+            <SegmentedControl
+              label="Date de publication"
+              segments={windows}
+              value={days ? (String(days) as `${Window}`) : "7"}
+              onChange={(value) => changeWindow(Number(value) as Window)}
+            />
+          )}
           <SegmentedControl
             label="Ordre"
             segments={sortOrders}
@@ -218,7 +347,7 @@ export function OffersScreen() {
       )}
 
       <AnimatePresence>
-        {list && list.hidden > 0 && current?.match_mode === "skills" && (
+        {view === "all" && list && list.hidden > 0 && current?.match_mode === "skills" && (
           <motion.div {...fadeUp} transition={spring.smooth} className="pb-4">
             <div className="flex items-center gap-3 rounded-card border border-border bg-background-subtle px-4 py-3 text-sm">
               <Filter className="size-4 shrink-0 text-text-tertiary" aria-hidden />
@@ -240,8 +369,19 @@ export function OffersScreen() {
             <JobCardSkeleton key={index} />
           ))}
         </div>
+      ) : list.items.length === 0 && view === "favorites" ? (
+        <EmptyState
+          icon={Star}
+          title="Aucun favori pour cette recherche"
+          description="Touche l'étoile d'une offre pour la garder ici. Les favoris ne sont jamais purgés."
+          action={
+            <Button variant="secondary" onClick={() => changeView("all")}>
+              Voir toutes les offres
+            </Button>
+          }
+        />
       ) : list.items.length === 0 ? (
-        syncing ? (
+        syncing && view === "all" ? (
           <div className="flex flex-col gap-3" aria-busy aria-label="Recherche des offres">
             {Array.from({ length: 3 }, (_, index) => (
               <JobCardSkeleton key={index} />
@@ -273,7 +413,12 @@ export function OffersScreen() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ ...spring.smooth, delay: Math.min(index, 10) * 0.025 }}
               >
-                <JobCard offer={offer} now={now} search={search} />
+                <JobCard
+                  offer={offer}
+                  now={now}
+                  search={search}
+                  onFavorite={(item, favorite) => toggleFavorite(item.id, favorite)}
+                />
               </motion.li>
             ))}
           </AnimatePresence>

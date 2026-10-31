@@ -52,4 +52,17 @@ export async function importProfile(yaml: string): Promise<Profile> {
   return response.json();
 }
 
+async function searchAction(id: string, action: "archive" | "restore" | "delete"): Promise<Profile> {
+  const path = `/api/profile/searches/${encodeURIComponent(id)}`;
+  const response = await fetch(action === "delete" ? path : `${path}/${action}`, {
+    method: action === "delete" ? "DELETE" : "POST",
+  });
+  if (!response.ok) throw await parseError(response);
+  return response.json();
+}
+
+export const archiveSearch = (id: string) => searchAction(id, "archive");
+export const restoreSearch = (id: string) => searchAction(id, "restore");
+export const deleteSearch = (id: string) => searchAction(id, "delete");
+
 export const profileExportUrl = "/api/profile/export";

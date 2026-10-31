@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError, fetchProfile, profileExportUrl } from "@/lib/api";
+import { ApiError, fetchProfile, profileExportUrl, restoreSearch } from "@/lib/api";
 import { fadeUp, spring } from "@/lib/motion";
 import type { Profile } from "@/lib/profile";
 
@@ -90,7 +90,10 @@ export function ProfileScreen() {
           <SegmentedControl label="Affichage du profil" segments={views} value={view} onChange={setView} />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={view} {...fadeUp} transition={spring.smooth}>
-              {view === "cv" ? <CvPreview stamp={stamp} /> : <ProfileView profile={profile} />}
+              {view === "cv" ? <CvPreview stamp={stamp} /> : <ProfileView
+                  profile={profile}
+                  onRestore={(id) => restoreSearch(id).then(setProfile).catch(setError)}
+                />}
             </motion.div>
           </AnimatePresence>
         </div>

@@ -33,6 +33,7 @@ class Criteria(BaseModel):
     match_mode: MatchMode = "domain"
     focus_skills: list[str] = []
     min_skills: int = 2
+    archived: bool = False
 
     @property
     def skills(self) -> list[str]:
@@ -79,6 +80,7 @@ class Offer(BaseModel):
     score: int
     matched: list[str]
     remote: Literal["remote", "hybrid"] | None
+    favorite: bool = False
 
 
 class OfferDetail(Offer):

@@ -1,4 +1,5 @@
 import {
+  ArchiveRestore,
   Award,
   BookOpen,
   Briefcase,
@@ -13,6 +14,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   contractLabels,
@@ -22,6 +24,7 @@ import {
   seniorityLabels,
   type Profile,
 } from "@/lib/profile";
+import { cn } from "@/lib/utils";
 
 const monthFormatter = new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric" });
 
@@ -32,7 +35,7 @@ export function formatMonth(value?: string | null) {
 }
 
 /** Lecture seule du profil, utilisée par l'écran Profil et le récapitulatif de l'assistant. */
-export function ProfileView({ profile }: { profile: Profile }) {
+export function ProfileView({ profile, onRestore }: { profile: Profile; onRestore?: (id: string) => void }) {
   const { identity } = profile;
   return (
     <div className="flex flex-col gap-4">
@@ -63,7 +66,18 @@ export function ProfileView({ profile }: { profile: Profile }) {
             const skills = search.focus_skills.length ? search.focus_skills : search.technologies;
             return (
               <div key={search.id || search.name} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
-                {profile.searches.length > 1 && <span className="text-sm font-semibold">{search.name}</span>}
+                {profile.searches.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className={cn("text-sm font-semibold", search.archived && "text-text-secondary")}>{search.name}</span>
+                    {search.archived && <Badge>Archivée</Badge>}
+                    {search.archived && onRestore && (
+                      <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRestore(search.id)}>
+                        <ArchiveRestore aria-hidden />
+                        Restaurer
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <Row label="Postes">{search.roles.join(", ")}</Row>
                 {search.technologies.length > 0 && <Row label="Technos">{search.technologies.join(", ")}</Row>}
                 <Row label="Offres">

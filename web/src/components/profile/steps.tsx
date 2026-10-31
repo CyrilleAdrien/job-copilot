@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Plus, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -15,8 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { spring } from "@/lib/motion";
 import {
   contractLabels,
+  addSearch,
   emptyExperience,
-  emptySearch,
   matchModeLabels,
   maxAgeLabels,
   remoteLabels,
@@ -38,6 +38,8 @@ export type StepProps = {
   profile: Profile;
   update: (recipe: (draft: Profile) => void) => void;
   errors: StepErrors;
+  /** Recherche à ouvrir d'emblée (étape Recherches). */
+  focus?: number;
 };
 
 const options = <T extends string | number>(labels: Record<T, string>) =>
@@ -113,8 +115,8 @@ export function IdentityStep({ profile, update, errors }: StepProps) {
   );
 }
 
-export function SearchStep({ profile, update, errors }: StepProps) {
-  const [selected, setSelected] = useState(0);
+export function SearchStep({ profile, update, errors, focus }: StepProps) {
+  const [selected, setSelected] = useState(focus ?? 0);
   const firstError = Object.keys(errors)[0];
 
   useEffect(() => {
@@ -127,8 +129,8 @@ export function SearchStep({ profile, update, errors }: StepProps) {
   const set = (recipe: (draft: SearchProfile) => void) => update((draft) => recipe(draft.searches[index]));
   const error = (field: string) => errors[`${index}.${field}`];
 
-  const add = () => {
-    update((draft) => void draft.searches.push(emptySearch(`Recherche ${draft.searches.length + 1}`)));
+  const add = (from?: number) => {
+    update((draft) => void addSearch(draft, from));
     setSelected(profile.searches.length);
   };
   const remove = () => {
@@ -161,14 +163,21 @@ export function SearchStep({ profile, update, errors }: StepProps) {
                   className="absolute inset-0 rounded-full border border-accent-strong/40 bg-accent-soft"
                 />
               )}
-              <span className="relative">{item.name.trim() || "Sans nom"}</span>
+              <span className={cn("relative", item.archived && "opacity-60")}>{item.name.trim() || "Sans nom"}</span>
+              {item.archived && <Archive className="relative ml-1.5 size-3.5 text-text-tertiary" aria-label="archivée" />}
             </button>
           ))}
           {profile.searches.length < 10 && (
-            <Button type="button" variant="ghost" size="sm" onClick={add}>
-              <Plus aria-hidden />
-              Ajouter une recherche
-            </Button>
+            <>
+              <Button type="button" variant="ghost" size="sm" onClick={() => add()}>
+                <Plus aria-hidden />
+                Nouvelle recherche
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => add(index)}>
+                <Copy aria-hidden />
+                Dupliquer « {search.name.trim() || "Sans nom"} »
+              </Button>
+            </>
           )}
         </div>
         <p className="text-xs text-text-tertiary">
@@ -195,10 +204,28 @@ export function SearchStep({ profile, update, errors }: StepProps) {
                 onChange={(event) => set((draft) => void (draft.name = event.target.value))}
               />
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mb-0.5"
+              disabled={!search.archived && profile.searches.filter((item) => !item.archived).length < 2}
+              title={search.archived ? undefined : "Masque cette recherche de l'écran Offres, sans la perdre"}
+              onClick={() => set((draft) => void (draft.archived = !draft.archived))}
+            >
+              {search.archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
+              {search.archived ? "Restaurer" : "Archiver"}
+            </Button>
             {profile.searches.length > 1 && (
               <RemoveButton label="Supprimer cette recherche" onClick={remove} />
             )}
           </div>
+          {search.archived && (
+            <p className="-mt-3 text-xs text-text-tertiary">
+              Archivée : elle n&apos;apparaît plus sur l&apos;écran Offres, mais ses réglages et ses favoris sont gardés.
+            </p>
+          )}
+          {error("archived") && <p className="-mt-3 text-xs text-danger">{error("archived")}</p>}
           <TagInput
             label="Postes recherchés"
             value={search.roles}

@@ -79,3 +79,37 @@ async def delete_profile(session: AsyncSession) -> bool:
     result = await session.execute(delete(ProfileRow).where(ProfileRow.id == PROFILE_ID))
     await session.commit()
     return result.rowcount > 0
+
+
+class SearchNotFound(LookupError):
+    pass
+
+
+class LastSearch(ValueError):
+    """Un profil garde toujours au moins une recherche active."""
+
+
+async def update_search(session: AsyncSession, search_id: str, *, archived: bool) -> Profile:
+    profile = await get_profile(session)
+    if profile is None or not any(search.id == search_id for search in profile.searches):
+        raise SearchNotFound
+    active = [
+        search for search in profile.searches if not search.archived and search.id != search_id
+    ]
+    if archived and not active:
+        raise LastSearch
+    for search in profile.searches:
+        if search.id == search_id:
+            search.archived = archived
+    return await save_profile(session, profile)
+
+
+async def delete_search(session: AsyncSession, search_id: str) -> Profile:
+    profile = await get_profile(session)
+    if profile is None or not any(search.id == search_id for search in profile.searches):
+        raise SearchNotFound
+    remaining = [search for search in profile.searches if search.id != search_id]
+    if not any(not search.archived for search in remaining):
+        raise LastSearch
+    profile.searches = remaining
+    return await save_profile(session, profile)
