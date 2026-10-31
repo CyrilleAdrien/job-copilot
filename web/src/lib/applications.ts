@@ -8,6 +8,7 @@ export const statusOrder: ApplicationStatus[] = [
   "draft",
   "sent",
   "followed_up",
+  "technical_test",
   "interview",
   "offer",
   "rejected",
@@ -113,6 +114,11 @@ export async function updateApplication(id: string, changes: ApplicationChanges)
       body: JSON.stringify(changes),
     }),
   );
+}
+
+/** Enregistre une relance (aussi pour une candidature déjà relancée). */
+export async function followUpApplication(id: string): Promise<Application> {
+  return json(await fetch(`${BASE}/${id}/follow-up`, { method: "POST" }));
 }
 
 export async function deleteApplication(id: string): Promise<void> {

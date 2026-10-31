@@ -3,7 +3,7 @@
 import { FileText, GripVertical, MoreHorizontal, Plus, Star } from "lucide-react";
 import Link from "next/link";
 import { LayoutGroup, motion } from "motion/react";
-import { useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 
 import { tones, toneBar, toneText } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,39 @@ import { applicationStatuses, type ApplicationStatus } from "@/lib/statuses";
 import { cn } from "@/lib/utils";
 
 const DRAG_TYPE = "application/x-jobcopilot-application";
+/** Zone près des bords où le Kanban défile pendant un glisser-déposer, et vitesse maximale. */
+const EDGE = 96;
+const MAX_SPEED = 22;
+
+/**
+ * Image de glissement : une copie de la carte hors écran, sans les transformations d'animation.
+ * Sans elle, Chrome capture la couche animée entière (toute la colonne, en transparence).
+ */
+function setCardDragImage(event: DragEvent, card: HTMLElement | null) {
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const ghost = card.cloneNode(true) as HTMLElement;
+  Object.assign(ghost.style, {
+    position: "fixed",
+    top: "-10000px",
+    left: "-10000px",
+    width: `${rect.width}px`,
+    transform: "none",
+    opacity: "1",
+    pointerEvents: "none",
+    boxShadow: "0 12px 32px -12px rgb(0 0 0 / 0.35)",
+  });
+  document.body.appendChild(ghost);
+  event.dataTransfer.setDragImage(ghost, event.clientX - rect.left, event.clientY - rect.top);
+  window.setTimeout(() => ghost.remove(), 0);
+}
+
+/** Vitesse de défilement selon la distance au bord : nulle au centre, maximale contre le bord. */
+export function edgeSpeed(x: number, left: number, right: number) {
+  if (x < left + EDGE) return -Math.ceil(MAX_SPEED * Math.min(1, (left + EDGE - x) / EDGE));
+  if (x > right - EDGE) return Math.ceil(MAX_SPEED * Math.min(1, (x - (right - EDGE)) / EDGE));
+  return 0;
+}
 
 /**
  * Colonnes par statut. Une carte se déplace par glisser-déposer, ou par son menu au clavier ;
@@ -41,9 +74,44 @@ export function Kanban({
 }) {
   const groups = byStatus(items);
   const [over, setOver] = useState<ApplicationStatus | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const speed = useRef(0);
+  const frame = useRef<number | null>(null);
+
+  // Défilement horizontal automatique quand une carte approche du bord : on peut la porter d'une extrémité à l'autre.
+  function autoScroll(event: DragEvent) {
+    const node = scroller.current;
+    if (!node || !event.dataTransfer.types.includes(DRAG_TYPE)) return;
+    const rect = node.getBoundingClientRect();
+    speed.current = edgeSpeed(event.clientX, rect.left, rect.right);
+    if (speed.current !== 0 && frame.current === null) {
+      const step = () => {
+        if (speed.current === 0 || !scroller.current) {
+          frame.current = null;
+          return;
+        }
+        scroller.current.scrollLeft += speed.current;
+        frame.current = requestAnimationFrame(step);
+      };
+      frame.current = requestAnimationFrame(step);
+    }
+  }
+  function stopScroll() {
+    speed.current = 0;
+  }
+  useEffect(() => {
+    window.addEventListener("dragend", stopScroll);
+    window.addEventListener("drop", stopScroll);
+    return () => {
+      window.removeEventListener("dragend", stopScroll);
+      window.removeEventListener("drop", stopScroll);
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    };
+  }, []);
 
   function drop(event: DragEvent, status: ApplicationStatus) {
     event.preventDefault();
+    stopScroll();
     setOver(null);
     const id = event.dataTransfer.getData(DRAG_TYPE);
     if (id) onMove(id, status);
@@ -51,7 +119,16 @@ export function Kanban({
 
   return (
     <LayoutGroup>
-      <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-4" role="list" aria-label="Candidatures par statut">
+      <div
+        ref={scroller}
+        onDragOver={autoScroll}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) stopScroll();
+        }}
+        className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-4"
+        role="list"
+        aria-label="Candidatures par statut"
+      >
         {columns.map((status) => {
           const { label, icon: Icon, tone } = applicationStatuses[status];
           const column = groups[status];
@@ -118,9 +195,11 @@ function KanbanCard({
   onMove: (id: string, status: ApplicationStatus) => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const card = useRef<HTMLElement>(null);
   const { tone } = applicationStatuses[item.status];
   return (
     <motion.article
+      ref={card}
       layout
       layoutId={`application-${item.id}`}
       transition={spring.smooth}
@@ -135,6 +214,7 @@ function KanbanCard({
         onDragStart={(event) => {
           event.dataTransfer.setData(DRAG_TYPE, item.id);
           event.dataTransfer.effectAllowed = "move";
+          setCardDragImage(event, card.current);
           setDragging(true);
         }}
         onDragEnd={() => setDragging(false)}
