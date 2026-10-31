@@ -13,6 +13,19 @@ export type FollowUp = {
   days: number;
 };
 
+export type SearchOutcome = {
+  /** null : candidatures ajoutées à la main. */
+  search_id: string | null;
+  sent: number;
+  responded: number;
+  technical_tests: number;
+  interviews: number;
+  offers: number;
+  rejected: number;
+  response_rate: number | null;
+  progress_rate: number | null;
+};
+
 export type Stats = {
   total: number;
   sent: number;
@@ -23,6 +36,9 @@ export type Stats = {
   weekly: WeekCount[];
   follow_ups: FollowUp[];
   follow_up_days: number;
+  by_search: SearchOutcome[];
+  best_search: string | null;
+  min_sample: number;
   computed_at: string;
 };
 
@@ -51,4 +67,21 @@ export function ticks(max: number, count = 4): number[] {
 
 export function percent(rate: number | null) {
   return rate === null ? null : Math.round(rate * 100);
+}
+
+/** Phrase de synthèse : quel profil visé obtient le plus de tests ou d'entretiens. */
+export function bestSearchSummary(stats: Pick<Stats, "by_search" | "best_search" | "min_sample">, names: Record<string, string>) {
+  const name = (id: string | null) => (id === null ? "Ajoutées à la main" : (names[id] ?? id));
+  const ranked = stats.by_search.filter((o) => o.search_id !== null);
+  if (stats.best_search === null) {
+    return ranked.some((o) => o.sent >= stats.min_sample)
+      ? "Aucune recherche n'a encore mené à un test technique ou un entretien."
+      : `Il faut au moins ${stats.min_sample} candidatures envoyées par recherche pour comparer.`;
+  }
+  const best = ranked.find((o) => o.search_id === stats.best_search)!;
+  const others = ranked.filter((o) => o.search_id !== stats.best_search && o.sent >= stats.min_sample);
+  const head = `${name(best.search_id)} obtient le plus de retours positifs : ${percent(best.progress_rate)} % de tests techniques ou d'entretiens`;
+  if (others.length === 0) return `${head}.`;
+  const next = others[0];
+  return `${head}, contre ${percent(next.progress_rate)} % pour ${name(next.search_id)}.`;
 }

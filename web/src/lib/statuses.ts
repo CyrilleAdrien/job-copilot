@@ -2,6 +2,7 @@ import {
   CalendarCheck,
   CircleDashed,
   CircleSlash,
+  ClipboardCheck,
   Medal,
   Repeat,
   Send,
@@ -13,6 +14,7 @@ export type ApplicationStatus =
   | "draft"
   | "sent"
   | "followed_up"
+  | "technical_test"
   | "interview"
   | "offer"
   | "rejected"
@@ -27,6 +29,7 @@ export const applicationStatuses: Record<
   draft: { label: "À envoyer", tone: "neutral", icon: CircleDashed },
   sent: { label: "Envoyée", tone: "accent", icon: Send },
   followed_up: { label: "Relancée", tone: "warning", icon: Repeat },
+  technical_test: { label: "Test technique", tone: "ai", icon: ClipboardCheck },
   interview: { label: "Entretien", tone: "ai", icon: CalendarCheck },
   offer: { label: "Offre", tone: "success", icon: Medal },
   rejected: { label: "Refus", tone: "danger", icon: XCircle },

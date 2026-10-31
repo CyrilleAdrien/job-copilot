@@ -47,7 +47,7 @@ Flèche pleine : appel HTTP synchrone. Pointillés : événement Redis Streams.
 | Offres, score, favoris par recherche | jobs | web (Offres, fiche d'offre, Candidatures : favoris sans candidature), documents, applications |
 | CV et lettres générés (versions, PDF) | documents | applications (dernier CV et dernière lettre), web (fiche d'offre, fiche de candidature) |
 | Candidatures, statuts, historique | applications | web (Candidatures, badge de statut sur Offres, panneau Candidature de la fiche d'offre), mail et calendar à venir |
-| Statistiques du tableau de bord (`GET /stats`) | applications, calculées depuis les candidatures et leur historique, en cache Redis 15 min | web (Tableau de bord) |
+| Statistiques du tableau de bord (`GET /stats`), dont les retours par recherche | applications, calculées depuis les candidatures et leur historique, en cache Redis 15 min | web (Tableau de bord ; noms des recherches lus dans profile) |
 
 ## Arbre des fonctionnalités
 
@@ -72,6 +72,9 @@ flowchart TD
   AF -->|Envoyée| C
   C -->|statuts et historique| TB[Tableau de bord]
   TB -->|Relancée| C
+  R -->|search_id de la candidature| PR[Profil qui fonctionne le mieux]
+  C -->|historique : test, entretien, offre, refus| PR
+  PR --> TB
 ```
 
 ## Ce qu'il faut revérifier après un changement
@@ -86,4 +89,6 @@ flowchart TD
 | Le calcul des statistiques | tableau de bord, et chaque écriture du service applications doit vider le cache (`stats.invalidate`) |
 | La suppression d'une candidature | le favori réapparaît dans « À envoyer », le badge disparaît d'Offres, chiffres du tableau de bord |
 | Une génération de documents | fiche d'offre, fiche de candidature (CV et lettre joints), candidature créée « À envoyer » si l'offre n'en avait pas, entrée dans « À finaliser », badge sur Offres, favori retiré des favoris en attente |
+| La liste des statuts | `Status` et `STATUSES` (schemas.py), `RESPONSES` et `PROGRESS` (stats.py), `lib/statuses.ts` et `statusOrder` (web) : colonnes du Kanban, filtres, tableau de bord |
+| Une recherche renommée | noms affichés dans l'analyse par profil et dans le filtre « Recherche d'origine » (l'identifiant ne change pas) |
 | Le schéma d'un service | migration Alembic, schémas Pydantic, types TypeScript dans `web/src/lib/` |

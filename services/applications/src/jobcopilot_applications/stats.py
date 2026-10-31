@@ -1,8 +1,11 @@
 """Statistiques du tableau de bord, calculées à partir des candidatures et de leur historique.
 
-- Réponse : passage à Entretien, Offre ou Refus après l'envoi (quelle que soit la source).
+- Réponse : passage à Test technique, Entretien, Offre ou Refus après l'envoi (toute source).
 - Délai de réponse : de la date d'envoi à la première réponse.
 - Relance à faire : candidature Envoyée ou Relancée sans changement depuis FOLLOW_UP_DAYS jours.
+- Par recherche : retours obtenus (test technique, entretien, offre, refus) d'après l'historique,
+  pour voir quel profil visé fonctionne le mieux. Une recherche n'est classée qu'à partir de
+  MIN_SAMPLE candidatures envoyées.
 """
 
 import json
@@ -13,9 +16,17 @@ from datetime import UTC, datetime, timedelta
 from redis.asyncio import Redis
 
 from jobcopilot_applications.models import ApplicationRow
-from jobcopilot_applications.schemas import STATUSES, FollowUp, Stats, WeekCount
+from jobcopilot_applications.schemas import (
+    STATUSES,
+    FollowUp,
+    SearchOutcome,
+    Stats,
+    WeekCount,
+)
 
-RESPONSES = {"interview", "offer", "rejected"}
+RESPONSES = {"technical_test", "interview", "offer", "rejected"}
+PROGRESS = {"technical_test", "interview", "offer"}
+MIN_SAMPLE = 3
 WAITING = {"sent", "followed_up"}
 FOLLOW_UP_DAYS = 7
 WEEKS = 12
@@ -28,6 +39,43 @@ log = logging.getLogger(__name__)
 def week_start(moment: datetime) -> datetime:
     day = moment.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     return day - timedelta(days=day.weekday())
+
+
+def rate(part: int, whole: int) -> float | None:
+    return round(part / whole, 3) if whole else None
+
+
+def outcomes(rows: list[ApplicationRow]) -> list[SearchOutcome]:
+    groups: dict[str | None, list[ApplicationRow]] = {}
+    for row in rows:
+        if row.applied_at is not None:
+            groups.setdefault(row.search_id, []).append(row)
+    result = []
+    for search_id, group in groups.items():
+        reached = [{e.to_status for e in row.events} | {row.status} for row in group]
+        responded = sum(bool(statuses & RESPONSES) for statuses in reached)
+        progressed = sum(bool(statuses & PROGRESS) for statuses in reached)
+        result.append(
+            SearchOutcome(
+                search_id=search_id,
+                sent=len(group),
+                responded=responded,
+                technical_tests=sum("technical_test" in s for s in reached),
+                interviews=sum("interview" in s for s in reached),
+                offers=sum("offer" in s for s in reached),
+                rejected=sum("rejected" in s for s in reached),
+                response_rate=rate(responded, len(group)),
+                progress_rate=rate(progressed, len(group)),
+            )
+        )
+    result.sort(key=lambda o: (-(o.progress_rate or 0), -(o.response_rate or 0), -o.sent))
+    return result
+
+
+def best(by_search: list[SearchOutcome]) -> str | None:
+    """La recherche (hors ajouts manuels) qui mène le plus souvent à un test ou un entretien."""
+    ranked = [o for o in by_search if o.search_id is not None and o.sent >= MIN_SAMPLE]
+    return ranked[0].search_id if ranked and ranked[0].progress_rate else None
 
 
 def compute_stats(rows: list[ApplicationRow], now: datetime | None = None) -> Stats:
@@ -72,6 +120,7 @@ def compute_stats(rows: list[ApplicationRow], now: datetime | None = None) -> St
             )
     follow_ups.sort(key=lambda item: item.since)
 
+    by_search = outcomes(rows)
     return Stats(
         total=len(rows),
         sent=len(sent),
@@ -82,6 +131,9 @@ def compute_stats(rows: list[ApplicationRow], now: datetime | None = None) -> St
         weekly=weekly,
         follow_ups=follow_ups,
         follow_up_days=FOLLOW_UP_DAYS,
+        by_search=by_search,
+        best_search=best(by_search),
+        min_sample=MIN_SAMPLE,
         computed_at=now,
     )
 

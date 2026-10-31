@@ -151,3 +151,22 @@ describe("dashboard helpers", () => {
     expect(percent(null)).toBeNull();
   });
 });
+
+describe("bestSearchSummary", () => {
+  it("names the best search and compares it with the next one", async () => {
+    const { bestSearchSummary } = await import("@/lib/dashboard");
+    const row = (search_id: string | null, sent: number, progress_rate: number | null) => ({
+      search_id, sent, progress_rate, responded: 0, technical_tests: 0, interviews: 0, offers: 0, rejected: 0, response_rate: 0,
+    });
+    const names = { devops: "DevOps", data: "Data Engineer" };
+    expect(
+      bestSearchSummary({ by_search: [row("devops", 5, 0.4), row(null, 4, 0.5), row("data", 4, 0.1)], best_search: "devops", min_sample: 3 }, names),
+    ).toBe("DevOps obtient le plus de retours positifs : 40 % de tests techniques ou d'entretiens, contre 10 % pour Data Engineer.");
+    expect(bestSearchSummary({ by_search: [row("devops", 2, 0.5)], best_search: null, min_sample: 3 }, names)).toBe(
+      "Il faut au moins 3 candidatures envoyées par recherche pour comparer.",
+    );
+    expect(bestSearchSummary({ by_search: [row("data", 3, 0)], best_search: null, min_sample: 3 }, names)).toBe(
+      "Aucune recherche n'a encore mené à un test technique ou un entretien.",
+    );
+  });
+});

@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchProfile } from "@/lib/api";
 import { ApiError, followUpApplication, mailtoUrl, statusOrder } from "@/lib/applications";
+import { SearchOutcomes } from "@/components/dashboard/search-outcomes";
 import { fetchStats, percent, type FollowUp, type Stats } from "@/lib/dashboard";
 import { fadeUp, spring } from "@/lib/motion";
 import { applicationStatuses } from "@/lib/statuses";
@@ -29,6 +30,7 @@ export function DashboardScreen() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [signature, setSignature] = useState("");
+  const [searchNames, setSearchNames] = useState<Record<string, string>>({});
   const [allFollowUps, setAllFollowUps] = useState(false);
 
   const load = useCallback(() => {
@@ -40,7 +42,10 @@ export function DashboardScreen() {
   useEffect(() => {
     load();
     fetchProfile()
-      .then((profile) => setSignature(profile?.identity.full_name ?? ""))
+      .then((profile) => {
+        setSignature(profile?.identity.full_name ?? "");
+        setSearchNames(Object.fromEntries((profile?.searches ?? []).map((search) => [search.id, search.name])));
+      })
       .catch(() => undefined);
   }, [load]);
 
@@ -109,8 +114,12 @@ export function DashboardScreen() {
               detail="De l'envoi à la première réponse"
             />
             <Tile
-              label="Entretiens et offres"
-              value={<AnimatedNumber value={stats.by_status.interview + stats.by_status.offer} />}
+              label="Tests, entretiens et offres"
+              value={
+                <AnimatedNumber
+                  value={stats.by_status.technical_test + stats.by_status.interview + stats.by_status.offer}
+                />
+              }
               detail={`${stats.by_status.offer} offre${stats.by_status.offer > 1 ? "s" : ""} reçue${stats.by_status.offer > 1 ? "s" : ""}`}
             />
           </div>
@@ -157,6 +166,8 @@ export function DashboardScreen() {
               </CardContent>
             </Card>
           </div>
+
+          <SearchOutcomes stats={stats} names={searchNames} />
 
           <Card>
             <CardHeader className="flex-row items-start justify-between gap-4">

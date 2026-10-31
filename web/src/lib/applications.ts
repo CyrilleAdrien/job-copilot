@@ -8,6 +8,7 @@ export const statusOrder: ApplicationStatus[] = [
   "draft",
   "sent",
   "followed_up",
+  "technical_test",
   "interview",
   "offer",
   "rejected",
