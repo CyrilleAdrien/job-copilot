@@ -13,6 +13,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { JobCardSkeleton } from "@/components/ui/skeleton";
 import { fetchProfile } from "@/lib/api";
+import { createApplication, fetchApplications } from "@/lib/applications";
+import type { ApplicationStatus } from "@/lib/statuses";
 import {
   ApiError,
   fetchOffers,
@@ -45,6 +47,7 @@ export function OffersScreen() {
   const [noProfile, setNoProfile] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [page, setPage] = useState(0);
+  const [applications, setApplications] = useState<Record<number, ApplicationStatus>>({});
   const [view, setView] = useState<"all" | "favorites">("all");
   const [now, setNow] = useState(() => new Date());
   const latest = useRef(0);
@@ -96,6 +99,26 @@ export function OffersScreen() {
         .catch(fail),
     [sync, fail],
   );
+
+  // Statut de candidature de chaque offre, affiché sur sa carte.
+  useEffect(() => {
+    fetchApplications()
+      .then((items) =>
+        setApplications(
+          Object.fromEntries(items.filter((item) => item.offer_id !== null).map((item) => [item.offer_id, item.status])),
+        ),
+      )
+      .catch(() => undefined);
+  }, []);
+
+  async function createFromFavorite(offerId: number) {
+    try {
+      const created = await createApplication({ offer_id: offerId, search });
+      setApplications((current) => ({ ...current, [offerId]: created.status }));
+    } catch (e) {
+      fail(e as ApiError);
+    }
+  }
 
   useEffect(() => {
     fetchProfile()
@@ -370,6 +393,8 @@ export function OffersScreen() {
                   now={now}
                   search={search}
                   onFavorite={(item, favorite) => toggleFavorite(item.id, favorite)}
+                  application={applications[offer.id]}
+                  onCreateApplication={(item) => createFromFavorite(item.id)}
                 />
               </motion.li>
             ))}

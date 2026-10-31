@@ -19,17 +19,17 @@ export type NavItem = {
 };
 
 export const mainNav: NavItem[] = [
-  { href: "/", label: "Tableau de bord", icon: LayoutDashboard, step: 7 },
+  { href: "/", label: "Tableau de bord", icon: LayoutDashboard, step: 8 },
   { href: "/offres", label: "Offres", icon: BriefcaseBusiness },
-  { href: "/candidatures", label: "Candidatures", icon: FileStack, step: 6 },
-  { href: "/calendrier", label: "Calendrier", icon: CalendarDays, step: 9 },
-  { href: "/boite-de-reception", label: "Boîte de réception", icon: Inbox, step: 8 },
+  { href: "/candidatures", label: "Candidatures", icon: FileStack },
+  { href: "/calendrier", label: "Calendrier", icon: CalendarDays, step: 10 },
+  { href: "/boite-de-reception", label: "Boîte de réception", icon: Inbox, step: 9 },
 ];
 
 export const secondaryNav: NavItem[] = [
   { href: "/profil", label: "Profil", icon: UserRound },
   { href: "/design", label: "Design system", icon: Palette },
-  { href: "/reglages", label: "Réglages", icon: Settings, step: 10 },
+  { href: "/reglages", label: "Réglages", icon: Settings, step: 11 },
 ];
 
 export const allNav = [...mainNav, ...secondaryNav];

@@ -1,12 +1,12 @@
 "use client";
 
-import { Banknote, ChevronDown, ExternalLink, House, MapPin, Sparkles, Star } from "lucide-react";
+import { Banknote, ChevronDown, ExternalLink, FilePlus2, House, MapPin, Sparkles, Star } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { ScoreRing } from "@/components/jobs/score-ring";
-import { Badge } from "@/components/ui/badge";
+import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -19,6 +19,7 @@ import {
   type OfferDetail,
 } from "@/lib/jobs";
 import { spring } from "@/lib/motion";
+import type { ApplicationStatus } from "@/lib/statuses";
 import { cn } from "@/lib/utils";
 
 const MAX_TECHS = 4;
@@ -28,12 +29,19 @@ export function JobCard({
   now,
   search,
   onFavorite,
+  application,
+  onCreateApplication,
 }: {
   offer: Offer;
   now: Date;
   search?: string;
   onFavorite?: (offer: Offer, favorite: boolean) => void;
+  /** Statut de la candidature déjà créée pour cette offre. */
+  application?: ApplicationStatus;
+  /** Crée la candidature « À envoyer » sans quitter la liste (proposé sur les favoris). */
+  onCreateApplication?: (offer: Offer) => Promise<void>;
 }) {
+  const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<OfferDetail | null>(null);
   const [failed, setFailed] = useState(false);
@@ -73,11 +81,12 @@ export function JobCard({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-[15px] font-semibold tracking-tight">{offer.title}</h3>
-            {fresh && (
+            {fresh && !application && (
               <span className="shrink-0 rounded-full bg-accent-soft px-1.5 text-[11px] font-medium leading-5 text-accent-strong">
                 Nouveau
               </span>
             )}
+            {application && <StatusBadge status={application} />}
           </div>
           <p className="flex min-w-0 items-center gap-1.5 text-sm text-text-secondary">
             <span className="truncate">{offer.company ?? "Entreprise non précisée"}</span>
@@ -153,6 +162,21 @@ export function JobCard({
               />
             </button>
           </div>
+          {offer.favorite && !application && onCreateApplication && (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={creating}
+              title="Ajoute l'offre à tes candidatures, au statut « À envoyer »"
+              onClick={() => {
+                setCreating(true);
+                onCreateApplication(offer).finally(() => setCreating(false));
+              }}
+            >
+              <FilePlus2 aria-hidden />
+              Créer la candidature
+            </Button>
+          )}
         </div>
       </div>
 

@@ -735,11 +735,15 @@ name = "jobcopilot-applications"
 version = "0.1.0"
 source = { editable = "services/applications" }
 dependencies = [
+    { name = "alembic" },
     { name = "jobcopilot-common" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "jobcopilot-common", editable = "libs/common" }]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.14" },
+    { name = "jobcopilot-common", editable = "libs/common" },
+]
 
 [[package]]
 name = "jobcopilot-calendar"

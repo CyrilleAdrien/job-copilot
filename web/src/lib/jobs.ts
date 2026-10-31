@@ -99,7 +99,7 @@ export function isFresh(iso: string, now: Date = new Date()): boolean {
 }
 
 /** Offres par page sur l'écran Offres. */
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 10;
 
 export async function fetchOffers(
   sort: SortOrder,
@@ -119,6 +119,14 @@ export async function fetchOffers(
   const response = await fetch(`/api/jobs/offers?${params}`, { cache: "no-store" });
   if (!response.ok) throw await parseError(response);
   return response.json();
+}
+
+/** Tous les favoris d'une recherche (jusqu'à 200), pour l'écran Candidatures. */
+export async function fetchFavorites(search: string): Promise<Offer[]> {
+  const params = new URLSearchParams({ sort: "date", favorites: "true", limit: "200", search });
+  const response = await fetch(`/api/jobs/offers?${params}`, { cache: "no-store" });
+  if (!response.ok) throw await parseError(response);
+  return ((await response.json()) as OfferList).items;
 }
 
 export async function fetchOffer(id: number, search?: string): Promise<OfferDetail> {
