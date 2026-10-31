@@ -96,7 +96,7 @@ export function ApplicationsScreen() {
         actions={
           <Button variant="secondary" onClick={() => setAdding((value) => !value)}>
             <Plus aria-hidden />
-            Ajouter
+            Ajouter une candidature
           </Button>
         }
       />
@@ -127,9 +127,15 @@ export function ApplicationsScreen() {
           title="Aucune candidature pour l'instant"
           description="Ouvre une offre et clique sur « Postuler » : la fiche est créée avec ton CV et ta lettre. Tu peux aussi en ajouter une à la main."
           action={
-            <Button asChild>
-              <Link href="/offres">Voir les offres</Link>
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button asChild>
+                <Link href="/offres">Voir les offres</Link>
+              </Button>
+              <Button variant="secondary" onClick={() => setAdding(true)}>
+                <Plus aria-hidden />
+                Ajouter une candidature
+              </Button>
+            </div>
           }
         />
       ) : (

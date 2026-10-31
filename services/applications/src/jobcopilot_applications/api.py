@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from jobcopilot_applications import events
 from jobcopilot_applications.deps import Cache, Http, Session
@@ -105,7 +106,18 @@ async def create_application(
     row.events = [StatusEventRow(from_status=None, to_status="draft", source="manual")]
     change_status(row, payload.status, "manual")
     session.add(row)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Deux clics simultanés sur « Postuler » : la seconde requête renvoie la fiche créée.
+        await session.rollback()
+        existing = await session.scalar(
+            select(ApplicationRow).where(ApplicationRow.offer_id == payload.offer_id)
+        )
+        if existing is None:
+            raise
+        response.status_code = status.HTTP_200_OK
+        return existing
     await session.refresh(row)
     await events.publish(
         cache,

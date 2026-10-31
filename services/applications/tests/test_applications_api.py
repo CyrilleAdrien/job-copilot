@@ -172,3 +172,13 @@ async def test_consumer_reads_document_generated(client):
     assert bus.acked == ["1-0"]
     body = (await client.get(f"/applications/{created['id']}")).json()
     assert body["letter_document_id"] == str(new_letter)
+
+
+async def test_two_simultaneous_clicks_create_one_application(client):
+    first, second = await asyncio.gather(
+        client.post("/applications", json={"offer_id": 7}),
+        client.post("/applications", json={"offer_id": 7}),
+    )
+    assert sorted([first.status_code, second.status_code]) == [200, 201]
+    assert first.json()["id"] == second.json()["id"]
+    assert len((await client.get("/applications")).json()) == 1
