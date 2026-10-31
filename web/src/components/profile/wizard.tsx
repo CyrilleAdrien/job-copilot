@@ -64,14 +64,19 @@ export function ProfileWizard() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // ?recherche=nouvelle ou ?recherche=<id> : ouvre l'étape Recherches sur une nouvelle recherche,
-    // vide ou copiée de celle indiquée (bouton « + » de l'écran Offres).
-    const wanted = new URLSearchParams(window.location.search).get("recherche");
+    // Liens de la page Profil : ?recherche=nouvelle ou ?recherche=<id> ouvrent l'étape Recherches
+    // sur une nouvelle recherche, vide ou copiée de celle indiquée ; ?modifier=<id> sur une existante.
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get("recherche");
+    const edited = params.get("modifier");
     fetchProfile()
       .then((existing) => {
         const loaded = existing ?? emptyProfile();
         if (existing && wanted) {
           setFocus(addSearch(loaded, wanted === "nouvelle" ? undefined : wanted));
+          setCurrent(steps.findIndex((step) => step.id === "search"));
+        } else if (existing && edited) {
+          setFocus(Math.max(0, existing.searches.findIndex((search) => search.id === edited)));
           setCurrent(steps.findIndex((step) => step.id === "search"));
         }
         setProfile(loaded);

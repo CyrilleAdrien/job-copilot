@@ -88,3 +88,20 @@ def test_generic_title_words_do_not_match_another_job():
 def test_shared_technologies_alone_do_not_make_an_offer_on_topic():
     match = score_offer(CRITERIA, "Data Analyst", "Python, AWS et Terraform.", "cdi")
     assert match.matched and not match.on_topic
+
+
+def test_offers_above_the_wanted_level_are_set_aside():
+    def senior(title: str, description: str = "", seniority: str = "graduate") -> bool:
+        criteria = CRITERIA.model_copy(update={"seniority": seniority})
+        return score_offer(criteria, title, description, "cdi").too_senior
+
+    assert senior("Ingénieur DevOps senior")
+    assert senior("Lead DevOps")
+    assert senior("Ingénieur DevOps", "Vous justifiez de 5 ans d'expérience minimum.")
+    assert senior("DevOps Engineer", "7+ years of experience with Kubernetes.")
+    assert not senior("Ingénieur DevOps junior")
+    assert not senior("Ingénieur DevOps", "Une première expérience de 1 an en alternance.")
+    assert not senior("Ingénieur DevOps", "Kubernetes, Terraform.")
+    # « confirmé » vise un profil intermédiaire, pas un senior.
+    assert not senior("Ingénieur DevOps confirmé", seniority="mid")
+    assert not senior("Ingénieur DevOps senior", seniority="senior")

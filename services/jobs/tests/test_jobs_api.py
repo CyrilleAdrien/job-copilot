@@ -267,3 +267,11 @@ async def test_first_active_search_is_the_default(client):
     )
     assert (await client.get("/offers")).json()["search"] == "new"
     assert (await client.get("/offers", params={"search": "old"})).json()["search"] == "old"
+
+
+async def test_offers_above_the_wanted_level_are_hidden_and_counted(client, sources):
+    sources[0].offers.append(offer("first", "s", "Ingénieur DevOps senior", 3, company="Orage"))
+    await client.post("/refresh")
+    body = (await client.get("/offers")).json()
+    assert "s" not in [item["url"][-1] for item in body["items"]]
+    assert body["hidden_level"] == 1

@@ -30,6 +30,8 @@ export type OfferList = {
   search: string;
   /** Offres du métier écartées parce qu'elles citent trop peu des compétences choisies. */
   hidden: number;
+  /** Offres écartées car d'un niveau au-dessus du niveau visé. */
+  hidden_level: number;
   sort: SortOrder;
   max_age_days: Window;
   refreshed_at: string | null;

@@ -10,18 +10,20 @@ import { CvPreview } from "@/components/profile/cv-preview";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { ImportButton } from "@/components/profile/import-button";
 import { ProfileView } from "@/components/profile/profile-view";
+import { SearchManager } from "@/components/profile/search-manager";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Menu } from "@/components/ui/menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError, fetchProfile, profileExportUrl, restoreSearch } from "@/lib/api";
+import { ApiError, fetchProfile, profileExportUrl } from "@/lib/api";
 import { fadeUp, spring } from "@/lib/motion";
 import type { Profile } from "@/lib/profile";
 
-type View = "cv" | "details";
+type View = "cv" | "searches" | "details";
 const views: { value: View; label: string }[] = [
   { value: "cv", label: "CV" },
+  { value: "searches", label: "Recherches" },
   { value: "details", label: "Détails" },
 ];
 
@@ -112,10 +114,13 @@ export function ProfileScreen() {
           <SegmentedControl label="Affichage du profil" segments={views} value={view} onChange={setView} />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={view} {...fadeUp} transition={spring.smooth}>
-              {view === "cv" ? <CvPreview stamp={stamp} /> : <ProfileView
-                  profile={profile}
-                  onRestore={(id) => restoreSearch(id).then(setProfile).catch(setError)}
-                />}
+              {view === "cv" ? (
+                <CvPreview stamp={stamp} />
+              ) : view === "searches" ? (
+                <SearchManager profile={profile} onChange={setProfile} onError={setError} />
+              ) : (
+                <ProfileView profile={profile} />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>

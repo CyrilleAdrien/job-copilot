@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 Seniority = Literal["graduate", "mid", "senior", "lead"]
 Contract = Literal["cdi", "cdd", "freelance", "alternance", "stage", "interim"]
@@ -92,6 +92,7 @@ class OfferList(BaseModel):
     total: int
     search: str
     hidden: int = 0
+    hidden_level: int = Field(0, description="Offres écartées : niveau au-dessus du niveau visé")
     sort: Sort
     max_age_days: int
     refreshed_at: datetime | None

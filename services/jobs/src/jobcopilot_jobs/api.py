@@ -57,7 +57,9 @@ def to_offer(
     profil de recherche, reste lisible.
     """
     match = score_offer(criteria, row.title, row.description, row.contract)
-    if strict and (match.excluded or not match.on_topic or not match.enough_skills):
+    if strict and (
+        match.excluded or not match.on_topic or not match.enough_skills or match.too_senior
+    ):
         return None
     fields = {
         "id": row.id,
@@ -100,19 +102,20 @@ async def list_offers(
         offers = [
             offer for row in rows if (offer := to_offer(row, criteria, strict=False, favorite=True))
         ]
-        below_threshold = 0
+        below_threshold = above_level = 0
     else:
         rows = await repository.offers_since(session, datetime.now(UTC) - timedelta(days=days))
         offers = [
             offer for row in rows if (offer := to_offer(row, criteria, favorite=row.id in starred))
         ]
-        below_threshold = sum(
-            1
+        relevant = [
+            match
             for row in rows
             if (match := score_offer(criteria, row.title, row.description, row.contract)).on_topic
             and not match.excluded
-            and not match.enough_skills
-        )
+        ]
+        below_threshold = sum(1 for match in relevant if not match.enough_skills)
+        above_level = sum(1 for match in relevant if match.enough_skills and match.too_senior)
     if sort == "date":
         offers.sort(key=lambda offer: (offer.published_at, offer.score), reverse=True)
     else:
@@ -123,6 +126,7 @@ async def list_offers(
         total=len(offers),
         search=criteria.id,
         hidden=below_threshold,
+        hidden_level=above_level,
         sort=sort,
         max_age_days=days,
         refreshed_at=datetime.fromisoformat(refreshed_at) if refreshed_at else None,

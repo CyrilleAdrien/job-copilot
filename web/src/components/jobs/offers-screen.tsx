@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Copy, Filter, KeyRound, Plus, RefreshCw, SearchX, Star, Trash2, UserRound } from "lucide-react";
+import { Filter, KeyRound, RefreshCw, SearchX, Star, UserRound } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,10 +10,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Menu } from "@/components/ui/menu";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { JobCardSkeleton } from "@/components/ui/skeleton";
-import { archiveSearch, deleteSearch, fetchProfile } from "@/lib/api";
+import { fetchProfile } from "@/lib/api";
 import {
   ApiError,
   fetchOffers,
@@ -29,7 +28,7 @@ import {
   type Window,
 } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
-import type { Profile, SearchProfile } from "@/lib/profile";
+import { seniorityLabels, type SearchProfile } from "@/lib/profile";
 import { pickSearch, storeSearch, storedSearch } from "@/lib/search-choice";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +43,6 @@ export function OffersScreen() {
   const [noProfile, setNoProfile] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [view, setView] = useState<"all" | "favorites">("all");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const latest = useRef(0);
 
@@ -114,7 +112,6 @@ export function OffersScreen() {
   function changeSearch(searchId: string) {
     setSearch(searchId);
     setView("all");
-    setConfirmDelete(false);
     storeSearch(searchId);
     setList(null);
     setRefresh(null);
@@ -155,28 +152,6 @@ export function OffersScreen() {
     });
   }
 
-  /** Après archivage ou suppression : garde les recherches actives et ouvre la suivante. */
-  function afterSearchChange(profile: Profile) {
-    const active = profile.searches.filter((item) => !item.archived);
-    setSearches(active);
-    setConfirmDelete(false);
-    if (active.length > 0) changeSearch(active[0].id);
-  }
-
-  function archiveCurrent() {
-    if (!search) return;
-    setError(null);
-    archiveSearch(search).then(afterSearchChange).catch(fail);
-  }
-
-  function deleteCurrent() {
-    if (!search) return;
-    setError(null);
-    deleteSearch(search).then(afterSearchChange).catch((e) => {
-      setConfirmDelete(false);
-      fail(e as ApiError);
-    });
-  }
 
   function changeWindow(window: Window) {
     setDays(window);
@@ -224,75 +199,17 @@ export function OffersScreen() {
         }
       />
 
-      {searches.length > 0 && (
+      {searches.length > 1 && (
         <div className="flex flex-wrap items-center gap-2 pb-3">
-          {searches.length > 1 && (
-            <SegmentedControl
-              label="Recherche"
-              segments={searches.map((item) => ({ value: item.id, label: item.name }))}
-              value={search ?? searches[0].id}
-              onChange={changeSearch}
-            />
-          )}
-          <Menu
-            label="Nouvelle recherche"
-            trigger={<Plus className="size-4" aria-hidden />}
-            items={[
-              { label: "Nouvelle recherche", href: "/bienvenue?recherche=nouvelle", icon: <Plus aria-hidden /> },
-              ...searches.map((item) => ({
-                label: `À partir de « ${item.name} »`,
-                href: `/bienvenue?recherche=${encodeURIComponent(item.id)}`,
-                icon: <Copy aria-hidden />,
-              })),
-              ...(current
-                ? [
-                    {
-                      label: `Archiver « ${current.name} »`,
-                      icon: <Archive aria-hidden />,
-                      onSelect: archiveCurrent,
-                      separated: true,
-                    },
-                    {
-                      label: `Supprimer « ${current.name} »`,
-                      icon: <Trash2 aria-hidden />,
-                      onSelect: () => setConfirmDelete(true),
-                      tone: "danger" as const,
-                    },
-                  ]
-                : []),
-            ]}
+          <SegmentedControl
+            label="Recherche"
+            segments={searches.map((item) => ({ value: item.id, label: item.name }))}
+            value={search ?? searches[0].id}
+            onChange={changeSearch}
           />
         </div>
       )}
 
-      <AnimatePresence>
-        {confirmDelete && current && (
-          <motion.div {...fadeUp} transition={spring.smooth} className="pb-3">
-            <div
-              role="alertdialog"
-              aria-label="Confirmer la suppression"
-              className="flex flex-wrap items-center gap-3 rounded-card border border-danger/30 bg-danger-soft px-4 py-3 text-sm"
-            >
-              <Trash2 className="size-4 shrink-0 text-danger" aria-hidden />
-              <p className="flex-1 text-text-secondary">
-                Supprimer la recherche <span className="font-medium text-text">« {current.name} »</span> et
-                ses favoris ? Pour la mettre de côté sans rien perdre, archive-la plutôt.
-              </p>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
-                  Annuler
-                </Button>
-                <Button variant="secondary" size="sm" onClick={archiveCurrent}>
-                  Archiver
-                </Button>
-                <Button variant="danger" size="sm" onClick={deleteCurrent}>
-                  Supprimer
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -356,7 +273,25 @@ export function OffersScreen() {
                 {list.hidden > 1 ? "s citent" : " cite"} moins de {current.min_skills} de tes compétences choisies.
               </p>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/bienvenue">Ajuster</Link>
+                <Link href={`/bienvenue?modifier=${encodeURIComponent(current.id)}`}>Ajuster</Link>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {view === "all" && list && list.hidden_level > 0 && current && (
+          <motion.div {...fadeUp} transition={spring.smooth} className="pb-4">
+            <div className="flex items-center gap-3 rounded-card border border-border bg-background-subtle px-4 py-3 text-sm">
+              <Filter className="size-4 shrink-0 text-text-tertiary" aria-hidden />
+              <p className="flex-1 text-text-secondary">
+                {list.hidden_level} offre{list.hidden_level > 1 ? "s" : ""} d&apos;un niveau supérieur à «{" "}
+                {seniorityLabels[current.seniority]} » masquée{list.hidden_level > 1 ? "s" : ""} (intitulé senior ou
+                lead, ou années d&apos;expérience demandées).
+              </p>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/bienvenue?modifier=${encodeURIComponent(current.id)}`}>Ajuster</Link>
               </Button>
             </div>
           </motion.div>
