@@ -19,6 +19,7 @@ import {
   fetchGenerations,
   fetchLLMStatus,
   startGeneration,
+  type DocumentInfo,
   type Generation,
   type Language,
   type LLMStatus,
@@ -35,7 +36,14 @@ const languages: { value: LanguageChoice; label: string }[] = [
 ];
 
 /** Génération du CV et de la lettre pour une offre : options, progression en direct, aperçu. */
-export function GenerationPanel({ offerId }: { offerId: number }) {
+export function GenerationPanel({
+  offerId,
+  onDocuments,
+}: {
+  offerId: number;
+  /** Documents de la génération terminée, à chaque nouvelle version (lettre modifiée...). */
+  onDocuments?: (documents: DocumentInfo[]) => void;
+}) {
   const [generation, setGeneration] = useState<Generation | null | undefined>(undefined);
   const [configuring, setConfiguring] = useState(false);
   const [llm, setLlm] = useState<LLMStatus | null>(null);
@@ -61,6 +69,11 @@ export function GenerationPanel({ offerId }: { offerId: number }) {
       .then(setLlm)
       .catch(() => setLlm(null));
   }, [offerId]);
+
+  const doneDocuments = generation?.status === "done" ? generation.documents : null;
+  useEffect(() => {
+    if (doneDocuments) onDocuments?.(doneDocuments);
+  }, [doneDocuments, onDocuments]);
 
   // Suit la génération en cours par SSE ; en cas de coupure, relit l'état une fois.
   const runningId = generation?.status === "running" ? generation.id : null;

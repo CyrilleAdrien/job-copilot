@@ -3,8 +3,9 @@
 import { Banknote, ChevronLeft, ExternalLink, House, MapPin } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { ApplyPanel } from "@/components/applications/apply-panel";
 import { GenerationPanel } from "@/components/documents/generation-panel";
 import { ScoreRing } from "@/components/jobs/score-ring";
 import { ErrorBanner } from "@/components/profile/error-banner";
@@ -19,12 +20,16 @@ import {
   timeAgo,
   type OfferDetail,
 } from "@/lib/jobs";
+import { latestDocumentIds } from "@/lib/applications";
+import type { DocumentInfo } from "@/lib/documents";
 import { fadeUp, spring } from "@/lib/motion";
 import { storedSearch } from "@/lib/search-choice";
 
 export function OfferDetailScreen({ offerId }: { offerId: number }) {
   const [offer, setOffer] = useState<OfferDetail | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  const [documents, setDocuments] = useState<ReturnType<typeof latestDocumentIds>>({});
+  const onDocuments = useCallback((docs: DocumentInfo[]) => setDocuments(latestDocumentIds(docs)), []);
 
   useEffect(() => {
     fetchOffer(offerId, storedSearch() ?? undefined).then(setOffer).catch(setError);
@@ -113,8 +118,16 @@ export function OfferDetailScreen({ offerId }: { offerId: number }) {
               <Skeleton className="h-80 rounded-card" />
             </div>
           )}
-          <div className="lg:sticky lg:top-8">
-            <GenerationPanel offerId={offerId} />
+          <div className="flex flex-col gap-4 lg:sticky lg:top-8">
+            {offer && (
+              <ApplyPanel
+                offerId={offerId}
+                offerUrl={offer.url}
+                search={storedSearch() ?? undefined}
+                documents={documents}
+              />
+            )}
+            <GenerationPanel offerId={offerId} onDocuments={onDocuments} />
           </div>
         </div>
       )}

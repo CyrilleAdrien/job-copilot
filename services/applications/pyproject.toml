@@ -1,9 +1,9 @@
 [project]
 name = "jobcopilot-applications"
 version = "0.1.0"
-description = "Candidatures, statuts et statistiques"
+description = "Candidatures, statuts et historique"
 requires-python = ">=3.12"
-dependencies = ["jobcopilot-common"]
+dependencies = ["jobcopilot-common", "alembic>=1.14"]
 
 [tool.uv.sources]
 jobcopilot-common = { workspace = true }
