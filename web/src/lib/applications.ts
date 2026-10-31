@@ -151,6 +151,17 @@ export function byStatus<T extends ApplicationSummary>(items: T[]): Record<Appli
   return groups;
 }
 
+/** Au-delà, une candidature non envoyée est signalée. */
+export const DRAFT_LATE_DAYS = 3;
+
+/** Où en est une candidature « À envoyer » : documents prêts, et depuis combien de temps elle attend. */
+export function draftReadiness(item: ApplicationSummary, now: Date = new Date()) {
+  const cv = Boolean(item.cv_document_id);
+  const letter = Boolean(item.letter_document_id);
+  const waitingDays = (now.getTime() - new Date(item.created_at).getTime()) / (24 * 3600 * 1000);
+  return { cv, letter, missing: !cv || !letter, late: waitingDays > DRAFT_LATE_DAYS };
+}
+
 export type Period = "all" | "7" | "30" | "90";
 
 export type Filters = {

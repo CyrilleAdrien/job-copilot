@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ApplicationSheet } from "@/components/applications/application-sheet";
+import { DraftsPanel } from "@/components/applications/drafts-panel";
 import { FilterBar } from "@/components/applications/filter-bar";
 import { Kanban } from "@/components/applications/kanban";
 import { PageHeader } from "@/components/layout/page-header";
@@ -168,6 +169,7 @@ export function ApplicationsScreen() {
                 : `${visible.length} sur ${items.length}`}
             </span>
           </div>
+          <DraftsPanel items={items} now={now} onOpen={show} onSent={(id) => move(id, "sent")} />
           <FilterBar items={items} filters={filters} searchNames={searchNames} onChange={setFilters} />
           {visible.length === 0 ? (
             <EmptyState

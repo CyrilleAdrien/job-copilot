@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   byStatus,
+  draftReadiness,
   emptyFilters,
   filterApplications,
   isFiltering,
@@ -88,5 +89,14 @@ describe("filterApplications", () => {
     expect(ids({ period: "7" })).toEqual(["a"]);
     expect(ids({ missingDocuments: true })).toEqual(["b", "c"]);
     expect(isFiltering({ ...emptyFilters, period: "30" })).toBe(true);
+  });
+});
+
+describe("draftReadiness", () => {
+  it("dit ce qu'il manque et signale une attente de plus de 3 jours", () => {
+    const now = new Date("2026-10-10T12:00:00Z");
+    expect(draftReadiness(base, now)).toEqual({ cv: false, letter: false, missing: true, late: true });
+    const ready = { ...base, cv_document_id: "c", letter_document_id: "l", created_at: "2026-10-09T12:00:00Z" };
+    expect(draftReadiness(ready, now)).toEqual({ cv: true, letter: true, missing: false, late: false });
   });
 });
