@@ -115,6 +115,11 @@ export async function updateApplication(id: string, changes: ApplicationChanges)
   );
 }
 
+/** Enregistre une relance (aussi pour une candidature déjà relancée). */
+export async function followUpApplication(id: string): Promise<Application> {
+  return json(await fetch(`${BASE}/${id}/follow-up`, { method: "POST" }));
+}
+
 export async function deleteApplication(id: string): Promise<void> {
   const response = await fetch(`${BASE}/${id}`, { method: "DELETE" });
   if (!response.ok) throw await parseError(response);

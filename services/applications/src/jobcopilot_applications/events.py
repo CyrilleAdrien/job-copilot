@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from jobcopilot_applications.models import ApplicationRow, StatusEventRow
+from jobcopilot_applications.stats import invalidate as invalidate_stats
 from jobcopilot_applications.upstream import UpstreamError, contact_email, fetch_offer
 
 APPLICATION_CREATED = "application.created"
@@ -103,6 +104,8 @@ async def consume(
                 for message_id, fields in messages:
                     async with sessions() as session:
                         row, created = await attach_documents(session, fields, http)
+                        if row is not None:
+                            await invalidate_stats(cache)
                         if row is not None and created:
                             await publish(
                                 cache,

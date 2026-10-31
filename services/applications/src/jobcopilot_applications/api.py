@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from jobcopilot_applications import events
+from jobcopilot_applications import events, stats
 from jobcopilot_applications.deps import Cache, Http, Session
 from jobcopilot_applications.models import ApplicationRow, StatusEventRow
 from jobcopilot_applications.schemas import (
@@ -15,6 +15,7 @@ from jobcopilot_applications.schemas import (
     ApplicationSummary,
     ApplicationUpdate,
     EventSource,
+    Stats,
     Status,
 )
 from jobcopilot_applications.upstream import (
@@ -42,6 +43,17 @@ def change_status(row: ApplicationRow, new: Status, source: EventSource) -> bool
     if new != "draft" and row.applied_at is None:
         row.applied_at = datetime.now(UTC)
     return True
+
+
+@router.get("/stats", response_model=Stats)
+async def get_stats(session: Session, cache: Cache) -> Stats:
+    """Chiffres du tableau de bord, en cache 15 min et recalculés après chaque modification."""
+    if (hit := await stats.cached(cache)) is not None:
+        return hit
+    rows = list((await session.scalars(select(ApplicationRow))).all())
+    result = stats.compute_stats(rows)
+    await stats.store(cache, result)
+    return result
 
 
 @router.get("/applications", response_model=list[ApplicationSummary])
@@ -119,6 +131,7 @@ async def create_application(
         response.status_code = status.HTTP_200_OK
         return existing
     await session.refresh(row)
+    await stats.invalidate(cache)
     await events.publish(
         cache,
         events.APPLICATION_CREATED,
@@ -151,6 +164,7 @@ async def update_application(
     row.updated_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(row)
+    await stats.invalidate(cache)
     if changed:
         await events.publish(
             cache,
@@ -165,8 +179,34 @@ async def update_application(
     return row
 
 
+@router.post("/applications/{application_id}/follow-up", response_model=Application)
+async def follow_up(application_id: UUID, session: Session, cache: Cache) -> ApplicationRow:
+    """Enregistre une relance, même si la candidature est déjà « Relancée » : le délai repart."""
+    row = await get_row(session, application_id)
+    if row.status not in {"sent", "followed_up"}:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Seule une candidature envoyée ou relancée se relance."
+        )
+    previous = row.status
+    row.events.append(
+        StatusEventRow(from_status=previous, to_status="followed_up", source="manual")
+    )
+    row.status = "followed_up"
+    row.updated_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(row)
+    await stats.invalidate(cache)
+    await events.publish(
+        cache,
+        events.STATUS_CHANGED,
+        {"application_id": str(row.id), "from": previous, "to": row.status, "source": "manual"},
+    )
+    return row
+
+
 @router.delete("/applications/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_application(session: Session, application_id: UUID) -> None:
+async def delete_application(session: Session, cache: Cache, application_id: UUID) -> None:
     row = await get_row(session, application_id)
     await session.delete(row)
     await session.commit()
+    await stats.invalidate(cache)

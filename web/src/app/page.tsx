@@ -1,6 +1,9 @@
-import { ComingSoon } from "@/components/coming-soon";
-import { mainNav } from "@/lib/navigation";
+import type { Metadata } from "next";
+
+import { DashboardScreen } from "@/components/dashboard/dashboard-screen";
+
+export const metadata: Metadata = { title: "Tableau de bord" };
 
 export default function HomePage() {
-  return <ComingSoon item={mainNav[0]} />;
+  return <DashboardScreen />;
 }
