@@ -99,7 +99,7 @@ export function isFresh(iso: string, now: Date = new Date()): boolean {
 }
 
 /** Offres par page sur l'écran Offres. */
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 10;
 
 export async function fetchOffers(
   sort: SortOrder,
