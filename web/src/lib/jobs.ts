@@ -25,6 +25,10 @@ export type OfferDetail = Offer & { description: string };
 export type OfferList = {
   items: Offer[];
   total: number;
+  /** Profil de recherche utilisé. */
+  search: string;
+  /** Offres du métier écartées parce qu'elles citent trop peu des compétences choisies. */
+  hidden: number;
   sort: SortOrder;
   max_age_days: Window;
   refreshed_at: string | null;
@@ -91,23 +95,26 @@ export function isFresh(iso: string, now: Date = new Date()): boolean {
   return now.getTime() - new Date(iso).getTime() < 24 * 3600 * 1000;
 }
 
-export async function fetchOffers(sort: SortOrder, days?: Window): Promise<OfferList> {
+export async function fetchOffers(sort: SortOrder, days?: Window, search?: string): Promise<OfferList> {
   const params = new URLSearchParams({ sort, limit: "100" });
   if (days) params.set("max_age_days", String(days));
+  if (search) params.set("search", search);
   const response = await fetch(`/api/jobs/offers?${params}`, { cache: "no-store" });
   if (!response.ok) throw await parseError(response);
   return response.json();
 }
 
-export async function fetchOffer(id: number): Promise<OfferDetail> {
-  const response = await fetch(`/api/jobs/offers/${id}`, { cache: "no-store" });
+export async function fetchOffer(id: number, search?: string): Promise<OfferDetail> {
+  const query = search ? `?${new URLSearchParams({ search })}` : "";
+  const response = await fetch(`/api/jobs/offers/${id}${query}`, { cache: "no-store" });
   if (!response.ok) throw await parseError(response);
   return response.json();
 }
 
-export async function refreshOffers(days: Window, force = false): Promise<RefreshResult> {
+export async function refreshOffers(days: Window, force = false, search?: string): Promise<RefreshResult> {
   const params = new URLSearchParams({ max_age_days: String(days) });
   if (force) params.set("force", "true");
+  if (search) params.set("search", search);
   const response = await fetch(`/api/jobs/refresh?${params}`, { method: "POST" });
   if (!response.ok) throw await parseError(response);
   return response.json();

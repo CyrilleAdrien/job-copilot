@@ -10,7 +10,7 @@ Projet en cours de construction.
 | --- | --- |
 | `web` | Interface Next.js (`127.0.0.1:3000`) |
 | `gateway` | Point d'entrée unique de l'API (FastAPI, `127.0.0.1:8000`) |
-| `profile` | Profil, expériences, critères de recherche |
+| `profile` | Profil, expériences, recherches |
 | `jobs` | Collecte et scoring des offres (France Travail, Adzuna) |
 | `documents` | Génération des CV et lettres, stockage S3 |
 | `applications` | Candidatures, statuts, statistiques |
@@ -36,7 +36,14 @@ L'application s'ouvre sur http://localhost:3000. Le catalogue des composants est
 
 ## Profil
 
-Au premier lancement, http://localhost:3000/bienvenue propose deux chemins : remplir le profil en quatre étapes (identité, recherche, expériences, compétences) ou importer un `profile.yaml`. Le fichier [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet. Le profil s'exporte depuis l'écran Profil pour être sauvegardé ou modifié à la main.
+Au premier lancement, http://localhost:3000/bienvenue propose deux chemins : remplir le profil en cinq étapes (identité, recherches, expériences, compétences, parcours) ou importer un `profile.yaml`. Le formulaire couvre toutes les sections d'un CV : formation, certifications, projets, bénévolat, publications, langues, savoir-être et centres d'intérêt. Les langues, niveaux, technologies, postes et villes sont proposés pendant la saisie. Le fichier [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet ; un ancien fichier avec une seule section `search` reste accepté.
+
+L'écran Profil affiche le profil mis en page comme un CV, en français ou en anglais, avec le même template que les CV générés. Il s'exporte en `profile.yaml` pour être sauvegardé ou modifié à la main.
+
+Un profil peut contenir plusieurs **recherches**, par exemple « DevOps » et « Data Engineer ». Chacune a ses postes, ses technologies, ses filtres et sa façon de retenir les offres :
+
+- `match_mode: domain` (« Tout le métier ») garde toutes les offres du métier ;
+- `match_mode: skills` (« Mes compétences ») ne garde que les offres qui citent au moins `min_skills` compétences parmi `focus_skills` (ou parmi les technologies si la liste est vide). Le seuil se règle avec un curseur.
 
 L'API du profil est servie par la gateway :
 
@@ -46,10 +53,13 @@ L'API du profil est servie par la gateway :
 | `PUT` | `/api/profile/` | Remplacer le profil |
 | `GET` | `/api/profile/export` | Télécharger le `profile.yaml` |
 | `POST` | `/api/profile/import` | Importer un `profile.yaml` (`content-type: application/yaml`) |
+| `GET` | `/api/documents/profile-preview?language=fr` | Nombre de pages du profil mis en page comme un CV |
+| `GET` | `/api/documents/profile-preview/pdf` | Ce CV en PDF |
+| `GET` | `/api/documents/profile-preview/pages/{n}` | Une page en PNG |
 
 ## Offres
 
-L'écran Offres interroge les sources à partir des critères du profil (postes, lieux, rayon, contrats) et affiche les offres les plus récentes d'abord. La fenêtre de publication (24 h, 3, 7, 14 ou 30 jours) part de celle du profil et se change à la volée. Le tri par pertinence utilise un score de 0 à 100, calculé sans LLM : intitulé (40), technologies citées (35), séniorité (10), contrat (10), télétravail (5). Les offres qui contiennent un mot exclu ou qui ne correspondent ni au poste ni aux technologies sont écartées. Une même offre publiée sur deux sources n'apparaît qu'une fois.
+L'écran Offres interroge les sources à partir des critères de la recherche choisie (postes, lieux, rayon, contrats) et affiche les offres les plus récentes d'abord. Quand le profil contient plusieurs recherches, un sélecteur passe de l'une à l'autre. La fenêtre de publication (24 h, 3, 7, 14 ou 30 jours) part de celle du profil et se change à la volée. Le tri par pertinence utilise un score de 0 à 100, calculé sans LLM : intitulé (40), technologies citées (35), séniorité (10), contrat (10), télétravail (5). Les offres qui contiennent un mot exclu, ou dont l'intitulé ne correspond pas au poste, sont écartées. Les mots généraux (ingénieur, engineer, développeur...) ne suffisent pas : « Platform Engineer » ne remonte pas dans une recherche « Data Engineer ». En mode « Mes compétences », l'écran indique combien d'offres du métier ont été masquées par le seuil. Une même offre publiée sur deux sources n'apparaît qu'une fois.
 
 Les deux sources sont gratuites. Renseigne leurs clés dans `.env`, puis relance avec `make up` :
 
@@ -62,9 +72,9 @@ Sans clé, `JOBS_DEMO=true` active des offres fictives pour essayer l'outil. Une
 
 | Méthode | Chemin | Rôle |
 | --- | --- | --- |
-| `GET` | `/api/jobs/offers?sort=date\|relevance&max_age_days=7` | Offres de la fenêtre, triées |
-| `GET` | `/api/jobs/offers/{id}` | Détail d'une offre avec sa description complète |
-| `POST` | `/api/jobs/refresh?force=true` | Collecter les offres auprès des sources |
+| `GET` | `/api/jobs/offers?search=devops&sort=date\|relevance&max_age_days=7` | Offres de la recherche et de la fenêtre, triées (première recherche si `search` est absent) |
+| `GET` | `/api/jobs/offers/{id}?search=devops` | Détail d'une offre avec sa description complète |
+| `POST` | `/api/jobs/refresh?search=devops&force=true` | Collecter les offres de la recherche auprès des sources |
 | `GET` | `/api/jobs/sources` | Sources connues et configurées |
 
 ## CV et lettre

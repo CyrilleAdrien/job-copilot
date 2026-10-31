@@ -134,7 +134,7 @@ function Preview({ document }: { document: DocumentInfo }) {
   );
 }
 
-function Page({ src, label }: { src: string; label: string }) {
+export function Page({ src, label }: { src: string; label: string }) {
   const [loaded, setLoaded] = useState(false);
   return (
     <div className="relative aspect-[210/297] w-full overflow-hidden rounded-md bg-white shadow-card ring-1 ring-border">

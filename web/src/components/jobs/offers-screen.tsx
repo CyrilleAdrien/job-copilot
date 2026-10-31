@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, RefreshCw, SearchX, UserRound } from "lucide-react";
+import { Filter, KeyRound, RefreshCw, SearchX, UserRound } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { JobCardSkeleton } from "@/components/ui/skeleton";
+import { fetchProfile } from "@/lib/api";
 import {
   ApiError,
   fetchOffers,
@@ -26,9 +27,13 @@ import {
   type Window,
 } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
+import type { SearchProfile } from "@/lib/profile";
+import { pickSearch, storeSearch, storedSearch } from "@/lib/search-choice";
 import { cn } from "@/lib/utils";
 
 export function OffersScreen() {
+  const [searches, setSearches] = useState<SearchProfile[]>([]);
+  const [search, setSearch] = useState<string | undefined>(undefined);
   const [days, setDays] = useState<Window | null>(null);
   const [sort, setSort] = useState<SortOrder>("date");
   const [list, setList] = useState<OfferList | null>(null);
@@ -46,12 +51,12 @@ export function OffersScreen() {
 
   /** Interroge les sources (cache de 15 min côté serveur) puis relit la liste. */
   const sync = useCallback(
-    async (window: Window, order: SortOrder, force = false) => {
+    async (window: Window, order: SortOrder, searchId: string | undefined, force = false) => {
       const call = ++latest.current;
       setSyncing(true);
       setError(null);
       try {
-        const result = await refreshOffers(window, force);
+        const result = await refreshOffers(window, force, searchId);
         if (call === latest.current) setRefresh(result);
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 409 && e.message.includes("cours"))) {
@@ -59,7 +64,7 @@ export function OffersScreen() {
         }
       }
       try {
-        const offers = await fetchOffers(order, window);
+        const offers = await fetchOffers(order, window, searchId);
         if (call === latest.current) setList(offers);
       } catch (e) {
         fail(e as ApiError);
@@ -73,26 +78,54 @@ export function OffersScreen() {
     [fail],
   );
 
+  /** Liste d'un profil de recherche, dans sa fenêtre de publication par défaut, puis collecte. */
+  const open = useCallback(
+    (searchId: string | undefined, order: SortOrder) =>
+      fetchOffers(order, undefined, searchId)
+        .then((offers) => {
+          setList(offers);
+          setDays(offers.max_age_days);
+          return sync(offers.max_age_days, order, searchId);
+        })
+        .catch(fail),
+    [sync, fail],
+  );
+
   useEffect(() => {
-    fetchOffers("date")
-      .then((offers) => {
-        setList(offers);
-        setDays(offers.max_age_days);
-        return sync(offers.max_age_days, "date");
+    fetchProfile()
+      .then((profile) => {
+        if (!profile) return setNoProfile(true);
+        const chosen = pickSearch(
+          profile.searches.map((item) => item.id),
+          storedSearch(),
+        );
+        setSearches(profile.searches);
+        setSearch(chosen);
+        return open(chosen, "date");
       })
       .catch(fail);
-  }, [sync, fail]);
+  }, [open, fail]);
+
+  function changeSearch(searchId: string) {
+    setSearch(searchId);
+    storeSearch(searchId);
+    setList(null);
+    setRefresh(null);
+    open(searchId, sort);
+  }
 
   function changeSort(order: SortOrder) {
     setSort(order);
-    if (days) fetchOffers(order, days).then(setList).catch(fail);
+    if (days) fetchOffers(order, days, search).then(setList).catch(fail);
   }
 
   function changeWindow(window: Window) {
     setDays(window);
-    fetchOffers(sort, window).then(setList).catch(fail);
-    sync(window, sort);
+    fetchOffers(sort, window, search).then(setList).catch(fail);
+    sync(window, sort, search);
   }
+
+  const current = searches.find((item) => item.id === search);
 
   if (noProfile) {
     return (
@@ -123,7 +156,7 @@ export function OffersScreen() {
         actions={
           <Button
             variant="secondary"
-            onClick={() => days && sync(days, sort, true)}
+            onClick={() => days && sync(days, sort, search, true)}
             disabled={!days || syncing}
           >
             <RefreshCw aria-hidden className={cn(syncing && "animate-spin")} />
@@ -131,6 +164,17 @@ export function OffersScreen() {
           </Button>
         }
       />
+
+      {searches.length > 1 && (
+        <div className="pb-3">
+          <SegmentedControl
+            label="Recherche"
+            segments={searches.map((item) => ({ value: item.id, label: item.name }))}
+            value={search ?? searches[0].id}
+            onChange={changeSearch}
+          />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -173,6 +217,23 @@ export function OffersScreen() {
         </motion.div>
       )}
 
+      <AnimatePresence>
+        {list && list.hidden > 0 && current?.match_mode === "skills" && (
+          <motion.div {...fadeUp} transition={spring.smooth} className="pb-4">
+            <div className="flex items-center gap-3 rounded-card border border-border bg-background-subtle px-4 py-3 text-sm">
+              <Filter className="size-4 shrink-0 text-text-tertiary" aria-hidden />
+              <p className="flex-1 text-text-secondary">
+                {list.hidden} offre{list.hidden > 1 ? "s" : ""} du métier masquée{list.hidden > 1 ? "s" : ""} : elle
+                {list.hidden > 1 ? "s citent" : " cite"} moins de {current.min_skills} de tes compétences choisies.
+              </p>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/bienvenue">Ajuster</Link>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {list === null ? (
         <div className="flex flex-col gap-3" aria-busy aria-label="Chargement des offres">
           {Array.from({ length: 5 }, (_, index) => (
@@ -212,7 +273,7 @@ export function OffersScreen() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ ...spring.smooth, delay: Math.min(index, 10) * 0.025 }}
               >
-                <JobCard offer={offer} now={now} />
+                <JobCard offer={offer} now={now} search={search} />
               </motion.li>
             ))}
           </AnimatePresence>

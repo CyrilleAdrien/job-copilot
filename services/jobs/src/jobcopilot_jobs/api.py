@@ -44,9 +44,16 @@ def snippet(description: str, length: int = 240) -> str:
     return text if len(text) <= length else text[:length].rsplit(" ", 1)[0] + "…"
 
 
-def to_offer(row: OfferRow, criteria: Criteria, detail: bool = False) -> OfferDetail | Offer | None:
+def to_offer(
+    row: OfferRow, criteria: Criteria, detail: bool = False, strict: bool = True
+) -> OfferDetail | Offer | None:
+    """L'offre notée pour ce profil de recherche, ou None si elle est écartée.
+
+    `strict=False` n'écarte rien : une fiche ouverte depuis un lien, ou depuis un autre
+    profil de recherche, reste lisible.
+    """
     match = score_offer(criteria, row.title, row.description, row.contract)
-    if match.excluded or not match.on_topic:
+    if strict and (match.excluded or not match.on_topic or not match.enough_skills):
         return None
     fields = {
         "id": row.id,
@@ -80,6 +87,13 @@ async def list_offers(
     days = max_age_days or criteria.max_age_days
     rows = await repository.offers_since(session, datetime.now(UTC) - timedelta(days=days))
     offers = [offer for row in rows if (offer := to_offer(row, criteria))]
+    below_threshold = sum(
+        1
+        for row in rows
+        if (match := score_offer(criteria, row.title, row.description, row.contract)).on_topic
+        and not match.excluded
+        and not match.enough_skills
+    )
     if sort == "date":
         offers.sort(key=lambda offer: (offer.published_at, offer.score), reverse=True)
     else:
@@ -88,6 +102,8 @@ async def list_offers(
     return OfferList(
         items=offers[offset : offset + limit],
         total=len(offers),
+        search=criteria.id,
+        hidden=below_threshold,
         sort=sort,
         max_age_days=days,
         refreshed_at=datetime.fromisoformat(refreshed_at) if refreshed_at else None,
@@ -97,7 +113,7 @@ async def list_offers(
 @router.get("/offers/{offer_id}", response_model=OfferDetail)
 async def read_offer(offer_id: int, session: Session, criteria: Profile) -> OfferDetail:
     row = await repository.get_offer(session, offer_id)
-    offer = to_offer(row, criteria, detail=True) if row else None
+    offer = to_offer(row, criteria, detail=True, strict=False) if row else None
     if offer is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Offre introuvable.")
     return offer

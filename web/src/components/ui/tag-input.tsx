@@ -4,10 +4,15 @@ import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useId, useState, type KeyboardEvent } from "react";
 
+import { SuggestionList, useSuggestionKeys } from "@/components/ui/suggestion-list";
 import { spring } from "@/lib/motion";
+import { filterSuggestions } from "@/lib/suggestions";
 import { cn } from "@/lib/utils";
 
-/** Saisie de mots-clés : Entrée ou virgule ajoute une étiquette, Retour arrière retire la dernière. */
+/**
+ * Saisie de mots-clés : Entrée ou virgule ajoute une étiquette, Retour arrière retire la dernière.
+ * Avec `suggestions`, une liste filtrée s'ouvre pendant la saisie.
+ */
 export function TagInput({
   label,
   ariaLabel,
@@ -16,6 +21,7 @@ export function TagInput({
   placeholder,
   hint,
   error,
+  suggestions = [],
 }: {
   /** Laisser vide quand le champ est déjà nommé par son voisin ; `ariaLabel` le décrit alors. */
   label: string;
@@ -25,9 +31,14 @@ export function TagInput({
   placeholder?: string;
   hint?: string;
   error?: string;
+  suggestions?: string[];
 }) {
   const id = useId();
+  const listId = useId();
   const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const items = suggestions.length ? filterSuggestions(suggestions, draft, value) : [];
 
   const add = (raw: string) => {
     const items = raw
@@ -36,9 +47,13 @@ export function TagInput({
       .filter((item) => item && !value.some((existing) => existing.toLowerCase() === item.toLowerCase()));
     if (items.length) onChange([...value, ...items]);
     setDraft("");
+    setActive(-1);
   };
 
+  const suggestionKeys = useSuggestionKeys({ items, active, setActive, setOpen, onPick: add });
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (suggestionKeys(event)) return;
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       add(draft);
@@ -48,7 +63,7 @@ export function TagInput({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="relative flex flex-col gap-1.5">
       {label && (
         <label htmlFor={id} className="text-[13px] font-medium text-text">
           {label}
@@ -88,14 +103,29 @@ export function TagInput({
         <input
           id={id}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setOpen(true);
+            setActive(-1);
+          }}
           onKeyDown={onKeyDown}
-          onBlur={() => draft && add(draft)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            setOpen(false);
+            if (draft) add(draft);
+          }}
+          role={suggestions.length ? "combobox" : undefined}
+          aria-expanded={suggestions.length ? open && items.length > 0 : undefined}
+          aria-controls={suggestions.length ? listId : undefined}
+          aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
           placeholder={value.length ? "" : placeholder}
           aria-invalid={error ? true : undefined}
           aria-label={label ? undefined : ariaLabel}
           className="h-7 min-w-32 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-text-tertiary"
         />
+      </div>
+      <div className="relative">
+        <SuggestionList id={listId} open={open} items={items} active={active} onPick={add} />
       </div>
       {(error || hint) && (
         <p className={cn("text-xs", error ? "text-danger" : "text-text-tertiary")}>{error ?? hint}</p>

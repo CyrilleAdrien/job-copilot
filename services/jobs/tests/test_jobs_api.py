@@ -168,3 +168,43 @@ async def test_missing_profile_returns_conflict(client):
     response = await client.get("/offers")
     assert response.status_code == 409
     assert "profil" in response.json()["detail"]
+
+
+async def test_skills_mode_keeps_offers_citing_enough_chosen_skills(client):
+    await client.post("/refresh")
+    ids = {item["url"][-1]: item["id"] for item in (await client.get("/offers")).json()["items"]}
+    app.dependency_overrides[get_criteria] = lambda: CRITERIA.model_copy(
+        update={
+            "match_mode": "skills",
+            "focus_skills": ["Kubernetes", "Terraform"],
+            "min_skills": 2,
+        }
+    )
+    body = (await client.get("/offers")).json()
+    assert [item["url"][-1] for item in body["items"]] == ["a"]
+    assert body["hidden"] == 1
+    # La fiche d'une offre sous le seuil reste lisible, par exemple depuis un autre profil.
+    assert (await client.get(f"/offers/{ids['b']}")).status_code == 200
+
+
+def profile_with_searches(_: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "searches": [
+                {"id": "devops", "name": "DevOps", "roles": ["DevOps"]},
+                {"id": "data", "name": "Data", "roles": ["Data Engineer"], "match_mode": "skills"},
+            ]
+        },
+    )
+
+
+async def test_search_profile_is_chosen_by_id(client):
+    del app.dependency_overrides[get_criteria]
+    app.dependency_overrides[get_http] = lambda: httpx.AsyncClient(
+        transport=httpx.MockTransport(profile_with_searches)
+    )
+    assert (await client.get("/offers")).json()["search"] == "devops"
+    assert (await client.get("/offers", params={"search": "data"})).json()["search"] == "data"
+    missing = await client.get("/offers", params={"search": "inconnu"})
+    assert missing.status_code == 404

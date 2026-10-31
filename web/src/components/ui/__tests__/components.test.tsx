@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StepProgress } from "@/components/ui/step-progress";
+import { TagInput } from "@/components/ui/tag-input";
 import { isActive } from "@/lib/navigation";
 
 describe("Button", () => {
@@ -79,5 +80,21 @@ describe("isActive", () => {
     expect(isActive("/offres", "/")).toBe(false);
     expect(isActive("/offres/42", "/offres")).toBe(true);
     expect(isActive("/offres-archive", "/offres")).toBe(false);
+  });
+});
+
+describe("TagInput", () => {
+  function Demo() {
+    const [value, setValue] = useState<string[]>([]);
+    return <TagInput label="Langues" value={value} onChange={setValue} suggestions={["Français", "Anglais"]} />;
+  }
+
+  it("adds a suggestion picked with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(<Demo />);
+    await user.type(screen.getByRole("combobox", { name: "Langues" }), "ang");
+    expect(screen.getByRole("option", { name: "Anglais" })).toBeInTheDocument();
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(screen.getByRole("button", { name: "Retirer Anglais" })).toBeInTheDocument();
   });
 });

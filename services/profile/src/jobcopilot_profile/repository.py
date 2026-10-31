@@ -1,13 +1,24 @@
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from jobcopilot_profile.models import ExperienceRow, ProfileRow, SearchCriteriaRow
+from jobcopilot_profile.models import ExperienceRow, ProfileRow
 from jobcopilot_profile.schemas import Profile
 
 PROFILE_ID = 1
 
 IDENTITY_FIELDS = ("full_name", "headline", "email", "phone", "location", "availability", "summary")
-LIST_FIELDS = ("education", "skills", "languages", "soft_skills", "interests")
+LIST_FIELDS = (
+    "searches",
+    "education",
+    "skills",
+    "certifications",
+    "projects",
+    "volunteering",
+    "publications",
+    "languages",
+    "soft_skills",
+    "interests",
+)
 
 
 async def get_profile(session: AsyncSession) -> Profile | None:
@@ -18,11 +29,6 @@ async def get_profile(session: AsyncSession) -> Profile | None:
         {
             "identity": {field: getattr(row, field) for field in IDENTITY_FIELDS}
             | {"links": row.links},
-            "search": {
-                column.key: getattr(row.search, column.key)
-                for column in SearchCriteriaRow.__table__.columns
-                if column.key != "profile_id"
-            },
             "experiences": [
                 {
                     "title": e.title,
@@ -61,11 +67,6 @@ async def save_profile(session: AsyncSession, profile: Profile) -> Profile:
         ExperienceRow(position=index, **experience)
         for index, experience in enumerate(data["experiences"])
     ]
-    if row.search is None:
-        row.search = SearchCriteriaRow(**data["search"])
-    else:
-        for field, value in data["search"].items():
-            setattr(row.search, field, value)
 
     await session.commit()
     await session.refresh(row)

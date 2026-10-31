@@ -12,14 +12,24 @@ PROFILE = {
         "location": "Paris",
         "links": [{"label": "GitHub", "url": "https://github.com/alex"}],
     },
-    "search": {
-        "roles": ["Ingénieur SRE", "DevOps"],
-        "technologies": ["Kubernetes", "Python"],
-        "seniority": "mid",
-        "contract_types": ["cdi"],
-        "locations": ["Paris"],
-        "max_age_days": 7,
-    },
+    "searches": [
+        {
+            "name": "DevOps",
+            "roles": ["Ingénieur SRE", "DevOps"],
+            "technologies": ["Kubernetes", "Python"],
+            "seniority": "mid",
+            "contract_types": ["cdi"],
+            "locations": ["Paris"],
+            "max_age_days": 7,
+        },
+        {
+            "name": "Data Engineer",
+            "roles": ["Data Engineer"],
+            "match_mode": "skills",
+            "focus_skills": ["Python", "Airflow", "Spark"],
+            "min_skills": 2,
+        },
+    ],
     "experiences": [
         {
             "title": "Ingénieur DevOps",
@@ -34,6 +44,10 @@ PROFILE = {
         {"title": "Stagiaire", "company": "Startup", "start": "2023-03", "end": "2023-08"},
     ],
     "skills": [{"name": "Conteneurs", "items": ["Docker", "Kubernetes"]}],
+    "certifications": [{"name": "CKA", "issuer": "CNCF", "year": 2025}],
+    "projects": [{"name": "job-copilot", "technologies": ["FastAPI"], "url": "https://x.dev"}],
+    "volunteering": [{"role": "Mentor", "organization": "Asso", "start": "2023-01"}],
+    "publications": [{"title": "Observabilité en pratique", "year": 2024}],
     "languages": [{"name": "Anglais", "level": "B2"}],
 }
 
@@ -60,7 +74,35 @@ async def test_save_then_read_keeps_order_and_nested_fields(client):
     assert profile["identity"]["full_name"] == "Alex Martin"
     assert [e["company"] for e in profile["experiences"]] == ["Banque Exemple", "Startup"]
     assert profile["experiences"][0]["groups"][0]["bullets"] == ["Pipelines CI/CD refondus"]
-    assert profile["search"]["max_age_days"] == 7
+    assert [s["id"] for s in profile["searches"]] == ["devops", "data-engineer"]
+    assert profile["searches"][1]["match_mode"] == "skills"
+    assert profile["searches"][0]["min_skills"] == 2
+    assert profile["certifications"][0]["issuer"] == "CNCF"
+    assert profile["volunteering"][0]["organization"] == "Asso"
+
+
+async def test_single_search_section_is_still_accepted(client):
+    legacy = {k: v for k, v in PROFILE.items() if k != "searches"}
+    legacy["search"] = {"roles": ["DevOps"], "max_age_days": 14}
+    saved = await client.put("/", json=legacy)
+    assert saved.status_code == 200
+    searches = saved.json()["searches"]
+    assert [(s["id"], s["name"], s["max_age_days"]) for s in searches] == [
+        ("principal", "Principal", 14)
+    ]
+
+
+async def test_duplicate_search_names_get_distinct_ids(client):
+    twice = PROFILE | {
+        "searches": [{"name": "Data", "roles": ["A"]}, {"name": "Data", "roles": ["B"]}]
+    }
+    saved = (await client.put("/", json=twice)).json()
+    assert [s["id"] for s in saved["searches"]] == ["data", "data-2"]
+
+
+async def test_requires_at_least_one_search(client):
+    response = await client.put("/", json=PROFILE | {"searches": []})
+    assert response.status_code == 422
 
 
 async def test_save_replaces_experiences(client):
@@ -80,7 +122,7 @@ async def test_rejects_end_before_start(client):
 
 
 async def test_rejects_unknown_date_window(client):
-    bad = PROFILE | {"search": PROFILE["search"] | {"max_age_days": 5}}
+    bad = PROFILE | {"searches": [PROFILE["searches"][0] | {"max_age_days": 5}]}
     response = await client.put("/", json=bad)
     assert response.status_code == 422
 
@@ -107,7 +149,7 @@ async def test_import_reports_invalid_fields(client):
     assert response.status_code == 422
     locations = {error["loc"] for error in response.json()["detail"]["errors"]}
     assert "identity.headline" in locations
-    assert "search.roles" in locations
+    assert "searches.0.roles" in locations
 
 
 async def test_import_rejects_broken_yaml(client):
@@ -115,3 +157,13 @@ async def test_import_rejects_broken_yaml(client):
         "/import", content="identity: [", headers={"content-type": "application/yaml"}
     )
     assert response.status_code == 422
+
+
+def test_example_profile_is_valid():
+    from pathlib import Path
+
+    from jobcopilot_profile.yaml_io import load_profile
+
+    example = Path(__file__).parents[3] / "examples" / "profile.example.yaml"
+    profile = load_profile(example.read_text())
+    assert [search.id for search in profile.searches] == ["devops", "data-engineer"]

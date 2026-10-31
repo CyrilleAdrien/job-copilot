@@ -51,3 +51,40 @@ def test_unrelated_offer_is_off_topic():
 def test_full_remote_is_detected():
     match = score_offer(CRITERIA, "Ingénieur DevOps", "Poste en full remote", None)
     assert match.remote == "remote"
+
+
+def test_skills_mode_requires_the_minimum_of_chosen_skills():
+    criteria = CRITERIA.model_copy(
+        update={
+            "match_mode": "skills",
+            "focus_skills": ["Spark", "Airflow", "Python"],
+            "min_skills": 2,
+        }
+    )
+    one = score_offer(criteria, "Ingénieur DevOps", "Python au quotidien.", "cdi")
+    two = score_offer(criteria, "Ingénieur DevOps", "Python et Airflow.", "cdi")
+    assert one.matched == ["Python"] and not one.enough_skills
+    assert two.matched == ["Airflow", "Python"] and two.enough_skills
+
+
+def test_skills_mode_threshold_never_exceeds_the_number_of_skills():
+    criteria = CRITERIA.model_copy(
+        update={"match_mode": "skills", "focus_skills": ["Spark"], "min_skills": 3}
+    )
+    assert score_offer(criteria, "Ingénieur DevOps", "Spark", "cdi").enough_skills
+
+
+def test_domain_mode_ignores_the_threshold():
+    criteria = CRITERIA.model_copy(update={"min_skills": 5})
+    assert score_offer(criteria, "Ingénieur DevOps", "", "cdi").enough_skills
+
+
+def test_generic_title_words_do_not_match_another_job():
+    data = CRITERIA.model_copy(update={"roles": ["Data Engineer"], "technologies": ["Python"]})
+    assert not score_offer(data, "Platform Engineer", "Python et Kubernetes.", "cdi").on_topic
+    assert score_offer(data, "Senior Data Engineer", "", "cdi").on_topic
+
+
+def test_shared_technologies_alone_do_not_make_an_offer_on_topic():
+    match = score_offer(CRITERIA, "Data Analyst", "Python, AWS et Terraform.", "cdi")
+    assert match.matched and not match.on_topic

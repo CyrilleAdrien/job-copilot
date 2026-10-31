@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common.db import get_session
 from jobcopilot_documents import pipeline
+from jobcopilot_documents.compose import build_cv
 from jobcopilot_documents.deps import Ctx, get_llm
 from jobcopilot_documents.models import DocumentRow, GenerationRow
 from jobcopilot_documents.render import RenderError, render, render_page
@@ -22,12 +23,15 @@ from jobcopilot_documents.schemas import (
     DocumentInfo,
     Generation,
     GenerationRequest,
+    Language,
     LetterContent,
     LLMStatus,
+    ProfilePreview,
     Step,
     Warning,
 )
 from jobcopilot_documents.settings import get_documents_settings
+from jobcopilot_documents.upstream import UpstreamError, fetch_profile
 
 router = APIRouter(tags=["documents"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -198,6 +202,35 @@ async def update_content(
     await session.commit()
     await session.refresh(row)
     return DocumentDetail.model_validate(row, from_attributes=True)
+
+
+async def profile_cv(ctx: Ctx, language: Language) -> CvContent:
+    """Le profil complet mis en page comme un CV, sans LLM ni offre."""
+    try:
+        profile = await fetch_profile(ctx.http)
+    except UpstreamError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return build_cv(profile, list(range(len(profile.experiences))), None, language)
+
+
+@router.get("/profile-preview", response_model=ProfilePreview)
+async def profile_preview(ctx: Ctx, language: Language = "fr") -> ProfilePreview:
+    _, pages = await render(pipeline.TEMPLATES["cv"], await profile_cv(ctx, language))
+    return ProfilePreview(pages=pages)
+
+
+@router.get("/profile-preview/pdf")
+async def profile_preview_pdf(ctx: Ctx, language: Language = "fr") -> Response:
+    pdf, _ = await render(pipeline.TEMPLATES["cv"], await profile_cv(ctx, language))
+    return Response(pdf, media_type="application/pdf", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/profile-preview/pages/{page}")
+async def profile_preview_page(ctx: Ctx, page: int, language: Language = "fr") -> Response:
+    image = await render_page(pipeline.TEMPLATES["cv"], await profile_cv(ctx, language), page)
+    if image is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Page introuvable.")
+    return Response(image, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/llm", response_model=LLMStatus)

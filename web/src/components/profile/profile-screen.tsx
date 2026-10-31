@@ -6,19 +6,29 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { CvPreview } from "@/components/profile/cv-preview";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { ImportButton } from "@/components/profile/import-button";
 import { ProfileView } from "@/components/profile/profile-view";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, fetchProfile, profileExportUrl } from "@/lib/api";
 import { fadeUp, spring } from "@/lib/motion";
 import type { Profile } from "@/lib/profile";
 
+type View = "cv" | "details";
+const views: { value: View; label: string }[] = [
+  { value: "cv", label: "CV" },
+  { value: "details", label: "Détails" },
+];
+
 export function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [error, setError] = useState<ApiError | null>(null);
+  const [view, setView] = useState<View>("cv");
+  const [stamp, setStamp] = useState(() => Date.now());
 
   useEffect(() => {
     fetchProfile().then(setProfile).catch((e: ApiError) => {
@@ -29,7 +39,14 @@ export function ProfileScreen() {
 
   const actions = profile ? (
     <>
-      <ImportButton variant="ghost" onImported={setProfile} onError={setError}>
+      <ImportButton
+        variant="ghost"
+        onImported={(imported) => {
+          setProfile(imported);
+          setStamp(Date.now());
+        }}
+        onError={setError}
+      >
         Importer
       </ImportButton>
       <Button variant="secondary" asChild>
@@ -69,9 +86,14 @@ export function ProfileScreen() {
           }
         />
       ) : (
-        <motion.div {...fadeUp} transition={spring.smooth}>
-          <ProfileView profile={profile} />
-        </motion.div>
+        <div className="flex flex-col gap-4">
+          <SegmentedControl label="Affichage du profil" segments={views} value={view} onChange={setView} />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={view} {...fadeUp} transition={spring.smooth}>
+              {view === "cv" ? <CvPreview stamp={stamp} /> : <ProfileView profile={profile} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       )}
     </>
   );

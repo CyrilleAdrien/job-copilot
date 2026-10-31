@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 
 const MAX_TECHS = 4;
 
-export function JobCard({ offer, now }: { offer: Offer; now: Date }) {
+export function JobCard({ offer, now, search }: { offer: Offer; now: Date; search?: string }) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<OfferDetail | null>(null);
   const [failed, setFailed] = useState(false);
@@ -31,7 +31,7 @@ export function JobCard({ offer, now }: { offer: Offer; now: Date }) {
   function toggle() {
     setOpen((value) => !value);
     if (!detail) {
-      fetchOffer(offer.id)
+      fetchOffer(offer.id, search)
         .then(setDetail)
         .catch(() => setFailed(true));
     }

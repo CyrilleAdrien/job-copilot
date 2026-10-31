@@ -2,6 +2,9 @@
 
 Le score (0 à 100) est déterministe et explicable : intitulé, technologies,
 séniorité, contrat et télétravail. Il ne fait pas appel au LLM.
+
+En mode « skills », une offre n'est gardée que si elle cite assez de compétences
+choisies par l'utilisateur (`min_skills`).
 """
 
 import re
@@ -11,6 +14,12 @@ from dataclasses import dataclass, field
 from jobcopilot_jobs.schemas import Criteria
 
 STOP_WORDS = {"de", "des", "du", "la", "le", "les", "et", "en", "a", "h", "f", "hf", "fh"}
+# Mots trop généraux pour distinguer deux métiers : « Data Engineer » et « Platform Engineer »
+# ne se ressemblent que par eux. Ils ne comptent que si l'intitulé ne contient rien d'autre.
+GENERIC_WORDS = {
+    "ingenieur", "engineer", "developpeur", "developer", "consultant", "specialiste",
+    "expert", "responsable", "chef", "charge", "technicien", "administrateur", "architecte",
+}  # fmt: skip
 
 SENIORITY_WORDS = {
     "graduate": ["junior", "debutant", "jeune diplome", "graduate", "premier emploi"],
@@ -58,6 +67,7 @@ class Match:
     remote: str | None = None
     excluded: bool = False
     on_topic: bool = True
+    enough_skills: bool = True
 
 
 def score_offer(criteria: Criteria, title: str, description: str, contract: str | None) -> Match:
@@ -71,17 +81,16 @@ def score_offer(criteria: Criteria, title: str, description: str, contract: str 
     role_score = 0.0
     for role in criteria.roles:
         words = [word for word in normalize(role).split() if word not in STOP_WORDS]
+        words = [word for word in words if word not in GENERIC_WORDS] or words
         if not words:
             continue
         in_title = sum(contains(title_n, word) for word in words) / len(words)
         role_score = max(role_score, in_title * 40, 15 if contains(text_n, normalize(role)) else 0)
 
-    # Technologies citées dans l'offre (35 points, plafonné à cinq technologies).
-    matched = [tech for tech in criteria.technologies if contains(text_n, normalize(tech))]
-    if criteria.technologies:
-        tech_score = 35 * min(1.0, len(matched) / min(len(criteria.technologies), 5))
-    else:
-        tech_score = 17.5
+    # Compétences citées dans l'offre (35 points, plafonné à cinq compétences).
+    skills = criteria.skills
+    matched = [skill for skill in skills if contains(text_n, normalize(skill))]
+    tech_score = 35 * min(1.0, len(matched) / min(len(skills), 5)) if skills else 17.5
 
     # Séniorité (10 points, pénalité si l'offre vise nettement plus haut).
     levels = [
@@ -114,5 +123,9 @@ def score_offer(criteria: Criteria, title: str, description: str, contract: str 
         score=max(0, min(100, round(total))),
         matched=matched,
         remote=remote,
-        on_topic=role_score > 0 or bool(matched),
+        # Le métier se lit dans l'intitulé (ou l'offre le nomme) : des technologies communes
+        # ne suffisent pas, sinon chaque profil de recherche verrait les offres des autres.
+        on_topic=role_score > 0,
+        enough_skills=criteria.match_mode == "domain"
+        or len(matched) >= min(criteria.min_skills, len(skills)),
     )
