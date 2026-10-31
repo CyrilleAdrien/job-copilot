@@ -131,8 +131,11 @@ services:
       start_period: 10s
     networks: [internal]
 
+  # Démarré seulement avec le profil « ollama » (COMPOSE_PROFILES=ollama dans .env).
+  # Sur Mac, on s'en passe au profit d'Ollama installé nativement.
   ollama:
     image: ollama/ollama:0.40.11
+    profiles: [ollama]
     restart: unless-stopped
     volumes:
       - ollama-data:/root/.ollama

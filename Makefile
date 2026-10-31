@@ -5,11 +5,17 @@ setup: ## Prépare le fichier .env et l'environnement Python de dev
 	uv sync --all-packages
 	cd web && npm ci
 
+NATIVE_OLLAMA := $(shell grep -qs '^OLLAMA_URL=.*host.docker.internal' .env && echo yes)
+
 up: ## Construit et démarre toute la stack
 	docker compose up -d --build
+ifeq ($(NATIVE_OLLAMA),yes)
+	@# Ollama natif : le conteneur ollama d'une version précédente ne doit plus tourner.
+	@docker compose rm -sf ollama >/dev/null 2>&1 || true
+endif
 
 down: ## Arrête la stack (les données restent dans les volumes)
-	docker compose down
+	docker compose --profile ollama down
 
 logs:
 	docker compose logs -f
@@ -20,11 +26,11 @@ ready: ## Affiche l'état de tous les services et de leurs dépendances
 MODEL := $(or $(shell grep -s '^OLLAMA_MODEL=' .env | cut -d= -f2),qwen2.5:7b)
 
 models: ## Télécharge le modèle LLM (environ 4,7 Go), dans Ollama natif si OLLAMA_URL le désigne
-	@if grep -qs '^OLLAMA_URL=.*host.docker.internal' .env; then \
-		ollama pull $(MODEL); \
-	else \
-		docker compose exec ollama ollama pull $(MODEL); \
-	fi
+ifeq ($(NATIVE_OLLAMA),yes)
+	ollama pull $(MODEL)
+else
+	docker compose exec ollama ollama pull $(MODEL)
+endif
 
 lint:
 	uv run ruff check .

@@ -32,7 +32,7 @@ make models   # télécharge le modèle LLM (environ 4,7 Go)
 
 L'application s'ouvre sur http://localhost:3000. Le catalogue des composants est sur http://localhost:3000/design.
 
-**Sur Mac**, Docker n'a pas accès au GPU : dans un conteneur, un modèle 7B tourne sur le processeur et met plusieurs minutes par réponse. Installe plutôt [Ollama pour macOS](https://ollama.com/download), qui utilise le GPU Apple Silicon, puis ajoute `OLLAMA_URL=http://host.docker.internal:11434` dans `.env` et relance `make up` puis `make models`. Les services joignent alors l'Ollama du Mac.
+**Sur Mac**, Docker n'a pas accès au GPU : dans un conteneur, un modèle 7B tourne sur le processeur et met plusieurs minutes par réponse. Installe plutôt [Ollama pour macOS](https://ollama.com/download), qui utilise le GPU Apple Silicon, puis, dans `.env`, supprime la ligne `COMPOSE_PROFILES=ollama` et ajoute `OLLAMA_URL=http://host.docker.internal:11434`. Relance ensuite `make up` puis `make models`. Le conteneur Ollama n'est plus démarré et les services joignent l'Ollama du Mac.
 
 ## Profil
 
