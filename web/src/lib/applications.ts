@@ -154,12 +154,21 @@ export function byStatus<T extends ApplicationSummary>(items: T[]): Record<Appli
 /** Au-delà, une candidature non envoyée est signalée. */
 export const DRAFT_LATE_DAYS = 3;
 
+/**
+ * « À finaliser » : candidature « À envoyer » préparée sur le site (au moins un CV ou une lettre généré)
+ * ou ajoutée à la main, pour laquelle les documents ne sont pas exigés.
+ */
+export function isToFinalize(item: ApplicationSummary) {
+  return item.status === "draft" && (item.source === "manuel" || Boolean(item.cv_document_id || item.letter_document_id));
+}
+
 /** Où en est une candidature « À envoyer » : documents prêts, et depuis combien de temps elle attend. */
 export function draftReadiness(item: ApplicationSummary, now: Date = new Date()) {
   const cv = Boolean(item.cv_document_id);
   const letter = Boolean(item.letter_document_id);
   const waitingDays = (now.getTime() - new Date(item.created_at).getTime()) / (24 * 3600 * 1000);
-  return { cv, letter, missing: !cv || !letter, late: waitingDays > DRAFT_LATE_DAYS };
+  const manual = item.source === "manuel";
+  return { cv, letter, manual, missing: !manual && (!cv || !letter), late: waitingDays > DRAFT_LATE_DAYS };
 }
 
 /** Favoris qui n'ont pas encore de candidature, sans doublon d'une recherche à l'autre. */

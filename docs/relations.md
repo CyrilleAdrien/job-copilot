@@ -26,7 +26,7 @@ flowchart LR
   applications -- "GET /generations" --> documents
 
   documents -. "document.generated" .-> redis[(Redis Streams)]
-  redis -. "groupe applications" .-> applications
+  redis -. "groupe applications :<br/>joint les documents,<br/>crée la candidature si besoin" .-> applications
   applications -. "application.created<br/>application.status_changed" .-> redis
   redis -. "à venir" .-> mail & calendar
 
@@ -60,9 +60,10 @@ flowchart TD
   D --> A[Postuler]
   F -->|Créer la candidature : Offres ou Kanban| C[Candidature « À envoyer »]
   A --> C
-  G -->|document.generated| C
+  G -->|document.generated : joint, ou crée la candidature| C
   C --> K[Kanban et liste]
-  C --> AF[Encart « À finaliser »]
+  C -->|avec CV ou lettre, ou ajoutée à la main| AF[Encart « À finaliser »]
+  M[Ajout manuel] --> C
   C -->|statut| BO[Badge de statut sur Offres]
   C -->|statut| PD[Panneau Candidature de la fiche d'offre]
   K -->|changement de statut| C
@@ -78,5 +79,5 @@ flowchart TD
 | La création d'une candidature | badge sur la carte d'offre, panneau de la fiche d'offre, Kanban, « À finaliser », compteurs des filtres, favori retiré des favoris en attente |
 | Un statut de candidature | colonne du Kanban, « À finaliser », badge sur Offres, historique de la fiche, événement `application.status_changed` |
 | La suppression d'une candidature | le favori réapparaît dans « À envoyer », le badge disparaît d'Offres |
-| Une génération de documents | fiche d'offre, fiche de candidature (CV et lettre joints), état CV / Lettre dans « À finaliser » |
+| Une génération de documents | fiche d'offre, fiche de candidature (CV et lettre joints), candidature créée « À envoyer » si l'offre n'en avait pas, entrée dans « À finaliser », badge sur Offres, favori retiré des favoris en attente |
 | Le schéma d'un service | migration Alembic, schémas Pydantic, types TypeScript dans `web/src/lib/` |

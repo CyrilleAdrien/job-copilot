@@ -131,8 +131,13 @@ async def test_generated_documents_are_attached(client):
     from_offer = (await client.post("/applications", json={"offer_id": 7})).json()
     new_cv = uuid.uuid4()
     async with get_sessionmaker()() as session:
-        assert await events.attach_documents(session, {"offer_id": "7", "cv_id": str(new_cv)})
-        assert not await events.attach_documents(session, {"offer_id": "8", "cv_id": str(new_cv)})
+        fields = {"offer_id": "7", "cv_id": str(new_cv)}
+        row, is_new = await events.attach_documents(session, fields)
+        assert row is not None and not is_new
+        assert await events.attach_documents(session, {"offer_id": "8", "cv_id": str(new_cv)}) == (
+            None,
+            False,
+        )
     body = (await client.get(f"/applications/{from_offer['id']}")).json()
     assert body["cv_document_id"] == str(new_cv)
     assert body["letter_document_id"] == str(LETTER_ID)
@@ -172,6 +177,32 @@ async def test_consumer_reads_document_generated(client):
     assert bus.acked == ["1-0"]
     body = (await client.get(f"/applications/{created['id']}")).json()
     assert body["letter_document_id"] == str(new_letter)
+
+
+async def test_document_generated_creates_the_missing_application(client, cache):
+    """Un CV généré sur le site pour une offre sans candidature la crée « À envoyer »."""
+    new_cv = uuid.uuid4()
+    bus = OneBatch({"offer_id": "7", "search": "devops", "cv_id": str(new_cv)})
+    bus.xadd = cache.xadd
+    http = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    with pytest.raises(asyncio.CancelledError):
+        await events.consume(bus, get_sessionmaker(), http)
+    (created,) = (await client.get("/applications")).json()
+    assert created["status"] == "draft"
+    assert created["search_id"] == "devops"
+    assert created["title"] == "Ingénieur DevOps"
+    assert created["cv_document_id"] == str(new_cv)
+    assert created["letter_document_id"] is None
+    body = (await client.get(f"/applications/{created['id']}")).json()
+    assert [e["source"] for e in body["events"]] == ["system"]
+    assert len(await cache.xrange(events.APPLICATION_CREATED)) == 1
+
+    # Une offre inconnue ne crée rien et le message est quand même acquitté.
+    bus = OneBatch({"offer_id": "8", "cv_id": str(new_cv)})
+    with pytest.raises(asyncio.CancelledError):
+        await events.consume(bus, get_sessionmaker(), http)
+    assert bus.acked == ["1-0"]
+    assert len((await client.get("/applications")).json()) == 1
 
 
 async def test_two_simultaneous_clicks_create_one_application(client):

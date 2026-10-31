@@ -9,6 +9,7 @@ import {
   latestDocumentIds,
   mailtoUrl,
   pendingFavorites,
+  isToFinalize,
   activeFilterCount,
   showsFavorites,
   type ApplicationSummary,
@@ -98,9 +99,9 @@ describe("filterApplications", () => {
 describe("draftReadiness", () => {
   it("dit ce qu'il manque et signale une attente de plus de 3 jours", () => {
     const now = new Date("2026-10-10T12:00:00Z");
-    expect(draftReadiness(base, now)).toEqual({ cv: false, letter: false, missing: true, late: true });
+    expect(draftReadiness(base, now)).toEqual({ cv: false, letter: false, manual: false, missing: true, late: true });
     const ready = { ...base, cv_document_id: "c", letter_document_id: "l", created_at: "2026-10-09T12:00:00Z" };
-    expect(draftReadiness(ready, now)).toEqual({ cv: true, letter: true, missing: false, late: false });
+    expect(draftReadiness(ready, now)).toEqual({ cv: true, letter: true, manual: false, missing: false, late: false });
   });
 });
 
@@ -124,5 +125,16 @@ describe("activeFilterCount and showsFavorites", () => {
     expect(showsFavorites({ ...emptyFilters, statuses: ["draft"] })).toBe(true);
     expect(showsFavorites({ ...emptyFilters, statuses: ["sent"] })).toBe(false);
     expect(showsFavorites({ ...emptyFilters, query: "sre" })).toBe(false);
+  });
+});
+
+describe("isToFinalize", () => {
+  it("keeps drafts with a generated document or added by hand", () => {
+    const draft = { status: "draft", source: "adzuna", cv_document_id: null, letter_document_id: null } as ApplicationSummary;
+    expect(isToFinalize(draft)).toBe(false);
+    expect(isToFinalize({ ...draft, letter_document_id: "l" })).toBe(true);
+    expect(isToFinalize({ ...draft, source: "manuel" })).toBe(true);
+    expect(isToFinalize({ ...draft, source: "manuel", status: "sent" })).toBe(false);
+    expect(draftReadiness({ ...draft, source: "manuel", created_at: new Date().toISOString() }).missing).toBe(false);
   });
 });

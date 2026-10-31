@@ -20,7 +20,7 @@ async def lifespan(_app: FastAPI):
     await upgrade(get_settings().database_url)
     consumer = None
     if get_applications_settings().applications_consume_events:
-        consumer = asyncio.create_task(consume(get_cache(), get_sessionmaker()))
+        consumer = asyncio.create_task(consume(get_cache(), get_sessionmaker(), get_http()))
     yield
     if consumer:
         consumer.cancel()

@@ -102,7 +102,11 @@ async def run(ctx: Context, generation_id: uuid.UUID, request: GenerationRequest
             await session.refresh(row)
             await ctx.cache.xadd(
                 EVENTS_STREAM,
-                {"generation_id": str(row.id), "offer_id": str(row.offer_id)}
+                {
+                    "generation_id": str(row.id),
+                    "offer_id": str(row.offer_id),
+                    "search": request.search or "",
+                }
                 | {f"{doc.kind}_id": str(doc.id) for doc in row.documents},
                 maxlen=1000,
             )

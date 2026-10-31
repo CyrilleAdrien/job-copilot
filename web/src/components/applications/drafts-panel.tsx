@@ -6,13 +6,14 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { draftReadiness, type ApplicationSummary } from "@/lib/applications";
+import { draftReadiness, isToFinalize, type ApplicationSummary } from "@/lib/applications";
 import { timeAgo } from "@/lib/jobs";
 import { spring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
- * Candidatures préparées mais pas encore envoyées : ce qu'il manque à chacune et l'action suivante.
+ * Candidatures préparées mais pas encore envoyées (documents générés sur le site, ou ajout manuel) :
+ * ce qu'il manque à chacune et l'action suivante.
  * Une fiche qui attend depuis plus de 3 jours est signalée : les offres partent vite.
  */
 export function DraftsPanel({
@@ -27,7 +28,7 @@ export function DraftsPanel({
   onSent: (id: string) => void;
 }) {
   const drafts = items
-    .filter((item) => item.status === "draft")
+    .filter(isToFinalize)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
   const [open, setOpen] = useState(false);
   if (drafts.length === 0) return null;
@@ -81,10 +82,14 @@ export function DraftsPanel({
                       {item.company ?? "Entreprise non précisée"} · préparée {timeAgo(item.created_at, now)}
                     </span>
                   </button>
-                  <div className="flex items-center gap-3 text-[12px]">
-                    <Step done={readiness.cv} label="CV" />
-                    <Step done={readiness.letter} label="Lettre" />
-                  </div>
+                  {readiness.manual ? (
+                    <span className="text-[12px] text-text-tertiary">Ajoutée à la main</span>
+                  ) : (
+                    <div className="flex items-center gap-3 text-[12px]">
+                      <Step done={readiness.cv} label="CV" />
+                      <Step done={readiness.letter} label="Lettre" />
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     {readiness.missing && item.offer_id !== null ? (
                       <Button variant="ai" size="sm" asChild>
