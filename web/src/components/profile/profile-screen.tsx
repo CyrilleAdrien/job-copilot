@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, PenLine, UserRound } from "lucide-react";
+import { Copy, Download, PenLine, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
@@ -10,7 +10,8 @@ import { CvPreview } from "@/components/profile/cv-preview";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { ImportButton } from "@/components/profile/import-button";
 import { ProfileView } from "@/components/profile/profile-view";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Menu } from "@/components/ui/menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,6 +56,27 @@ export function ProfileScreen() {
           Exporter
         </a>
       </Button>
+      {profile.searches.length < 10 && (
+        <Menu
+          label="Nouvelle recherche"
+          align="end"
+          triggerClassName={buttonVariants({ variant: "secondary" })}
+          trigger={
+            <>
+              <Plus aria-hidden />
+              Nouvelle recherche
+            </>
+          }
+          items={[
+            { label: "Recherche vide", href: "/bienvenue?recherche=nouvelle", icon: <Plus aria-hidden /> },
+            ...profile.searches.map((search) => ({
+              label: `À partir de « ${search.name} »`,
+              href: `/bienvenue?recherche=${encodeURIComponent(search.id)}`,
+              icon: <Copy aria-hidden />,
+            })),
+          ]}
+        />
+      )}
       <Button asChild>
         <Link href="/bienvenue">
           <PenLine aria-hidden />

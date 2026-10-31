@@ -19,7 +19,21 @@ export type MenuItem = {
 };
 
 /** Petit menu déroulant : se ferme au clic extérieur, avec Échap ou après un choix. */
-export function Menu({ trigger, label, items }: { trigger: ReactNode; label: string; items: MenuItem[] }) {
+export function Menu({
+  trigger,
+  label,
+  items,
+  align = "start",
+  triggerClassName,
+}: {
+  trigger: ReactNode;
+  label: string;
+  items: MenuItem[];
+  /** Côté où s'aligne le menu : « end » pour un bouton placé à droite. */
+  align?: "start" | "end";
+  /** Remplace l'apparence ronde par défaut du bouton. */
+  triggerClassName?: string;
+}) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -48,7 +62,10 @@ export function Menu({ trigger, label, items }: { trigger: ReactNode; label: str
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((value) => !value)}
-        className="flex size-8 items-center justify-center rounded-full border border-border bg-background-subtle text-text-secondary transition-colors hover:text-text"
+        className={
+          triggerClassName ??
+          "flex size-8 items-center justify-center rounded-full border border-border bg-background-subtle text-text-secondary transition-colors hover:text-text"
+        }
       >
         {trigger}
       </button>
@@ -61,7 +78,10 @@ export function Menu({ trigger, label, items }: { trigger: ReactNode; label: str
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={spring.snappy}
-            className="absolute left-0 top-full z-30 mt-1.5 min-w-60 origin-top-left rounded-[12px] border border-border bg-surface p-1 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.25)]"
+            className={cn(
+              "absolute top-full z-30 mt-1.5 min-w-60 rounded-[12px] border border-border bg-surface p-1 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.25)]",
+              align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left",
+            )}
           >
             {items.map((item) => {
               const className = cn(

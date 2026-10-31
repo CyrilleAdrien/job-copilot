@@ -2,12 +2,14 @@ import {
   ArchiveRestore,
   Award,
   BookOpen,
+  Copy,
   Briefcase,
   FolderGit2,
   GraduationCap,
   HandHeart,
   Languages,
   MapPin,
+  Plus,
   Target,
   Wrench,
 } from "lucide-react";
@@ -16,6 +18,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Menu } from "@/components/ui/menu";
 import {
   contractLabels,
   matchModeLabels,
@@ -35,7 +38,16 @@ export function formatMonth(value?: string | null) {
 }
 
 /** Lecture seule du profil, utilisée par l'écran Profil et le récapitulatif de l'assistant. */
-export function ProfileView({ profile, onRestore }: { profile: Profile; onRestore?: (id: string) => void }) {
+export function ProfileView({
+  profile,
+  onRestore,
+  manageSearches = false,
+}: {
+  profile: Profile;
+  onRestore?: (id: string) => void;
+  /** Affiche le bouton « + » pour créer une recherche, vide ou copiée d'une autre. */
+  manageSearches?: boolean;
+}) {
   const { identity } = profile;
   return (
     <div className="flex flex-col gap-4">
@@ -60,7 +72,27 @@ export function ProfileView({ profile, onRestore }: { profile: Profile; onRestor
         </CardContent>
       </Card>
 
-      <Section icon={Target} title={profile.searches.length > 1 ? "Mes recherches" : "Ce que je recherche"}>
+      <Section
+        icon={Target}
+        title={profile.searches.length > 1 ? "Mes recherches" : "Ce que je recherche"}
+        action={
+          manageSearches && profile.searches.length < 10 ? (
+            <Menu
+              label="Nouvelle recherche"
+              align="end"
+              trigger={<Plus className="size-4" aria-hidden />}
+              items={[
+                { label: "Nouvelle recherche", href: "/bienvenue?recherche=nouvelle", icon: <Plus aria-hidden /> },
+                ...profile.searches.map((search) => ({
+                  label: `À partir de « ${search.name} »`,
+                  href: `/bienvenue?recherche=${encodeURIComponent(search.id)}`,
+                  icon: <Copy aria-hidden />,
+                })),
+              ]}
+            />
+          ) : undefined
+        }
+      >
         <div className="flex flex-col divide-y divide-border">
           {profile.searches.map((search) => {
             const skills = search.focus_skills.length ? search.focus_skills : search.technologies;
@@ -213,10 +245,12 @@ function Entries({
 function Section({
   icon: Icon,
   title,
+  action,
   children,
 }: {
   icon: typeof Target;
   title: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -225,6 +259,7 @@ function Section({
         <h3 className="flex items-center gap-2 text-[15px] font-semibold">
           <Icon className="size-4 text-text-tertiary" strokeWidth={1.75} aria-hidden />
           {title}
+          {action && <span className="ml-auto font-normal">{action}</span>}
         </h3>
         {children}
       </CardContent>
