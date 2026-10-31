@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Annotated
 
 import httpx
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from redis.asyncio import Redis
 
 from jobcopilot_common import get_settings
@@ -41,7 +41,12 @@ def get_connectors(cache: Cache, http: Http) -> list[Connector]:
     return connectors
 
 
-async def get_criteria(http: Http) -> Criteria:
+async def get_criteria(
+    http: Http,
+    search: Annotated[
+        str | None, Query(description="Profil de recherche (le premier sinon)")
+    ] = None,
+) -> Criteria:
     try:
         response = await http.get(f"{get_jobs_settings().profile_url}/")
     except httpx.HTTPError as exc:
@@ -52,4 +57,11 @@ async def get_criteria(http: Http) -> Criteria:
         )
     if response.status_code != 200:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Service profil indisponible.")
-    return Criteria.model_validate(response.json()["search"])
+    searches = [Criteria.model_validate(item) for item in response.json()["searches"]]
+    if search is None:
+        # La première recherche active ; une recherche archivée reste lisible par son identifiant.
+        return next((item for item in searches if not item.archived), searches[0])
+    for criteria in searches:
+        if criteria.id == search:
+            return criteria
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "Profil de recherche introuvable.")

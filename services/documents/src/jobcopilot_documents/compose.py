@@ -7,7 +7,9 @@ from jobcopilot_documents.schemas import (
     CvContent,
     CvDraft,
     CvEducation,
+    CvEntry,
     CvExperience,
+    CvSection,
     Experience,
     LabeledLine,
     Language,
@@ -35,8 +37,24 @@ MONTHS = {
     ],
 }  # fmt: skip
 WORDS = {
-    "fr": {"now": "aujourd'hui", "soft": "Savoir-être", "languages": "Langues et intérêts"},
-    "en": {"now": "present", "soft": "Soft skills", "languages": "Languages and interests"},
+    "fr": {
+        "now": "aujourd'hui",
+        "soft": "Savoir-être",
+        "languages": "Langues et intérêts",
+        "projects": "Projets",
+        "certifications": "Certifications",
+        "volunteering": "Bénévolat",
+        "publications": "Publications",
+    },
+    "en": {
+        "now": "present",
+        "soft": "Soft skills",
+        "languages": "Languages and interests",
+        "projects": "Projects",
+        "certifications": "Certifications",
+        "volunteering": "Volunteering",
+        "publications": "Publications",
+    },
 }
 
 
@@ -67,8 +85,70 @@ def experience(source: Experience, language: Language, groups=None) -> CvExperie
     )
 
 
+def present(*values: str | int | None) -> list[str]:
+    """Les valeurs renseignées, en texte : « CNCF », « 2025 »."""
+    return [str(value) for value in values if value]
+
+
+def sections(profile: Profile, language: Language) -> list[CvSection]:
+    """Sections secondaires, reprises du profil telles quelles, dans l'ordre d'un CV."""
+    words = WORDS[language]
+    found = [
+        (
+            words["projects"],
+            [
+                CvEntry(
+                    title=item.name,
+                    meta=present(", ".join(item.technologies), item.year),
+                    text=item.description,
+                    url=item.url,
+                )
+                for item in profile.projects
+            ],
+        ),
+        (
+            words["certifications"],
+            [
+                CvEntry(title=item.name, meta=present(item.issuer, item.year), url=item.url)
+                for item in profile.certifications
+            ],
+        ),
+        (
+            words["volunteering"],
+            [
+                CvEntry(
+                    title=item.role,
+                    meta=present(
+                        item.organization, item.start and period(item.start, item.end, language)
+                    ),
+                    text=item.description,
+                )
+                for item in profile.volunteering
+            ],
+        ),
+        (
+            words["publications"],
+            [
+                CvEntry(title=item.title, meta=present(item.publisher, item.year), url=item.url)
+                for item in profile.publications
+            ],
+        ),
+    ]
+    return [CvSection(title=title, entries=entries) for title, entries in found if entries]
+
+
+def contract_types(profile: Profile, search: str | None) -> list[str]:
+    chosen = next((item for item in profile.searches if item.id == search), None)
+    chosen = chosen or (profile.searches[0] if profile.searches else None)
+    return chosen.contract_types if chosen else []
+
+
 def build_cv(
-    profile: Profile, selected: list[int], draft: CvDraft | None, language: Language
+    profile: Profile,
+    selected: list[int],
+    draft: CvDraft | None,
+    language: Language,
+    search: str | None = None,
 ) -> CvContent:
     """CV ciblé : expériences retenues, dans l'ordre du profil, avec les missions reformulées."""
     identity = profile.identity
@@ -89,7 +169,7 @@ def build_cv(
         extras.append(LabeledLine(label=WORDS[language]["languages"], text=languages))
 
     details = [identity.location] if identity.location else []
-    details += [CONTRACTS.get(c, c) for c in profile.search.contract_types[:2]]
+    details += [CONTRACTS.get(c, c) for c in contract_types(profile, search)[:2]]
     return CvContent(
         language=language,
         name=identity.full_name,
@@ -104,6 +184,7 @@ def build_cv(
             CvEducation(degree=item.degree, school=item.school, year=item.year)
             for item in profile.education
         ],
+        sections=sections(profile, language),
         extras=extras,
     )
 

@@ -6,6 +6,7 @@ import httpx
 from redis.asyncio import Redis
 
 from jobcopilot_jobs.connectors.base import SourceError, clean_text
+from jobcopilot_jobs.places import parse_place
 from jobcopilot_jobs.schemas import Query, RawOffer
 
 TOKEN_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token"
@@ -59,13 +60,21 @@ class FranceTravail:
         await self.cache.set("jobs:france_travail:token", body["access_token"], ex=ttl)
         return body["access_token"]
 
-    async def place(self, location: str) -> dict[str, str]:
-        """Traduit un nom de ville en code INSEE (ou département), mis en cache 30 jours."""
+    async def place(self, location: str) -> dict[str, str] | None:
+        """Traduit un lieu en codes INSEE : région, département ou commune (mise en cache 30 jours).
+
+        None : un pays étranger, que France Travail ne couvre pas.
+        """
         name = location.strip()
-        if name.lower() in NO_LOCATION:
+        place = parse_place(name)
+        if place.kind == "country":
+            return {} if place.country == "fr" else None
+        if place.kind == "anywhere" or name.lower() in NO_LOCATION:
             return {}
-        if name.isdigit() and len(name) in (2, 3):
-            return {"departement": name}
+        if place.kind == "region":
+            return {"region": place.code or ""}
+        if place.kind == "department":
+            return {"departement": place.code or ""}
         key = f"jobs:geo:{name.lower()}"
         code = await self.cache.get(key)
         if code is None:
@@ -93,6 +102,8 @@ class FranceTravail:
             params["typeContrat"] = ",".join(contracts)
         if query.location:
             place = await self.place(query.location)
+            if place is None:
+                return []
             params.update(place)
             if "commune" in place:
                 params["distance"] = query.radius_km

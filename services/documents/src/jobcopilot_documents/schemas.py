@@ -68,15 +68,50 @@ class SpokenLanguage(Loose):
 
 
 class Search(Loose):
+    id: str = "principal"
     contract_types: list[str] = []
+
+
+class Certification(Loose):
+    name: str
+    issuer: str | None = None
+    year: int | None = None
+    url: str | None = None
+
+
+class Project(Loose):
+    name: str
+    description: str | None = None
+    technologies: list[str] = []
+    year: int | None = None
+    url: str | None = None
+
+
+class Volunteering(Loose):
+    role: str
+    organization: str
+    start: str | None = None
+    end: str | None = None
+    description: str | None = None
+
+
+class Publication(Loose):
+    title: str
+    publisher: str | None = None
+    year: int | None = None
+    url: str | None = None
 
 
 class Profile(Loose):
     identity: Identity
-    search: Search = Search()
+    searches: list[Search] = []
     experiences: list[Experience] = []
     education: list[Education] = []
     skills: list[SkillCategory] = []
+    certifications: list[Certification] = []
+    projects: list[Project] = []
+    volunteering: list[Volunteering] = []
+    publications: list[Publication] = []
     languages: list[SpokenLanguage] = []
     soft_skills: list[str] = []
     interests: list[str] = []
@@ -121,6 +156,20 @@ class LabeledLine(BaseModel):
     text: str
 
 
+class CvEntry(BaseModel):
+    """Une ligne d'une section secondaire : certification, projet, bénévolat, publication."""
+
+    title: str
+    meta: list[str] = []
+    text: str | None = None
+    url: str | None = None
+
+
+class CvSection(BaseModel):
+    title: str
+    entries: list[CvEntry]
+
+
 class CvContent(BaseModel):
     language: Language
     name: str
@@ -132,6 +181,7 @@ class CvContent(BaseModel):
     skills: list[SkillCategory] = []
     experiences: list[CvExperience] = []
     education: list[CvEducation] = []
+    sections: list[CvSection] = []
     extras: list[LabeledLine] = []
 
 
@@ -178,6 +228,9 @@ class LetterDraft(BaseModel):
 
 class GenerationRequest(BaseModel):
     offer_id: int
+    search: str | None = Field(
+        default=None, description="Profil de recherche d'où vient l'offre (le premier sinon)"
+    )
     letter: bool = True
     language: Language | None = Field(
         default=None, description="Détectée depuis l'offre si absente"
@@ -223,6 +276,10 @@ class Generation(BaseModel):
 
 class DocumentDetail(DocumentInfo):
     content: dict
+
+
+class ProfilePreview(BaseModel):
+    pages: int
 
 
 class LLMStatus(BaseModel):

@@ -24,6 +24,7 @@ import {
   type LLMStatus,
 } from "@/lib/documents";
 import { fadeUp, spring } from "@/lib/motion";
+import { storedSearch } from "@/lib/search-choice";
 
 type LanguageChoice = "auto" | Language;
 
@@ -87,6 +88,7 @@ export function GenerationPanel({ offerId }: { offerId: number }) {
       const started = await startGeneration(offerId, {
         letter: withLetter,
         language: language === "auto" ? null : language,
+        search: storedSearch() ?? undefined,
       });
       setGeneration(started);
       setConfiguring(false);

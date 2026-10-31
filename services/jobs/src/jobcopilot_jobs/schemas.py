@@ -3,20 +3,23 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 Seniority = Literal["graduate", "mid", "senior", "lead"]
 Contract = Literal["cdi", "cdd", "freelance", "alternance", "stage", "interim"]
 Remote = Literal["onsite", "hybrid", "remote", "any"]
 MaxAgeDays = Literal[1, 3, 7, 14, 30]
 Sort = Literal["date", "relevance"]
+MatchMode = Literal["domain", "skills"]
 
 
 class Criteria(BaseModel):
-    """Critères de recherche lus dans le profil (section `search`)."""
+    """Un profil de recherche lu dans le profil (section `searches`)."""
 
     model_config = ConfigDict(extra="ignore")
 
+    id: str = "principal"
+    name: str = "Principal"
     roles: list[str]
     technologies: list[str] = []
     excluded_keywords: list[str] = []
@@ -27,6 +30,15 @@ class Criteria(BaseModel):
     remote: Remote = "any"
     salary_min: int | None = None
     max_age_days: MaxAgeDays = 7
+    match_mode: MatchMode = "domain"
+    focus_skills: list[str] = []
+    min_skills: int = 2
+    archived: bool = False
+
+    @property
+    def skills(self) -> list[str]:
+        """Compétences recherchées dans les offres : celles choisies, sinon les technologies."""
+        return self.focus_skills or self.technologies
 
 
 class Query(BaseModel):
@@ -68,6 +80,7 @@ class Offer(BaseModel):
     score: int
     matched: list[str]
     remote: Literal["remote", "hybrid"] | None
+    favorite: bool = False
 
 
 class OfferDetail(Offer):
@@ -77,6 +90,9 @@ class OfferDetail(Offer):
 class OfferList(BaseModel):
     items: list[Offer]
     total: int
+    search: str
+    hidden: int = 0
+    hidden_level: int = Field(0, description="Offres écartées : niveau au-dessus du niveau visé")
     sort: Sort
     max_age_days: int
     refreshed_at: datetime | None

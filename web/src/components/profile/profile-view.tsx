@@ -1,15 +1,33 @@
-import { Briefcase, GraduationCap, Languages, MapPin, Target, Wrench } from "lucide-react";
+import {
+  ArchiveRestore,
+  Award,
+  BookOpen,
+  Copy,
+  Briefcase,
+  FolderGit2,
+  GraduationCap,
+  HandHeart,
+  Languages,
+  MapPin,
+  Plus,
+  Target,
+  Wrench,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Menu } from "@/components/ui/menu";
 import {
   contractLabels,
+  matchModeLabels,
   maxAgeLabels,
   remoteLabels,
   seniorityLabels,
   type Profile,
 } from "@/lib/profile";
+import { cn } from "@/lib/utils";
 
 const monthFormatter = new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric" });
 
@@ -20,8 +38,17 @@ export function formatMonth(value?: string | null) {
 }
 
 /** Lecture seule du profil, utilisée par l'écran Profil et le récapitulatif de l'assistant. */
-export function ProfileView({ profile }: { profile: Profile }) {
-  const { identity, search } = profile;
+export function ProfileView({
+  profile,
+  onRestore,
+  manageSearches = false,
+}: {
+  profile: Profile;
+  onRestore?: (id: string) => void;
+  /** Affiche le bouton « + » pour créer une recherche, vide ou copiée d'une autre. */
+  manageSearches?: boolean;
+}) {
+  const { identity } = profile;
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -45,17 +72,63 @@ export function ProfileView({ profile }: { profile: Profile }) {
         </CardContent>
       </Card>
 
-      <Section icon={Target} title="Ce que je recherche">
-        <Row label="Postes">{search.roles.join(", ")}</Row>
-        {search.technologies.length > 0 && <Row label="Technos">{search.technologies.join(", ")}</Row>}
-        <Row label="Niveau">{seniorityLabels[search.seniority]}</Row>
-        <Row label="Contrat">{search.contract_types.map((c) => contractLabels[c]).join(", ")}</Row>
-        <Row label="Lieu">
-          {[search.locations.join(", ") || "Partout", `${search.radius_km} km`, remoteLabels[search.remote]].join(" · ")}
-        </Row>
-        {search.salary_min ? <Row label="Salaire min.">{search.salary_min.toLocaleString("fr-FR")} €</Row> : null}
-        <Row label="Offres publiées depuis">{maxAgeLabels[search.max_age_days]}</Row>
-        {search.excluded_keywords.length > 0 && <Row label="Exclure">{search.excluded_keywords.join(", ")}</Row>}
+      <Section
+        icon={Target}
+        title={profile.searches.length > 1 ? "Mes recherches" : "Ce que je recherche"}
+        action={
+          manageSearches && profile.searches.length < 10 ? (
+            <Menu
+              label="Nouvelle recherche"
+              align="end"
+              trigger={<Plus className="size-4" aria-hidden />}
+              items={[
+                { label: "Nouvelle recherche", href: "/bienvenue?recherche=nouvelle", icon: <Plus aria-hidden /> },
+                ...profile.searches.map((search) => ({
+                  label: `À partir de « ${search.name} »`,
+                  href: `/bienvenue?recherche=${encodeURIComponent(search.id)}`,
+                  icon: <Copy aria-hidden />,
+                })),
+              ]}
+            />
+          ) : undefined
+        }
+      >
+        <div className="flex flex-col divide-y divide-border">
+          {profile.searches.map((search) => {
+            const skills = search.focus_skills.length ? search.focus_skills : search.technologies;
+            return (
+              <div key={search.id || search.name} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
+                {profile.searches.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className={cn("text-sm font-semibold", search.archived && "text-text-secondary")}>{search.name}</span>
+                    {search.archived && <Badge>Archivée</Badge>}
+                    {search.archived && onRestore && (
+                      <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRestore(search.id)}>
+                        <ArchiveRestore aria-hidden />
+                        Restaurer
+                      </Button>
+                    )}
+                  </div>
+                )}
+                <Row label="Postes">{search.roles.join(", ")}</Row>
+                {search.technologies.length > 0 && <Row label="Technos">{search.technologies.join(", ")}</Row>}
+                <Row label="Offres">
+                  {search.match_mode === "domain"
+                    ? matchModeLabels.domain
+                    : `Au moins ${Math.min(search.min_skills, skills.length)} parmi ${skills.join(", ")}`}
+                </Row>
+                <Row label="Niveau">{seniorityLabels[search.seniority]}</Row>
+                <Row label="Contrat">{search.contract_types.map((c) => contractLabels[c]).join(", ")}</Row>
+                <Row label="Lieu">
+                  {[search.locations.join(", ") || "Partout", `${search.radius_km} km`, remoteLabels[search.remote]].join(" · ")}
+                </Row>
+                {search.salary_min ? <Row label="Salaire min.">{search.salary_min.toLocaleString("fr-FR")} €</Row> : null}
+                <Row label="Offres publiées depuis">{maxAgeLabels[search.max_age_days]}</Row>
+                {search.excluded_keywords.length > 0 && <Row label="Exclure">{search.excluded_keywords.join(", ")}</Row>}
+              </div>
+            );
+          })}
+        </div>
       </Section>
 
       {profile.experiences.length > 0 && (
@@ -120,17 +193,64 @@ export function ProfileView({ profile }: { profile: Profile }) {
           )}
         </div>
       )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Entries
+          icon={Award}
+          title="Certifications"
+          items={profile.certifications.map((item) => ({ title: item.name, meta: [item.issuer, item.year] }))}
+        />
+        <Entries
+          icon={FolderGit2}
+          title="Projets"
+          items={profile.projects.map((item) => ({ title: item.name, meta: [item.technologies.join(", "), item.year] }))}
+        />
+        <Entries
+          icon={HandHeart}
+          title="Bénévolat"
+          items={profile.volunteering.map((item) => ({ title: item.role, meta: [item.organization, item.start && formatMonth(item.start)] }))}
+        />
+        <Entries
+          icon={BookOpen}
+          title="Publications"
+          items={profile.publications.map((item) => ({ title: item.title, meta: [item.publisher, item.year] }))}
+        />
+      </div>
     </div>
+  );
+}
+
+function Entries({
+  icon,
+  title,
+  items,
+}: {
+  icon: typeof Target;
+  title: string;
+  items: { title: string; meta: (string | number | null | undefined)[] }[];
+}) {
+  if (!items.length) return null;
+  return (
+    <Section icon={icon} title={title}>
+      {items.map((item, index) => (
+        <div key={index} className="flex flex-col text-sm">
+          <span className="font-medium">{item.title}</span>
+          {item.meta.some(Boolean) && <span className="text-text-secondary">{item.meta.filter(Boolean).join(" · ")}</span>}
+        </div>
+      ))}
+    </Section>
   );
 }
 
 function Section({
   icon: Icon,
   title,
+  action,
   children,
 }: {
   icon: typeof Target;
   title: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -139,6 +259,7 @@ function Section({
         <h3 className="flex items-center gap-2 text-[15px] font-semibold">
           <Icon className="size-4 text-text-tertiary" strokeWidth={1.75} aria-hidden />
           {title}
+          {action && <span className="ml-auto font-normal">{action}</span>}
         </h3>
         {children}
       </CardContent>
@@ -148,7 +269,7 @@ function Section({
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] gap-3 text-sm">
+    <div className="grid grid-cols-[110px_1fr] gap-3 text-sm md:grid-cols-[160px_1fr]">
       <span className="text-text-secondary">{label}</span>
       <span>{children}</span>
     </div>

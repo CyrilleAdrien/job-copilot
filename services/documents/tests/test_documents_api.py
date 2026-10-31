@@ -139,3 +139,38 @@ async def test_generations_are_listed_by_offer(client):
 async def test_unknown_generation(client):
     response = await client.get("/generations/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
+
+
+async def test_offer_is_read_for_the_chosen_search(client, upstream):
+    seen = []
+    handler = upstream["client"]._transport.handler
+
+    def spy(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        return handler(request)
+
+    upstream["client"]._transport.handler = spy
+    generation = await generate(client, search="freelance", letter=False)
+    assert generation["status"] == "done"
+    offer_url = next(url for url in seen if url.path.startswith("/offers/"))
+    assert offer_url.params["search"] == "freelance"
+    cv = (await client.get(f"/documents/{generation['documents'][0]['id']}")).json()
+    assert "Freelance" in cv["content"]["details"]
+
+
+async def test_profile_preview_renders_the_whole_profile(client):
+    info = await client.get("/profile-preview")
+    assert info.status_code == 200
+    assert info.json()["pages"] >= 1
+    pdf = await client.get("/profile-preview/pdf", params={"language": "en"})
+    assert pdf.content.startswith(b"%PDF")
+    page = await client.get("/profile-preview/pages/1")
+    assert page.headers["content-type"] == "image/png"
+    assert (await client.get("/profile-preview/pages/9")).status_code == 404
+
+
+async def test_profile_preview_without_profile(client, upstream):
+    upstream["client"]._transport.handler = lambda _: httpx.Response(404)
+    response = await client.get("/profile-preview")
+    assert response.status_code == 409
+    assert "profil" in response.json()["detail"]

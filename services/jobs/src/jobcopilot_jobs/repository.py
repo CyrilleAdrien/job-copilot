@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_jobs.matching import dedup_key
-from jobcopilot_jobs.models import OfferRow
+from jobcopilot_jobs.models import FavoriteRow, OfferRow
 from jobcopilot_jobs.schemas import RawOffer
 
 UPDATED = ["title", "company", "location", "contract", "salary", "description", "url"]
@@ -55,5 +55,40 @@ async def get_offer(session: AsyncSession, offer_id: int) -> OfferRow | None:
 
 
 async def purge_before(session: AsyncSession, before: datetime) -> None:
-    await session.execute(delete(OfferRow).where(OfferRow.published_at < before))
+    """Supprime les vieilles offres, sauf celles mises en favori."""
+    await session.execute(
+        delete(OfferRow).where(
+            OfferRow.published_at < before, OfferRow.id.not_in(select(FavoriteRow.offer_id))
+        )
+    )
+    await session.commit()
+
+
+async def favorite_ids(session: AsyncSession, search_id: str) -> set[int]:
+    result = await session.scalars(
+        select(FavoriteRow.offer_id).where(FavoriteRow.search_id == search_id)
+    )
+    return set(result)
+
+
+async def favorites(session: AsyncSession, search_id: str) -> list[OfferRow]:
+    """Favoris de la recherche, quelle que soit leur date de publication."""
+    result = await session.scalars(
+        select(OfferRow)
+        .join(FavoriteRow, FavoriteRow.offer_id == OfferRow.id)
+        .where(FavoriteRow.search_id == search_id)
+    )
+    return list(result)
+
+
+async def set_favorite(session: AsyncSession, search_id: str, offer_id: int, on: bool) -> None:
+    if on:
+        statement = insert(FavoriteRow).values(search_id=search_id, offer_id=offer_id)
+        await session.execute(statement.on_conflict_do_nothing())
+    else:
+        await session.execute(
+            delete(FavoriteRow).where(
+                FavoriteRow.search_id == search_id, FavoriteRow.offer_id == offer_id
+            )
+        )
     await session.commit()

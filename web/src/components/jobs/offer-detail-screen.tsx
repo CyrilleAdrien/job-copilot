@@ -20,13 +20,14 @@ import {
   type OfferDetail,
 } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
+import { storedSearch } from "@/lib/search-choice";
 
 export function OfferDetailScreen({ offerId }: { offerId: number }) {
   const [offer, setOffer] = useState<OfferDetail | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
 
   useEffect(() => {
-    fetchOffer(offerId).then(setOffer).catch(setError);
+    fetchOffer(offerId, storedSearch() ?? undefined).then(setOffer).catch(setError);
   }, [offerId]);
 
   return (

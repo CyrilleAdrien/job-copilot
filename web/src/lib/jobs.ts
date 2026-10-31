@@ -18,6 +18,7 @@ export type Offer = {
   score: number;
   matched: string[];
   remote: "remote" | "hybrid" | null;
+  favorite: boolean;
 };
 
 export type OfferDetail = Offer & { description: string };
@@ -25,6 +26,12 @@ export type OfferDetail = Offer & { description: string };
 export type OfferList = {
   items: Offer[];
   total: number;
+  /** Profil de recherche utilisé. */
+  search: string;
+  /** Offres du métier écartées parce qu'elles citent trop peu des compétences choisies. */
+  hidden: number;
+  /** Offres écartées car d'un niveau au-dessus du niveau visé. */
+  hidden_level: number;
   sort: SortOrder;
   max_age_days: Window;
   refreshed_at: string | null;
@@ -91,26 +98,59 @@ export function isFresh(iso: string, now: Date = new Date()): boolean {
   return now.getTime() - new Date(iso).getTime() < 24 * 3600 * 1000;
 }
 
-export async function fetchOffers(sort: SortOrder, days?: Window): Promise<OfferList> {
-  const params = new URLSearchParams({ sort, limit: "100" });
+/** Offres par page sur l'écran Offres. */
+export const PAGE_SIZE = 20;
+
+export async function fetchOffers(
+  sort: SortOrder,
+  days?: Window,
+  search?: string,
+  favorites = false,
+  page = 0,
+): Promise<OfferList> {
+  const params = new URLSearchParams({
+    sort,
+    limit: String(PAGE_SIZE),
+    offset: String(page * PAGE_SIZE),
+  });
+  if (favorites) params.set("favorites", "true");
   if (days) params.set("max_age_days", String(days));
+  if (search) params.set("search", search);
   const response = await fetch(`/api/jobs/offers?${params}`, { cache: "no-store" });
   if (!response.ok) throw await parseError(response);
   return response.json();
 }
 
-export async function fetchOffer(id: number): Promise<OfferDetail> {
-  const response = await fetch(`/api/jobs/offers/${id}`, { cache: "no-store" });
+export async function fetchOffer(id: number, search?: string): Promise<OfferDetail> {
+  const query = search ? `?${new URLSearchParams({ search })}` : "";
+  const response = await fetch(`/api/jobs/offers/${id}${query}`, { cache: "no-store" });
   if (!response.ok) throw await parseError(response);
   return response.json();
 }
 
-export async function refreshOffers(days: Window, force = false): Promise<RefreshResult> {
+export async function refreshOffers(days: Window, force = false, search?: string): Promise<RefreshResult> {
   const params = new URLSearchParams({ max_age_days: String(days) });
   if (force) params.set("force", "true");
+  if (search) params.set("search", search);
   const response = await fetch(`/api/jobs/refresh?${params}`, { method: "POST" });
   if (!response.ok) throw await parseError(response);
   return response.json();
+}
+
+/** Ajoute ou retire une offre des favoris de la recherche. */
+export async function setFavorite(id: number, favorite: boolean, search?: string): Promise<void> {
+  const query = search ? `?${new URLSearchParams({ search })}` : "";
+  const response = await fetch(`/api/jobs/offers/${id}/favorite${query}`, {
+    method: favorite ? "PUT" : "DELETE",
+  });
+  if (!response.ok) throw await parseError(response);
+}
+
+/** Pages numérotées autour de la page courante, avec la première et la dernière. */
+export function pageItems(page: number, pages: number): (number | "gap")[] {
+  const shown = new Set([0, pages - 1, page - 1, page, page + 1].filter((n) => n >= 0 && n < pages));
+  const sorted = [...shown].sort((a, b) => a - b);
+  return sorted.flatMap((n, index) => (index > 0 && n - sorted[index - 1] > 1 ? ["gap" as const, n] : [n]));
 }
 
 export { ApiError };

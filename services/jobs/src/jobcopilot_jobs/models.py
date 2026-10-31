@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 SCHEMA = "jobs"
@@ -34,3 +34,16 @@ class OfferRow(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class FavoriteRow(Base):
+    """Offre mise de côté pour un profil de recherche : elle échappe à la purge."""
+
+    __tablename__ = "favorites"
+    __table_args__ = {"schema": SCHEMA}
+
+    search_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    offer_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.offers.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

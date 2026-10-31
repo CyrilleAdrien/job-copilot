@@ -40,7 +40,10 @@ PROFILE = {
         "summary": "Ingénieur DevOps avec 2 ans d'expérience sur Kubernetes et Terraform.",
         "links": [{"label": "GitHub", "url": "https://github.com/alex"}],
     },
-    "search": {"roles": ["Ingénieur DevOps"], "contract_types": ["cdi"]},
+    "searches": [
+        {"id": "devops", "roles": ["Ingénieur DevOps"], "contract_types": ["cdi"]},
+        {"id": "freelance", "roles": ["SRE"], "contract_types": ["freelance"]},
+    ],
     "experiences": [
         {
             "title": "Ingénieur DevOps",
@@ -70,6 +73,16 @@ PROFILE = {
     ],
     "education": [{"degree": "Diplôme d'ingénieur", "school": "ESEO", "year": 2026}],
     "skills": [{"name": "Cloud", "items": ["Kubernetes", "Terraform"]}],
+    "certifications": [{"name": "CKA", "issuer": "CNCF", "year": 2025}],
+    "projects": [
+        {
+            "name": "job-copilot",
+            "description": "Outil de candidature local.",
+            "technologies": ["FastAPI", "Next.js"],
+            "url": "https://github.com/alex/job-copilot",
+        }
+    ],
+    "volunteering": [{"role": "Mentor", "organization": "Asso", "start": "2023-01"}],
     "languages": [{"name": "Anglais", "level": "B2"}],
     "soft_skills": ["Rigueur"],
     "interests": ["Football"],

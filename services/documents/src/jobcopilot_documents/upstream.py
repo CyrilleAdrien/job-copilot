@@ -22,9 +22,12 @@ async def fetch_profile(client: httpx.AsyncClient) -> Profile:
     return Profile.model_validate(response.json())
 
 
-async def fetch_offer(client: httpx.AsyncClient, offer_id: int) -> Offer:
+async def fetch_offer(client: httpx.AsyncClient, offer_id: int, search: str | None = None) -> Offer:
+    params = {"search": search} if search else {}
     try:
-        response = await client.get(f"{get_documents_settings().jobs_url}/offers/{offer_id}")
+        response = await client.get(
+            f"{get_documents_settings().jobs_url}/offers/{offer_id}", params=params
+        )
     except httpx.HTTPError as exc:
         raise UpstreamError("Service des offres injoignable.") from exc
     if response.status_code == 404:

@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, ChevronDown, ExternalLink, House, MapPin, Sparkles } from "lucide-react";
+import { Banknote, ChevronDown, ExternalLink, House, MapPin, Sparkles, Star } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
@@ -23,7 +23,17 @@ import { cn } from "@/lib/utils";
 
 const MAX_TECHS = 4;
 
-export function JobCard({ offer, now }: { offer: Offer; now: Date }) {
+export function JobCard({
+  offer,
+  now,
+  search,
+  onFavorite,
+}: {
+  offer: Offer;
+  now: Date;
+  search?: string;
+  onFavorite?: (offer: Offer, favorite: boolean) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<OfferDetail | null>(null);
   const [failed, setFailed] = useState(false);
@@ -31,7 +41,7 @@ export function JobCard({ offer, now }: { offer: Offer; now: Date }) {
   function toggle() {
     setOpen((value) => !value);
     if (!detail) {
-      fetchOffer(offer.id)
+      fetchOffer(offer.id, search)
         .then(setDetail)
         .catch(() => setFailed(true));
     }
@@ -46,11 +56,12 @@ export function JobCard({ offer, now }: { offer: Offer; now: Date }) {
       transition={spring.smooth}
       className="overflow-hidden rounded-card border border-border bg-surface shadow-card transition-colors hover:border-border-strong"
     >
+      <div className="flex w-full items-start gap-4 p-5">
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex w-full items-start gap-4 p-5 text-left"
+        className="flex min-w-0 flex-1 items-start gap-4 text-left"
       >
         <span
           aria-hidden
@@ -99,21 +110,51 @@ export function JobCard({ offer, now }: { offer: Offer; now: Date }) {
             {extraTechs > 0 && <Badge tone="accent">+{extraTechs}</Badge>}
           </div>
         </div>
+      </button>
 
         <div className="flex shrink-0 flex-col items-end gap-2.5">
           <time dateTime={offer.published_at} className="text-[13px] text-text-tertiary">
             {timeAgo(offer.published_at, now)}
           </time>
           <ScoreRing score={offer.score} />
-          <ChevronDown
-            aria-hidden
-            className={cn(
-              "size-4 text-text-tertiary transition-transform duration-200",
-              open && "rotate-180",
+          <div className="flex items-center gap-1">
+            {onFavorite && (
+              <button
+                type="button"
+                aria-pressed={offer.favorite}
+                aria-label={offer.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                title={offer.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                onClick={() => onFavorite(offer, !offer.favorite)}
+                className="flex size-7 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text"
+              >
+                <motion.span
+                  key={String(offer.favorite)}
+                  initial={{ scale: 0.6 }}
+                  animate={{ scale: 1 }}
+                  transition={spring.snappy}
+                  className="flex"
+                >
+                  <Star
+                    aria-hidden
+                    className={cn("size-4", offer.favorite && "fill-[#f5b301] text-[#f5b301]")}
+                  />
+                </motion.span>
+              </button>
             )}
-          />
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label={open ? "Replier l'offre" : "Déplier l'offre"}
+              className="flex size-7 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text"
+            >
+              <ChevronDown
+                aria-hidden
+                className={cn("size-4 transition-transform duration-200", open && "rotate-180")}
+              />
+            </button>
+          </div>
         </div>
-      </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {open && (

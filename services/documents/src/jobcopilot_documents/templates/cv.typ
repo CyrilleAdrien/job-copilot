@@ -82,6 +82,17 @@
   ]
 ]
 
+#for part in data.sections [
+  #section(part.title)
+  #for entry in part.entries [
+    - #{
+        let title = if entry.url != none { link(entry.url, strong(entry.title)) } else { strong(entry.title) }
+        (title, ..entry.meta).join(sep)
+      }
+      #if entry.text != none and entry.text != "" [ \ #entry.text ]
+  ]
+]
+
 #if data.extras.len() > 0 [
   #section(labels.extras)
   #for line in data.extras [

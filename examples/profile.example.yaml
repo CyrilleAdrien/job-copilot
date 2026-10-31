@@ -17,17 +17,32 @@ identity:
     - label: LinkedIn
       url: https://www.linkedin.com/in/alex-martin
 
-search:
-  roles: [Ingénieur SRE, Ingénieur DevOps, Platform Engineer]
-  technologies: [Kubernetes, Docker, Python, Terraform, GitLab CI]
-  excluded_keywords: [Stage]
-  seniority: mid
-  contract_types: [cdi]
-  locations: [Paris]
-  radius_km: 30
-  remote: hybrid
-  salary_min: 45000
-  max_age_days: 7
+# Un ou plusieurs profils de recherche : chacun a sa propre liste d'offres.
+# match_mode « domain » garde toutes les offres du métier ; « skills » ne garde que celles
+# qui citent au moins min_skills compétences de focus_skills (ou de technologies si vide).
+searches:
+  - name: DevOps
+    roles: [Ingénieur SRE, Ingénieur DevOps, Platform Engineer]
+    technologies: [Kubernetes, Docker, Python, Terraform, GitLab CI]
+    excluded_keywords: [Stage]
+    seniority: mid
+    contract_types: [cdi]
+    locations: [Paris]
+    radius_km: 30
+    remote: hybrid
+    salary_min: 45000
+    max_age_days: 7
+    match_mode: domain
+  - name: Data Engineer
+    roles: [Data Engineer]
+    technologies: [Python, SQL, Airflow, Spark, dbt]
+    contract_types: [cdi]
+    locations: [Paris]
+    remote: hybrid
+    max_age_days: 7
+    match_mode: skills
+    focus_skills: [Python, Airflow, dbt]
+    min_skills: 2
 
 experiences:
   - title: Ingénieur de Production / DevOps
@@ -59,6 +74,25 @@ skills:
     items: [Docker, Kubernetes, GCP]
   - name: Supervision
     items: [ELK, Grafana, Zabbix]
+
+certifications:
+  - name: Certified Kubernetes Administrator (CKA)
+    issuer: CNCF
+    year: 2025
+
+projects:
+  - name: Homelab Kubernetes
+    description: Cluster k3s sur trois Raspberry Pi, déployé avec Ansible et Argo CD.
+    technologies: [k3s, Ansible, Argo CD]
+    url: https://github.com/alex-martin/homelab
+
+volunteering:
+  - role: Mentor
+    organization: Association Exemple
+    start: 2023-01
+    description: Accompagnement de deux étudiants en reconversion vers le DevOps.
+
+publications: []
 
 languages:
   - name: Français

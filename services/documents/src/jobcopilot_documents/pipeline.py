@@ -73,7 +73,7 @@ async def run(ctx: Context, generation_id: uuid.UUID, request: GenerationRequest
             await session.commit()
 
         try:
-            offer = await fetch_offer(ctx.http, request.offer_id)
+            offer = await fetch_offer(ctx.http, request.offer_id, request.search)
             profile = await fetch_profile(ctx.http)
             language = request.language or detect_language(f"{offer.title} {offer.description}")
             row.offer_title, row.company, row.language = offer.title, offer.company, language
@@ -83,7 +83,7 @@ async def run(ctx: Context, generation_id: uuid.UUID, request: GenerationRequest
             await advance(2)
 
             draft = await ctx.writer.write_cv(profile, offer, selection, language)
-            cv = build_cv(profile, selection.experience_indexes, draft, language)
+            cv = build_cv(profile, selection.experience_indexes, draft, language, request.search)
             source_language = detect_language(profile.identity.summary or profile.identity.headline)
             warnings = check_cv(profile, cv, same_language=source_language == language)
             letter = None

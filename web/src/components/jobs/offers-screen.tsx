@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, RefreshCw, SearchX, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, KeyRound, RefreshCw, SearchX, Star, UserRound } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,13 +12,17 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { JobCardSkeleton } from "@/components/ui/skeleton";
+import { fetchProfile } from "@/lib/api";
 import {
   ApiError,
   fetchOffers,
   refreshOffers,
+  setFavorite,
   sortOrders,
   timeAgo,
   windows,
+  PAGE_SIZE,
+  pageItems,
   type OfferList,
   type RefreshResult,
   type SortOrder,
@@ -26,9 +30,13 @@ import {
   type Window,
 } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
+import { seniorityLabels, type SearchProfile } from "@/lib/profile";
+import { pickSearch, storeSearch, storedSearch } from "@/lib/search-choice";
 import { cn } from "@/lib/utils";
 
 export function OffersScreen() {
+  const [searches, setSearches] = useState<SearchProfile[]>([]);
+  const [search, setSearch] = useState<string | undefined>(undefined);
   const [days, setDays] = useState<Window | null>(null);
   const [sort, setSort] = useState<SortOrder>("date");
   const [list, setList] = useState<OfferList | null>(null);
@@ -36,6 +44,8 @@ export function OffersScreen() {
   const [syncing, setSyncing] = useState(false);
   const [noProfile, setNoProfile] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [page, setPage] = useState(0);
+  const [view, setView] = useState<"all" | "favorites">("all");
   const [now, setNow] = useState(() => new Date());
   const latest = useRef(0);
 
@@ -46,12 +56,13 @@ export function OffersScreen() {
 
   /** Interroge les sources (cache de 15 min côté serveur) puis relit la liste. */
   const sync = useCallback(
-    async (window: Window, order: SortOrder, force = false) => {
+    async (window: Window, order: SortOrder, searchId: string | undefined, force = false) => {
       const call = ++latest.current;
       setSyncing(true);
+      setPage(0);
       setError(null);
       try {
-        const result = await refreshOffers(window, force);
+        const result = await refreshOffers(window, force, searchId);
         if (call === latest.current) setRefresh(result);
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 409 && e.message.includes("cours"))) {
@@ -59,7 +70,7 @@ export function OffersScreen() {
         }
       }
       try {
-        const offers = await fetchOffers(order, window);
+        const offers = await fetchOffers(order, window, searchId);
         if (call === latest.current) setList(offers);
       } catch (e) {
         fail(e as ApiError);
@@ -73,26 +84,99 @@ export function OffersScreen() {
     [fail],
   );
 
+  /** Liste d'un profil de recherche, dans sa fenêtre de publication par défaut, puis collecte. */
+  const open = useCallback(
+    (searchId: string | undefined, order: SortOrder) =>
+      fetchOffers(order, undefined, searchId)
+        .then((offers) => {
+          setList(offers);
+          setDays(offers.max_age_days);
+          return sync(offers.max_age_days, order, searchId);
+        })
+        .catch(fail),
+    [sync, fail],
+  );
+
   useEffect(() => {
-    fetchOffers("date")
-      .then((offers) => {
-        setList(offers);
-        setDays(offers.max_age_days);
-        return sync(offers.max_age_days, "date");
+    fetchProfile()
+      .then((profile) => {
+        if (!profile) return setNoProfile(true);
+        const active = profile.searches.filter((item) => !item.archived);
+        const chosen = pickSearch(
+          active.map((item) => item.id),
+          storedSearch(),
+        );
+        setSearches(active);
+        setSearch(chosen);
+        return open(chosen, "date");
       })
       .catch(fail);
-  }, [sync, fail]);
+  }, [open, fail]);
+
+  function changeSearch(searchId: string) {
+    setSearch(searchId);
+    setView("all");
+    setPage(0);
+    storeSearch(searchId);
+    setList(null);
+    setRefresh(null);
+    open(searchId, sort);
+  }
 
   function changeSort(order: SortOrder) {
     setSort(order);
-    if (days) fetchOffers(order, days).then(setList).catch(fail);
+    setPage(0);
+    if (view === "favorites") fetchOffers(order, undefined, search, true).then(setList).catch(fail);
+    else if (days) fetchOffers(order, days, search).then(setList).catch(fail);
   }
+
+  function changeView(next: "all" | "favorites") {
+    setView(next);
+    setPage(0);
+    setList(null);
+    if (next === "favorites") fetchOffers(sort, undefined, search, true).then(setList).catch(fail);
+    else if (days) fetchOffers(sort, days, search).then(setList).catch(fail);
+  }
+
+  function goToPage(next: number) {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const favorites = view === "favorites";
+    fetchOffers(sort, favorites ? undefined : (days ?? undefined), search, favorites, next)
+      .then(setList)
+      .catch(fail);
+  }
+
+  /** Bascule optimiste : l'étoile change tout de suite, et revient en arrière si l'appel échoue. */
+  function toggleFavorite(offerId: number, favorite: boolean) {
+    const apply = (value: boolean) =>
+      setList((current) =>
+        current && {
+          ...current,
+          items:
+            view === "favorites" && !value
+              ? current.items.filter((item) => item.id !== offerId)
+              : current.items.map((item) => (item.id === offerId ? { ...item, favorite: value } : item)),
+          total: view === "favorites" && !value ? current.total - 1 : current.total,
+        },
+      );
+    const before = list;
+    apply(favorite);
+    setFavorite(offerId, favorite, search).catch((e) => {
+      setList(before);
+      fail(e as ApiError);
+    });
+  }
+
 
   function changeWindow(window: Window) {
     setDays(window);
-    fetchOffers(sort, window).then(setList).catch(fail);
-    sync(window, sort);
+    setPage(0);
+    fetchOffers(sort, window, search).then(setList).catch(fail);
+    sync(window, sort, search);
   }
+
+  const current = searches.find((item) => item.id === search);
 
   if (noProfile) {
     return (
@@ -123,7 +207,7 @@ export function OffersScreen() {
         actions={
           <Button
             variant="secondary"
-            onClick={() => days && sync(days, sort, true)}
+            onClick={() => days && sync(days, sort, search, true)}
             disabled={!days || syncing}
           >
             <RefreshCw aria-hidden className={cn(syncing && "animate-spin")} />
@@ -132,14 +216,37 @@ export function OffersScreen() {
         }
       />
 
+      {searches.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 pb-3">
+          <SegmentedControl
+            label="Recherche"
+            segments={searches.map((item) => ({ value: item.id, label: item.name }))}
+            value={search ?? searches[0].id}
+            onChange={changeSearch}
+          />
+        </div>
+      )}
+
+
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <div className="flex flex-wrap items-center gap-2">
           <SegmentedControl
-            label="Date de publication"
-            segments={windows}
-            value={days ? (String(days) as `${Window}`) : "7"}
-            onChange={(value) => changeWindow(Number(value) as Window)}
+            label="Affichage"
+            segments={[
+              { value: "all", label: "Toutes" },
+              { value: "favorites", label: "Favoris" },
+            ]}
+            value={view}
+            onChange={changeView}
           />
+          {view === "all" && (
+            <SegmentedControl
+              label="Date de publication"
+              segments={windows}
+              value={days ? (String(days) as `${Window}`) : "7"}
+              onChange={(value) => changeWindow(Number(value) as Window)}
+            />
+          )}
           <SegmentedControl
             label="Ordre"
             segments={sortOrders}
@@ -173,14 +280,60 @@ export function OffersScreen() {
         </motion.div>
       )}
 
+      <AnimatePresence>
+        {view === "all" && list && list.hidden > 0 && current?.match_mode === "skills" && (
+          <motion.div {...fadeUp} transition={spring.smooth} className="pb-4">
+            <div className="flex items-center gap-3 rounded-card border border-border bg-background-subtle px-4 py-3 text-sm">
+              <Filter className="size-4 shrink-0 text-text-tertiary" aria-hidden />
+              <p className="flex-1 text-text-secondary">
+                {list.hidden} offre{list.hidden > 1 ? "s" : ""} du métier masquée{list.hidden > 1 ? "s" : ""} : elle
+                {list.hidden > 1 ? "s citent" : " cite"} moins de {current.min_skills} de tes compétences choisies.
+              </p>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/bienvenue?modifier=${encodeURIComponent(current.id)}`}>Ajuster</Link>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {view === "all" && list && list.hidden_level > 0 && current && (
+          <motion.div {...fadeUp} transition={spring.smooth} className="pb-4">
+            <div className="flex items-center gap-3 rounded-card border border-border bg-background-subtle px-4 py-3 text-sm">
+              <Filter className="size-4 shrink-0 text-text-tertiary" aria-hidden />
+              <p className="flex-1 text-text-secondary">
+                {list.hidden_level} offre{list.hidden_level > 1 ? "s" : ""} d&apos;un niveau supérieur à «{" "}
+                {seniorityLabels[current.seniority]} » masquée{list.hidden_level > 1 ? "s" : ""} (intitulé senior ou
+                lead, ou années d&apos;expérience demandées).
+              </p>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/bienvenue?modifier=${encodeURIComponent(current.id)}`}>Ajuster</Link>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {list === null ? (
         <div className="flex flex-col gap-3" aria-busy aria-label="Chargement des offres">
           {Array.from({ length: 5 }, (_, index) => (
             <JobCardSkeleton key={index} />
           ))}
         </div>
+      ) : list.items.length === 0 && view === "favorites" ? (
+        <EmptyState
+          icon={Star}
+          title="Aucun favori pour cette recherche"
+          description="Touche l'étoile d'une offre pour la garder ici. Les favoris ne sont jamais purgés."
+          action={
+            <Button variant="secondary" onClick={() => changeView("all")}>
+              Voir toutes les offres
+            </Button>
+          }
+        />
       ) : list.items.length === 0 ? (
-        syncing ? (
+        syncing && view === "all" ? (
           <div className="flex flex-col gap-3" aria-busy aria-label="Recherche des offres">
             {Array.from({ length: 3 }, (_, index) => (
               <JobCardSkeleton key={index} />
@@ -212,11 +365,20 @@ export function OffersScreen() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ ...spring.smooth, delay: Math.min(index, 10) * 0.025 }}
               >
-                <JobCard offer={offer} now={now} />
+                <JobCard
+                  offer={offer}
+                  now={now}
+                  search={search}
+                  onFavorite={(item, favorite) => toggleFavorite(item.id, favorite)}
+                />
               </motion.li>
             ))}
           </AnimatePresence>
         </ul>
+      )}
+
+      {list && list.total > PAGE_SIZE && (
+        <Pagination page={page} pages={Math.ceil(list.total / PAGE_SIZE)} onChange={goToPage} />
       )}
     </>
   );
@@ -264,6 +426,49 @@ function StatusLine({
         </>
       )}
     </div>
+  );
+}
+
+function Pagination({ page, pages, onChange }: { page: number; pages: number; onChange: (page: number) => void }) {
+  return (
+    <nav aria-label="Pagination" className="flex items-center justify-center gap-1 pt-6">
+      <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => onChange(page - 1)}>
+        <ChevronLeft aria-hidden />
+        Précédent
+      </Button>
+      {pageItems(page, pages).map((item, index) =>
+        item === "gap" ? (
+          <span key={`gap-${index}`} className="px-1 text-sm text-text-tertiary" aria-hidden>
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            aria-current={item === page ? "page" : undefined}
+            aria-label={`Page ${item + 1}`}
+            onClick={() => item !== page && onChange(item)}
+            className={cn(
+              "relative flex size-8 items-center justify-center rounded-full text-[13px] font-medium tabular-nums transition-colors",
+              item === page ? "text-accent-strong" : "text-text-secondary hover:bg-surface-hover hover:text-text",
+            )}
+          >
+            {item === page && (
+              <motion.span
+                layoutId="page-current"
+                transition={spring.snappy}
+                className="absolute inset-0 rounded-full border border-accent-strong/40 bg-accent-soft"
+              />
+            )}
+            <span className="relative">{item + 1}</span>
+          </button>
+        ),
+      )}
+      <Button variant="ghost" size="sm" disabled={page >= pages - 1} onClick={() => onChange(page + 1)}>
+        Suivant
+        <ChevronRight aria-hidden />
+      </Button>
+    </nav>
   );
 }
 

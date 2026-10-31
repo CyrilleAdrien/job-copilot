@@ -1,13 +1,24 @@
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from jobcopilot_profile.models import ExperienceRow, ProfileRow, SearchCriteriaRow
+from jobcopilot_profile.models import ExperienceRow, ProfileRow
 from jobcopilot_profile.schemas import Profile
 
 PROFILE_ID = 1
 
 IDENTITY_FIELDS = ("full_name", "headline", "email", "phone", "location", "availability", "summary")
-LIST_FIELDS = ("education", "skills", "languages", "soft_skills", "interests")
+LIST_FIELDS = (
+    "searches",
+    "education",
+    "skills",
+    "certifications",
+    "projects",
+    "volunteering",
+    "publications",
+    "languages",
+    "soft_skills",
+    "interests",
+)
 
 
 async def get_profile(session: AsyncSession) -> Profile | None:
@@ -18,11 +29,6 @@ async def get_profile(session: AsyncSession) -> Profile | None:
         {
             "identity": {field: getattr(row, field) for field in IDENTITY_FIELDS}
             | {"links": row.links},
-            "search": {
-                column.key: getattr(row.search, column.key)
-                for column in SearchCriteriaRow.__table__.columns
-                if column.key != "profile_id"
-            },
             "experiences": [
                 {
                     "title": e.title,
@@ -61,11 +67,6 @@ async def save_profile(session: AsyncSession, profile: Profile) -> Profile:
         ExperienceRow(position=index, **experience)
         for index, experience in enumerate(data["experiences"])
     ]
-    if row.search is None:
-        row.search = SearchCriteriaRow(**data["search"])
-    else:
-        for field, value in data["search"].items():
-            setattr(row.search, field, value)
 
     await session.commit()
     await session.refresh(row)
@@ -78,3 +79,37 @@ async def delete_profile(session: AsyncSession) -> bool:
     result = await session.execute(delete(ProfileRow).where(ProfileRow.id == PROFILE_ID))
     await session.commit()
     return result.rowcount > 0
+
+
+class SearchNotFound(LookupError):
+    pass
+
+
+class LastSearch(ValueError):
+    """Un profil garde toujours au moins une recherche active."""
+
+
+async def update_search(session: AsyncSession, search_id: str, *, archived: bool) -> Profile:
+    profile = await get_profile(session)
+    if profile is None or not any(search.id == search_id for search in profile.searches):
+        raise SearchNotFound
+    active = [
+        search for search in profile.searches if not search.archived and search.id != search_id
+    ]
+    if archived and not active:
+        raise LastSearch
+    for search in profile.searches:
+        if search.id == search_id:
+            search.archived = archived
+    return await save_profile(session, profile)
+
+
+async def delete_search(session: AsyncSession, search_id: str) -> Profile:
+    profile = await get_profile(session)
+    if profile is None or not any(search.id == search_id for search in profile.searches):
+        raise SearchNotFound
+    remaining = [search for search in profile.searches if search.id != search_id]
+    if not any(not search.archived for search in remaining):
+        raise LastSearch
+    profile.searches = remaining
+    return await save_profile(session, profile)

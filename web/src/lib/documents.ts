@@ -93,7 +93,7 @@ export async function fetchGenerations(offerId: number): Promise<Generation[]> {
 
 export async function startGeneration(
   offerId: number,
-  options: { letter: boolean; language: Language | null },
+  options: { letter: boolean; language: Language | null; search?: string },
 ): Promise<Generation> {
   return json(
     await fetch(`${BASE}/generations`, {
@@ -128,3 +128,13 @@ export async function saveLetter(id: string, content: LetterContent): Promise<Do
 export async function fetchLLMStatus(): Promise<LLMStatus> {
   return json(await fetch(`${BASE}/llm`, { cache: "no-store" }));
 }
+
+/** Le profil entier mis en page comme un CV, sans LLM. `stamp` force un nouveau rendu. */
+export async function fetchProfilePreview(language: Language): Promise<{ pages: number }> {
+  return json(await fetch(`${BASE}/profile-preview?language=${language}`, { cache: "no-store" }));
+}
+
+export const profilePreviewPageUrl = (language: Language, page: number, stamp: number) =>
+  `${BASE}/profile-preview/pages/${page}?language=${language}&v=${stamp}`;
+
+export const profilePreviewPdfUrl = (language: Language) => `${BASE}/profile-preview/pdf?language=${language}`;

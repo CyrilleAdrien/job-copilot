@@ -46,6 +46,25 @@ def test_cv_without_draft_keeps_profile_content(profile):
     assert len(cv.experiences) == 2
 
 
+def test_cv_lists_secondary_sections_in_order(profile):
+    cv = build_cv(profile, [0], None, "en")
+    assert [section.title for section in cv.sections] == [
+        "Projects",
+        "Certifications",
+        "Volunteering",
+    ]
+    project, certification, volunteering = (section.entries[0] for section in cv.sections)
+    assert project.meta == ["FastAPI, Next.js"]
+    assert project.url == "https://github.com/alex/job-copilot"
+    assert certification.meta == ["CNCF", "2025"]
+    assert volunteering.meta == ["Asso", "01/2023 – present"]
+
+
+def test_cv_contract_follows_the_chosen_search(profile):
+    assert build_cv(profile, [0], None, "fr", "freelance").details == ["Lyon", "Freelance"]
+    assert build_cv(profile, [0], None, "fr", "inconnue").details == ["Lyon", "CDI"]
+
+
 def test_rendered_documents_are_pdf(profile, offer):
     cv = build_cv(profile, [0, 1], None, "fr")
     draft = LetterDraft(

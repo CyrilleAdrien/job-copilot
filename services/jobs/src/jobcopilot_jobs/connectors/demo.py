@@ -15,14 +15,33 @@ COMPANIES = [
     ("Marée Énergie", "Rennes"),
     ("Studio Lumen", "Toulouse"),
 ]
-# (variante d'intitulé, ancienneté en heures, contrat, technologies citées, télétravail)
+# (variante d'intitulé, ancienneté en heures, contrat, technologies citées, télétravail).
+# Les technologies mêlent DevOps et données, pour essayer plusieurs profils de recherche.
 VARIANTS = [
-    ("{role}", 2, "cdi", ["Python", "Docker", "Kubernetes"], "Télétravail partiel possible."),
+    (
+        "{role}",
+        2,
+        "cdi",
+        ["Python", "Docker", "Kubernetes", "Airflow"],
+        "Télétravail partiel possible.",
+    ),
     ("{role} junior", 9, "cdi", ["Linux", "Ansible", "GitLab CI"], ""),
-    ("{role} confirmé", 22, "cdi", ["Terraform", "AWS", "Kubernetes"], "Full remote."),
+    (
+        "{role} confirmé",
+        22,
+        "cdi",
+        ["Terraform", "AWS", "Kubernetes", "dbt", "SQL"],
+        "Full remote.",
+    ),
     ("{role} (H/F)", 40, "cdd", ["Docker", "PostgreSQL"], ""),
     ("{role} senior", 70, "cdi", ["Kubernetes", "Grafana", "Prometheus"], ""),
-    ("{role}", 110, "freelance", ["Python", "AWS"], "Télétravail 3 jours par semaine."),
+    (
+        "{role}",
+        110,
+        "freelance",
+        ["Python", "AWS", "Airflow", "dbt"],
+        "Télétravail 3 jours par semaine.",
+    ),
     ("Lead {role}", 200, "cdi", ["Terraform", "Kubernetes"], ""),
     ("{role}", 330, "alternance", ["Linux", "Docker"], ""),
 ]

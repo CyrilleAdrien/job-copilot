@@ -5,9 +5,10 @@ from datetime import datetime
 import httpx
 
 from jobcopilot_jobs.connectors.base import SourceError, clean_text
+from jobcopilot_jobs.places import parse_place
 from jobcopilot_jobs.schemas import Query, RawOffer
 
-SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/fr/search/1"
+SEARCH_URL = "https://api.adzuna.com/v1/api/jobs/{country}/search/1"
 FROM_CONTRACT = {"permanent": "cdi", "contract": "cdd"}
 
 
@@ -42,10 +43,13 @@ class Adzuna:
             "sort_by": "date",
             "results_per_page": 50,
         }
-        if query.location:
-            params["where"] = query.location
+        place = parse_place(query.location)
+        if place.kind in ("region", "department", "city"):
+            # Adzuna lit les noms de lieux : « Hauts-de-Seine (92) » devient « Hauts-de-Seine ».
+            params["where"] = place.name.split("(")[0].strip() or place.name
+        if place.kind == "city":
             params["distance"] = query.radius_km
-        response = await self.client.get(SEARCH_URL, params=params)
+        response = await self.client.get(SEARCH_URL.format(country=place.country), params=params)
         if response.status_code in (401, 403):
             raise SourceError("identifiants Adzuna refusés")
         if response.status_code != 200:
