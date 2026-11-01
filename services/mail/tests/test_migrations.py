@@ -53,9 +53,41 @@ async def test_existing_replies_stay_sent_and_accounts_stay_connected():
     await run("head")
     async with engine.connect() as connection:
         reply = (await connection.execute(text("SELECT status, error FROM mail.replies"))).one()
+        owner = await connection.scalar(text("SELECT account_id FROM mail.replies"))
         server = (
             await connection.execute(text("SELECT smtp_host, smtp_error FROM mail.accounts"))
         ).one()
     await engine.dispose()
     assert tuple(reply) == ("sent", None)
+    assert str(owner) == account
     assert tuple(server) == (None, None)
+
+
+async def test_downgrade_removes_only_new_messages():
+    engine = create_async_engine(async_url(TEST_DATABASE_URL))
+    async with engine.begin() as connection:
+        await connection.execute(text('DROP SCHEMA IF EXISTS "mail" CASCADE'))
+    await run("head")
+    account = "00000000-0000-0000-0000-000000000001"
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "INSERT INTO mail.accounts (id, email, host, port, username, password_encrypted,"
+                " folder, last_uid) VALUES (:id, 'a@b.fr', 'imap.gmail.com', 993, 'a@b.fr', 'x',"
+                " 'INBOX', 0)"
+            ),
+            {"id": account},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO mail.replies (id, account_id, to_address, subject, body,"
+                " smtp_message_id, status)"
+                " VALUES (:id, :account, 'rh@b.fr', 'x', 'Bonjour', '<r@b.fr>', 'sent')"
+            ),
+            {"id": "00000000-0000-0000-0000-000000000003", "account": account},
+        )
+    await asyncio.to_thread(command.downgrade, alembic_config(TEST_DATABASE_URL), "0003")
+    async with engine.connect() as connection:
+        count = await connection.scalar(text("SELECT count(*) FROM mail.replies"))
+    await engine.dispose()
+    assert count == 0

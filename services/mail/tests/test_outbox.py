@@ -283,3 +283,31 @@ def test_unreachable_server_is_explained():
 )
 def test_each_failure_has_its_own_message(failure, expected):
     assert expected in explain(failure, "smtp.exemple.fr", 587)
+
+
+def test_sender_name_is_shown_and_encoded():
+    message = build_reply(draft(sender_name="Élise Dupont"))
+    assert message["From"].addresses[0].display_name == "Élise Dupont"
+    assert message["From"].addresses[0].addr_spec == "moi@exemple.fr"
+    assert "=?utf-8?" in message.as_string().split("Subject")[0]
+
+
+def test_sender_without_name_stays_a_bare_address():
+    assert build_reply(draft(sender_name=None))["From"] == "moi@exemple.fr"
+
+
+def test_references_keep_the_whole_conversation():
+    message = build_reply(draft(references=["<a@x>", "<b@x>", "<abc@nimbus.example>"]))
+    assert message["References"] == "<a@x> <b@x> <abc@nimbus.example>"
+    assert message["In-Reply-To"] == "<abc@nimbus.example>"
+
+
+def test_references_are_capped_on_the_most_recent():
+    chain = [f"<{number}@x>" for number in range(50)]
+    ids = build_reply(draft(references=chain))["References"].split()
+    assert len(ids) == 20 and ids[-1] == "<abc@nimbus.example>" and ids[-2] == "<49@x>"
+
+
+def test_new_message_has_no_conversation_headers():
+    message = build_reply(draft(in_reply_to=None))
+    assert message["In-Reply-To"] is None and message["References"] is None

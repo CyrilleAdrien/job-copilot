@@ -125,9 +125,12 @@ flowchart TD
 | La photo de profil (`PUT` ou `DELETE /photo`) | avatar de la barre latérale sur tous les écrans, carte de l'écran Profil, panneau Envoyés ; le profil, le YAML, les CV et les autres services ne changent pas |
 | Un mail traité ou remis à revoir | onglet « À vérifier » et panneau Traités de la Boîte de réception |
 | L'état d'une boîte (`last_error`) | témoin vert ou rouge du panneau de droite, icône du bouton Réglages |
-| L'envoi d'une boîte (`smtp_host`, `smtp_port`, `smtp_error`) | test à la connexion, réglages de la boîte de réception, ligne d'erreur du panneau de droite ; une panne d'envoi ne bloque pas la lecture ni le témoin de lecture |
+| L'envoi d'une boîte (`smtp_host`, `smtp_port`, `smtp_error`) | test à la connexion, réglages de la boîte de réception, ligne d'erreur de la colonne des dossiers ; une panne d'envoi ne bloque pas la lecture ni le témoin de lecture |
 | L'état d'une réponse (`sending`, `sent`, `failed`, `uncertain`) | un essai `failed` n'apparaît nulle part et réessaie avec le même Message-ID ; `uncertain` s'affiche dans la Boîte de réception, le panneau Envoyés et les Échanges de la fiche, sans traiter le mail ; un `sending` trouvé au démarrage devient `uncertain` |
-| Une réponse à un mail (`POST /messages/{id}/reply`) | ligne de la Boîte de réception, panneaux Envoyés et Traités, section Échanges de la fiche ; le mail quitte « À vérifier » s'il est rattaché sans statut à confirmer ; statut, Kanban, tableau de bord et calendrier ne changent pas ; une seconde lecture n'y touche pas |
+| Une réponse à un mail (`POST /messages/{id}/reply`) | mail ouvert dans la Boîte de réception, dossier Envoyés, section Échanges de la fiche ; le mail quitte « À vérifier » s'il est rattaché sans statut à confirmer ; statut, Kanban, tableau de bord et calendrier ne changent pas ; une seconde lecture n'y touche pas |
+| Un nouveau message (`POST /accounts/{id}/send`) | dossier Envoyés seulement : aucun mail ni candidature n'est lié |
+| Un avis de non-distribution lu en IMAP | le mail envoyé passe à `bounced` avec la raison, pastille sur le dossier Envoyés ; l'avis lui-même n'est pas conservé ni montré au LLM |
+| Une proposition de l'IA (`POST /messages/{id}/draft`) | formulaire de réponse seulement ; rien n'est envoyé ni enregistré |
 | Les fournisseurs de messagerie (`PROVIDERS`, api.py) | formulaire de connexion : serveur, texte d'aide, étapes et liens du bouton « Aide » ; serveur d'envoi (`KNOWN_SERVERS`, outbox.py) |
 | Une boîte déconnectée | ses mails et ses réponses enregistrées disparaissent de la Boîte de réception et des Échanges ; les statuts déjà appliqués et les mails déjà partis restent |
 | Un événement (création, modification, suppression) | grille et « À venir » du Calendrier, section Entretiens de la fiche, Prochains rendez-vous du tableau de bord, copie CalDAV (PUT ou DELETE, SEQUENCE incrémenté), flux .ics ; à la création, statut de la candidature et chiffres du tableau de bord |

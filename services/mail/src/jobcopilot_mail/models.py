@@ -63,6 +63,8 @@ class MessageRow(Base):
     from_name: Mapped[str | None] = mapped_column(String(300))
     # Renseigné seulement s'il diffère de l'expéditeur (no-reply@, plateforme de recrutement).
     reply_to: Mapped[str | None] = mapped_column(String(320))
+    # Le fil du mail d'origine ; la colonne reste vide pour les mails lus avant son ajout.
+    references: Mapped[str | None] = mapped_column(Text)
     subject: Mapped[str] = mapped_column(String(500), default="")
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     snippet: Mapped[str] = mapped_column(Text, default="")
@@ -85,20 +87,24 @@ class MessageRow(Base):
 
 
 class ReplyRow(Base):
-    """Une réponse envoyée depuis l'application. Supprimée avec le mail, donc avec la boîte."""
+    """Un mail envoyé depuis l'application : une réponse, ou un nouveau message (sans mail lié)."""
 
     __tablename__ = "replies"
-    __table_args__ = (UniqueConstraint("message_id", "client_key"), {"schema": SCHEMA})
+    __table_args__ = (UniqueConstraint("account_id", "client_key"), {"schema": SCHEMA})
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    message_id: Mapped[uuid.UUID] = mapped_column(
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey(f"{SCHEMA}.accounts.id", ondelete="CASCADE"), index=True
+    )
+    message_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey(f"{SCHEMA}.messages.id", ondelete="CASCADE"), index=True
     )
     to_address: Mapped[str] = mapped_column(String(320))
     subject: Mapped[str] = mapped_column(String(500))
     body: Mapped[str] = mapped_column(Text)
     smtp_message_id: Mapped[str] = mapped_column(String(500))
-    # sending, sent, failed ou uncertain (connexion coupée pendant la transmission).
+    # sending, sent, failed, uncertain (connexion coupée pendant la transmission)
+    # ou bounced (accepté, puis un avis de non-distribution est arrivé).
     status: Mapped[str] = mapped_column(String(12), default="sending")
     error: Mapped[str | None] = mapped_column(Text)
     # Fourni par le formulaire : un second envoi du même brouillon ne repart pas.

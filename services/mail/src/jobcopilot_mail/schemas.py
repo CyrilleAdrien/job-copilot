@@ -67,11 +67,13 @@ class Reply(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    account_id: UUID
+    message_id: UUID | None
     to_address: str
     subject: str
     body: str
     sent_at: datetime
-    status: Literal["sending", "sent", "uncertain"]
+    status: Literal["sending", "sent", "uncertain", "bounced"]
     error: str | None
 
 
@@ -88,6 +90,24 @@ class ReplyCreate(BaseModel):
         if not value.strip():
             raise ValueError("Le message est vide.")
         return value
+
+
+class DraftRequest(BaseModel):
+    # Obligatoire : sans intention donnée, le modèle décide à la place du candidat.
+    notes: str = Field(
+        min_length=1, max_length=4000, description="Ce que le candidat veut répondre"
+    )
+
+    @field_validator("notes")
+    @classmethod
+    def notes_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Écris d'abord ce que tu veux répondre.")
+        return value
+
+
+class DraftOut(BaseModel):
+    body: str
 
 
 class Message(BaseModel):
@@ -124,6 +144,7 @@ class SyncReport(BaseModel):
     new: int
     linked: int
     applied: int
+    bounced: int = 0
     errors: list[str]
 
 

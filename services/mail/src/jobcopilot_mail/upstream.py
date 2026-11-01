@@ -30,6 +30,17 @@ async def list_candidates(client: httpx.AsyncClient) -> list[Candidate]:
     ]
 
 
+async def profile_name(client: httpx.AsyncClient) -> str | None:
+    """Le nom affiché dans les mails. Sans profil, le mail part avec l'adresse seule."""
+    try:
+        response = await client.get(f"{get_mail_settings().profile_url}/")
+        if response.status_code == 200:
+            return response.json()["identity"]["full_name"]
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
 async def set_status(client: httpx.AsyncClient, application_id: str, status: str) -> None:
     url = f"{get_mail_settings().applications_url}/applications/{application_id}"
     try:

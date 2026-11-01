@@ -8,6 +8,7 @@ class MailSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     applications_url: str = "http://applications:8000"
+    profile_url: str = "http://profile:8000"
     # Clé maître du chiffrement des mots de passe IMAP (make secret l'ajoute à .env).
     llm_provider: Literal["ollama", "demo"] = "ollama"
     # Boîte de démonstration : des réponses fictives aux candidatures, sans compte IMAP.
@@ -22,6 +23,8 @@ class MailSettings(BaseSettings):
     mail_http_timeout: float = 10.0
     imap_timeout: float = 30.0
     smtp_timeout: float = 30.0
+    # Sous le délai de la passerelle (60 s) : l'erreur affichée reste la nôtre.
+    draft_timeout: float = 55.0
 
 
 @lru_cache

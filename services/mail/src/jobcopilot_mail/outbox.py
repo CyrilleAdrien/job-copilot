@@ -8,12 +8,14 @@ import socket
 import ssl
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from email.headerregistry import Address
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
 from typing import Protocol
 
+MAX_REFERENCES = 20
 SMTP_SSL_PORT = 465
 SMTP_STARTTLS_PORT = 587
 KNOWN_SERVERS = {
@@ -48,12 +50,21 @@ class Draft:
     in_reply_to: str | None = None
     # Repris à chaque nouvel essai : le même mail n'a qu'un seul identifiant.
     message_id: str | None = None
+    # Le fil du mail d'origine : son client de messagerie range la réponse avec.
+    references: list[str] = field(default_factory=list)
+    sender_name: str | None = None
+
+
+def sender_header(address: str, name: str | None) -> Address | str:
+    """Le nom affiché par le destinataire. Une adresse qu'on ne sait pas découper reste brute."""
+    local, _, domain = address.partition("@")
+    return Address(name, local, domain) if name and local and domain else address
 
 
 def build_reply(draft: Draft, now: datetime | None = None) -> EmailMessage:
     """Le mail à envoyer. In-Reply-To et References le rangent dans la conversation d'origine."""
     message = EmailMessage()
-    message["From"] = draft.sender
+    message["From"] = sender_header(draft.sender, draft.sender_name)
     message["To"] = draft.to
     message["Subject"] = draft.subject
     message["Date"] = format_datetime(now or datetime.now(UTC))
@@ -63,7 +74,8 @@ def build_reply(draft: Draft, now: datetime | None = None) -> EmailMessage:
     # Un mail sans Message-ID reçoit à la lecture un identifiant interne, inconnu du destinataire.
     if draft.in_reply_to and not draft.in_reply_to.startswith("<uid-"):
         message["In-Reply-To"] = draft.in_reply_to
-        message["References"] = draft.in_reply_to
+        chain = [known for known in draft.references if known != draft.in_reply_to]
+        message["References"] = " ".join([*chain[-(MAX_REFERENCES - 1) :], draft.in_reply_to])
     message.set_content(draft.body)
     return message
 
