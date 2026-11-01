@@ -5,10 +5,10 @@ import httpx
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from jobcopilot_calendar.crypto import decrypt
 from jobcopilot_calendar.models import AccountRow
 from jobcopilot_calendar.remote import CaldavRemote, DemoRemote, Remote
 from jobcopilot_calendar.settings import get_calendar_settings
+from jobcopilot_common.crypto import decrypt
 from jobcopilot_common.db import get_session
 
 DEMO_URL = "demo"

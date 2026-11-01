@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
 
 from jobcopilot_calendar import ics
-from jobcopilot_calendar.crypto import SecretKeyMissing, encrypt
 from jobcopilot_calendar.deps import DEMO_URL, AccountRemote, Http, RemoteFactory, Session
 from jobcopilot_calendar.models import AccountRow, EventRow
 from jobcopilot_calendar.remote import RemoteError
@@ -25,6 +24,7 @@ from jobcopilot_calendar.schemas import (
 from jobcopilot_calendar.settings import get_calendar_settings
 from jobcopilot_calendar.sync import current_account, push, push_all, remove
 from jobcopilot_calendar.upstream import UpstreamError, advance_status, get_application
+from jobcopilot_common.crypto import SecretKeyMissing, encrypt
 
 router = APIRouter(tags=["calendar"])
 

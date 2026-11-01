@@ -34,6 +34,16 @@ class Storage:
     def _get(self, key: str) -> bytes:
         return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
 
+    def _clear(self) -> None:
+        self._ensure_bucket()
+        # Un appel par fichier : DeleteObjects n'est pas garanti sur tous les serveurs S3.
+        for page in self.client.get_paginator("list_objects_v2").paginate(Bucket=self.bucket):
+            for item in page.get("Contents", []):
+                self.client.delete_object(Bucket=self.bucket, Key=item["Key"])
+
+    async def clear(self) -> None:
+        await asyncio.to_thread(self._clear)
+
     async def put(self, key: str, body: bytes) -> None:
         await asyncio.to_thread(self._put, key, body)
 

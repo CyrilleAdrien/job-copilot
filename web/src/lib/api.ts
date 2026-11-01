@@ -88,3 +88,18 @@ export async function deletePhoto(): Promise<void> {
   const response = await fetch("/api/profile/photo", { method: "DELETE" });
   if (!response.ok) throw await parseError(response);
 }
+
+export type DataExport = { blob: Blob; filename: string };
+
+/** L'archive complète : un JSON par service, le profil, la photo et les PDF. */
+export async function exportAllData(): Promise<DataExport> {
+  const response = await fetch("/api/data/export", { cache: "no-store" });
+  if (!response.ok) throw await parseError(response);
+  const match = /filename="([^"]+)"/.exec(response.headers.get("content-disposition") ?? "");
+  return { blob: await response.blob(), filename: match?.[1] ?? "job-copilot.zip" };
+}
+
+export async function eraseAllData(): Promise<void> {
+  const response = await fetch("/api/data", { method: "DELETE" });
+  if (!response.ok) throw await parseError(response);
+}

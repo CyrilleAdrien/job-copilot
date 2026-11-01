@@ -12,6 +12,7 @@ secret: ## Crée la clé de chiffrement SECRET_KEY dans .env si elle manque
 	  if grep -qs '^SECRET_KEY=' .env; then sed -i.bak "s/^SECRET_KEY=.*/SECRET_KEY=$$key/" .env && rm -f .env.bak; \
 	  else echo "SECRET_KEY=$$key" >> .env; fi; \
 	  echo "SECRET_KEY ajoutée à .env"; }
+	@chmod 600 .env
 
 NATIVE_OLLAMA := $(shell grep -qs '^OLLAMA_URL=.*host.docker.internal' .env && echo yes)
 

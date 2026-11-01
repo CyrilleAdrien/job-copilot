@@ -8,10 +8,13 @@ from fastapi import FastAPI
 
 from jobcopilot_applications.api import router
 from jobcopilot_applications.deps import get_cache, get_http
-from jobcopilot_applications.events import consume
+from jobcopilot_applications.events import APPLICATION_CREATED, STATUS_CHANGED, consume
 from jobcopilot_applications.migrate import upgrade
+from jobcopilot_applications.models import Base
 from jobcopilot_applications.settings import get_applications_settings
+from jobcopilot_applications.stats import CACHE_KEY
 from jobcopilot_common import create_service_app, get_settings
+from jobcopilot_common.data import clear_cache, data_router
 from jobcopilot_common.db import get_sessionmaker
 
 
@@ -32,3 +35,12 @@ async def lifespan(_app: FastAPI):
 
 app = create_service_app("applications", dependencies=["postgres", "redis"], lifespan=lifespan)
 app.include_router(router)
+
+
+async def clear_applications_cache() -> None:
+    await clear_cache(
+        get_cache(), prefixes=[CACHE_KEY], streams=[APPLICATION_CREATED, STATUS_CHANGED]
+    )
+
+
+app.include_router(data_router(Base, after_erase=clear_applications_cache))

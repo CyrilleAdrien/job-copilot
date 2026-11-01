@@ -9,7 +9,6 @@ class MailSettings(BaseSettings):
 
     applications_url: str = "http://applications:8000"
     # Clé maître du chiffrement des mots de passe IMAP (make secret l'ajoute à .env).
-    secret_key: str = ""
     llm_provider: Literal["ollama", "demo"] = "ollama"
     # Boîte de démonstration : des réponses fictives aux candidatures, sans compte IMAP.
     mail_demo: bool = False
