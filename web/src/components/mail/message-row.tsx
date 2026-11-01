@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Check, Link2, Tag, Undo2 } from "lucide-react";
+import { ArrowUpRight, CalendarPlus, Check, Link2, Tag, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
 
@@ -81,6 +81,14 @@ export function MessageRow({
         )}
 
         <div className="ml-auto flex items-center gap-1">
+          {application && (message.category === "interview" || message.category === "technical_test") && (
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/calendrier?new=1&application_id=${application.id}&kind=${message.category}`}>
+                <CalendarPlus aria-hidden />
+                Planifier
+              </Link>
+            </Button>
+          )}
           {canApply(message) && (
             <Button variant="secondary" size="sm" onClick={onApply}>
               Passer à « {suggested} »

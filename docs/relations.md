@@ -14,10 +14,10 @@ flowchart LR
     documents
     applications
     mail
-    calendar["calendar (étape 10)"]
+    calendar
   end
 
-  gateway --> profile & jobs & documents & applications & mail
+  gateway --> profile & jobs & documents & applications & mail & calendar
 
   jobs -- "GET /  (recherches, compétences)" --> profile
   documents -- "GET /  (profil complet)" --> profile
@@ -27,15 +27,17 @@ flowchart LR
   mail -- "GET /applications (rattachement)<br/>PATCH statut, source mail" --> applications
   mail -- "IMAP, lecture seule,<br/>toutes les 15 min" --> imap[(Boîtes mail)]
   mail --> ollama
+  calendar -- "GET /applications/{id}<br/>PATCH statut (entretien, test)" --> applications
+  calendar -- "CalDAV : PUT, DELETE<br/>(iCloud, autre serveur)" --> caldav[(Calendrier distant)]
+  calendar -- "flux .ics (webcal)" --> apple[(Calendrier sur Mac,<br/>Thunderbird)]
 
   documents -. "document.generated" .-> redis[(Redis Streams)]
   redis -. "groupe applications :<br/>joint les documents,<br/>crée la candidature si besoin" .-> applications
   applications -. "application.created<br/>application.status_changed" .-> redis
   mail -. "mail.classified" .-> redis
-  redis -. "à venir" .-> calendar
 
   applications --> statscache[(Redis : statistiques,<br/>vidées à chaque modification)]
-  profile & jobs & documents & applications & mail --> pg[(Postgres, un schéma par service)]
+  profile & jobs & documents & applications & mail & calendar --> pg[(Postgres, un schéma par service)]
   jobs --> cache[(Redis cache)]
   documents --> s3[(S3 local : PDF)]
   documents --> ollama[(Ollama)]
@@ -50,8 +52,9 @@ Flèche pleine : appel HTTP synchrone. Pointillés : événement Redis Streams.
 | Profil, recherches (actives ou archivées), niveau visé | profile | jobs (filtres, score), documents (CV), web (Profil, sélecteur d'Offres, filtre « Recherche d'origine ») |
 | Offres, score, favoris par recherche | jobs | web (Offres, fiche d'offre, Candidatures : favoris sans candidature), documents, applications |
 | CV et lettres générés (versions, PDF) | documents | applications (dernier CV et dernière lettre), web (fiche d'offre, fiche de candidature) |
-| Candidatures, statuts, historique | applications | web (Candidatures, badge de statut sur Offres, panneau Candidature de la fiche d'offre), mail (rattachement, statut d'après un mail), calendar à venir |
+| Candidatures, statuts, historique | applications | web (Candidatures, badge de statut sur Offres, panneau Candidature de la fiche d'offre), mail (rattachement, statut d'après un mail), calendar (titre, statut à faire avancer) |
 | Boîtes mail (mot de passe chiffré avec `SECRET_KEY`), mails gardés, catégorie, candidature liée | mail | web (Boîte de réception, section Échanges de la fiche de candidature) |
+| Événements (entretien, test technique, relance, rendez-vous), calendrier CalDAV connecté (mot de passe chiffré) | calendar | web (Calendrier, section Entretiens de la fiche, Prochains rendez-vous du tableau de bord), Calendrier sur Mac par le flux .ics, Google Agenda par lien ou import |
 | Statistiques du tableau de bord (`GET /stats`), dont les retours par recherche | applications, calculées depuis les candidatures et leur historique, en cache Redis 15 min | web (Tableau de bord ; noms des recherches lus dans profile) |
 
 ## Arbre des fonctionnalités
@@ -85,6 +88,11 @@ flowchart TD
   MR -->|sinon : « À vérifier »| BR[Boîte de réception]
   BR -->|Passer à « X », rattacher, corriger| C
   MR --> EC[Échanges sur la fiche]
+  MR -->|entretien ou test : Planifier| EV[Événement du calendrier]
+  C -->|Planifier depuis la fiche| EV
+  EV -->|entretien ou test, vers l'avant| C
+  EV --> CD[Calendrier CalDAV et flux .ics]
+  EV --> TB
 ```
 
 ## Ce qu'il faut revérifier après un changement
@@ -105,4 +113,7 @@ flowchart TD
 | Un mail rattaché, détaché ou recatégorisé | section Échanges de la fiche, bouton « Passer à » (statut proposé) |
 | Les fournisseurs de messagerie (`PROVIDERS`, api.py) | formulaire de connexion : serveur, texte d'aide, étapes et liens du bouton « Aide » |
 | Une boîte déconnectée | ses mails disparaissent de la Boîte de réception et des Échanges ; les statuts déjà appliqués restent |
+| Un événement (création, modification, suppression) | grille et « À venir » du Calendrier, section Entretiens de la fiche, Prochains rendez-vous du tableau de bord, copie CalDAV (PUT ou DELETE, SEQUENCE incrémenté), flux .ics ; à la création, statut de la candidature et chiffres du tableau de bord |
+| Le calendrier connecté (connexion, déconnexion) | les événements à venir y sont recopiés à la connexion ; à la déconnexion, ils restent dans le calendrier distant |
+| Une candidature supprimée | ses événements restent dans le calendrier, sans lien vers la fiche |
 | Le schéma d'un service | migration Alembic, schémas Pydantic, types TypeScript dans `web/src/lib/` |
