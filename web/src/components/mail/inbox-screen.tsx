@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Check, Inbox, Plus, RefreshCw, Settings, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Inbox, Plus, RefreshCw, Settings, Trash2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -28,9 +28,11 @@ import {
   fetchMessages,
   fetchSent,
   filterMessages,
+  markProblemSeen,
   needsReview,
   syncMail,
   syncSummary,
+  unseenBounce,
   updateMessage,
   type Category,
   type MailAccount,
@@ -39,6 +41,10 @@ import {
   type MailReply,
 } from "@/lib/mail";
 import { fadeUp, spring } from "@/lib/motion";
+
+/** Une confirmation s'efface seule. Un problème à traiter reste jusqu'à ce qu'on le ferme. */
+const NOTICE_MS = 6000;
+type Notice = { text: string; lasting: boolean };
 
 export function InboxScreen() {
   const [accounts, setAccounts] = useState<MailAccount[] | null>(null);
@@ -53,7 +59,7 @@ export function InboxScreen() {
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
 
   const load = useCallback(async () => {
@@ -77,6 +83,12 @@ export function InboxScreen() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!notice || notice.lasting) return;
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   const byId = useMemo(() => new Map(applications.map((item) => [item.id, item])), [applications]);
   const pending = messages.filter(needsReview).length;
   const inboxFolder = folder === "sent" ? "inbox" : folder;
@@ -96,7 +108,7 @@ export function InboxScreen() {
     setError(null);
     try {
       const report = await syncMail();
-      setNotice(report.errors.length ? report.errors.join(" ") : syncSummary(report));
+      setNotice(report.errors.length ? { text: report.errors.join(" "), lasting: true } : { text: syncSummary(report), lasting: false });
       await load();
     } catch (e) {
       setError(e as ApiError);
@@ -142,9 +154,33 @@ export function InboxScreen() {
   function announceSent(reply: MailReply) {
     setNotice(
       reply.status === "uncertain"
-        ? "Envoi incertain : vérifie ton dossier Envoyés avant de renvoyer."
-        : `Mail accepté par le serveur d'envoi, à destination de ${reply.to_address}.`,
+        ? { text: "Envoi incertain : vérifie ton dossier Envoyés avant de renvoyer.", lasting: true }
+        : { text: `Mail accepté par le serveur d'envoi, à destination de ${reply.to_address}.`, lasting: false },
     );
+  }
+
+  /** Lire un mail non distribué éteint le témoin. Il reste marqué dans la liste. */
+  async function acknowledge(replies: MailReply[]) {
+    const unseen = replies.filter(unseenBounce);
+    if (unseen.length === 0) return;
+    const ids = new Set(unseen.map((reply) => reply.id));
+    setSent((current) => current.map((reply) => (ids.has(reply.id) ? { ...reply, problem_seen: true } : reply)));
+    try {
+      await Promise.all(unseen.map((reply) => markProblemSeen(reply.id)));
+    } catch (e) {
+      setError(e as ApiError);
+      load();
+    }
+  }
+
+  function openMessage(id: string) {
+    setOpened({ kind: "message", id });
+    acknowledge(sent.filter((reply) => reply.message_id === id));
+  }
+
+  function openSent(reply: MailReply) {
+    setOpened({ kind: "sent", id: reply.id });
+    acknowledge([reply]);
   }
 
   async function removeAccount(id: string) {
@@ -197,8 +233,11 @@ export function InboxScreen() {
             role="status"
             className="mb-4 flex items-center gap-2 rounded-card border border-border bg-background-subtle px-4 py-3 text-sm text-text-secondary"
           >
-            <Check className="size-4 text-success" aria-hidden />
-            {notice}
+            {notice.lasting ? <AlertCircle className="size-4 shrink-0 text-warning" aria-hidden /> : <Check className="size-4 shrink-0 text-success" aria-hidden />}
+            <span className="min-w-0 flex-1">{notice.text}</span>
+            <button type="button" aria-label="Fermer ce message" className="shrink-0 rounded-full p-1 text-text-tertiary transition-colors hover:text-text" onClick={() => setNotice(null)}>
+              <X className="size-3.5" aria-hidden />
+            </button>
           </motion.p>
         )}
       </AnimatePresence>
@@ -227,7 +266,7 @@ export function InboxScreen() {
           <MailFolders
             folder={folder}
             counts={{ inbox: pending, pending }}
-            alertSent={sent.some((reply) => reply.status === "bounced")}
+            alertSent={sent.some(unseenBounce)}
             category={category}
             categoryCounts={counts}
             accounts={accounts}
@@ -256,7 +295,7 @@ export function InboxScreen() {
                 reply={openedSent}
                 original={messages.find((m) => m.id === openedSent.message_id)}
                 onBack={() => setOpened(null)}
-                onOpenOriginal={() => openedSent.message_id && setOpened({ kind: "message", id: openedSent.message_id })}
+                onOpenOriginal={() => openedSent.message_id && openMessage(openedSent.message_id)}
               />
             ) : folder === "sent" ? (
               sent.length === 0 ? (
@@ -266,7 +305,7 @@ export function InboxScreen() {
               ) : (
                 <ul aria-label="Mails envoyés" className="flex flex-col divide-y divide-border">
                   {sent.map((reply) => (
-                    <SentRow key={reply.id} reply={reply} onOpen={() => setOpened({ kind: "sent", id: reply.id })} />
+                    <SentRow key={reply.id} reply={reply} onOpen={() => openSent(reply)} />
                   ))}
                 </ul>
               )
@@ -290,7 +329,7 @@ export function InboxScreen() {
                   <MessageRow
                     key={message.id}
                     message={message}
-                    onOpen={() => setOpened({ kind: "message", id: message.id })}
+                    onOpen={() => openMessage(message.id)}
                     onToggleReviewed={() => change(message.id, { reviewed: !message.reviewed })}
                   />
                 ))}

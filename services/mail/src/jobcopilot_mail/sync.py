@@ -63,7 +63,7 @@ async def mark_bounced(session: AsyncSession, account: AccountRow, bounces: list
             )
         )
         for row in rows:
-            row.status = "bounced"
+            row.status, row.problem_seen = "bounced", False
             row.error = bounce.reason or "Le serveur du destinataire a refusé ce mail."
             marked += 1
     return marked

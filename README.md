@@ -119,7 +119,7 @@ Chaque mail part d'une boîte connectée, en SMTP chiffré, avec le même mot de
 - **« Accepté par le serveur »** veut dire que ton fournisseur a pris le mail en charge, pas qu'il est arrivé. Si un avis de non-distribution revient, le mail passe à « Non distribué » à la lecture suivante, avec la raison. Un domaine qui existe peut aussi accepter le mail sans rien dire.
 - **Si la connexion est coupée pendant l'envoi**, le mail est marqué « incertain » : l'app ne le renvoie pas d'elle-même. Vérifie ton dossier Envoyés. Un second clic sur le même brouillon ne repart pas non plus.
 - **Le dossier Envoyés de ta messagerie** reçoit une copie, sauf chez Gmail et Outlook, qui la font eux-mêmes. Une copie ratée n'annule pas l'envoi.
-- **« Rédiger avec l'IA »** met en forme tes idées avec Ollama, en local. Tu donnes l'intention (« oui, mardi 14 h ») ; le texte remplit le formulaire et rien ne part sans ton clic. Tout chiffre que tu n'as pas fourni devient `[à compléter]`, ce qui bloque l'envoi. Relis quand même : un petit modèle peut prendre un engagement à ta place.
+- **« Rédiger avec l'IA »** met en forme tes idées avec Ollama, en local. Tu donnes l'intention (« oui, mardi 14 h ») ; le texte remplit le formulaire et rien ne part sans ton clic. Le code pose la salutation et la signature, et refuse un texte écrit du côté du recruteur ou qui accepte quelque chose que tu n'as pas dit. Tout chiffre que tu n'as pas fourni devient `[à compléter]`, ce qui bloque l'envoi. Relis quand même : un petit modèle peut encore oublier une idée ou ajouter une phrase.
 
 ## Développement
 

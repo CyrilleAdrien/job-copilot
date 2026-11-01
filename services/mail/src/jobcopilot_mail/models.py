@@ -107,6 +107,8 @@ class ReplyRow(Base):
     # ou bounced (accepté, puis un avis de non-distribution est arrivé).
     status: Mapped[str] = mapped_column(String(12), default="sending")
     error: Mapped[str | None] = mapped_column(Text)
+    # L'utilisateur a ouvert ce mail depuis qu'il est non distribué : le témoin s'éteint.
+    problem_seen: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # Fourni par le formulaire : un second envoi du même brouillon ne repart pas.
     client_key: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

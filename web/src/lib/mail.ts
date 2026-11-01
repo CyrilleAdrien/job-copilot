@@ -80,6 +80,8 @@ export type MailReply = {
    */
   status: "sending" | "sent" | "uncertain" | "bounced";
   error: string | null;
+  /** Le mail non distribué a été ouvert : le témoin du dossier Envoyés s'éteint. */
+  problem_seen: boolean;
 };
 
 export type ReplyDraft = { to: string; subject: string; body: string };
@@ -154,6 +156,12 @@ export const sendReply = async (id: string, draft: ReplyDraft, clientKey: string
 
 export const sendNewMail = async (accountId: string, draft: ReplyDraft, clientKey: string): Promise<MailReply> =>
   json(await fetch(`${BASE}/accounts/${accountId}/send`, send("POST", { ...draft, client_key: clientKey })));
+
+export const markProblemSeen = async (id: string): Promise<MailReply> =>
+  json(await fetch(`${BASE}/sent/${id}/seen`, { method: "POST" }));
+
+/** Un mail non distribué que l'utilisateur n'a pas encore ouvert. */
+export const unseenBounce = (reply: MailReply) => reply.status === "bounced" && !reply.problem_seen;
 
 export const fetchSent = async (): Promise<MailReply[]> => json(await fetch(`${BASE}/sent`, { cache: "no-store" }));
 

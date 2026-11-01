@@ -195,18 +195,18 @@ describe("ReplyList", () => {
   it("shows nothing without a reply, then each reply with its recipient", () => {
     const { rerender, container } = render(<ReplyList replies={[]} />);
     expect(container).toBeEmptyDOMElement();
-    rerender(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "sent" as const, error: null }]} />);
+    rerender(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "sent" as const, error: null, problem_seen: false }]} />);
     expect(screen.getByText(/Réponse à rh@nimbus.io/)).toBeInTheDocument();
     expect(screen.getByText("Mardi")).toBeInTheDocument();
   });
 
   it("says when a reply may not have left", () => {
-    render(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "uncertain", error: null }]} />);
+    render(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "uncertain", error: null, problem_seen: false }]} />);
     expect(screen.getByText(/vérifie ton dossier Envoyés/)).toBeInTheDocument();
   });
 
   it("says when a reply was not delivered, and why", () => {
-    render(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "bounced", error: "550 User unknown" }]} />);
+    render(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "bounced", error: "550 User unknown", problem_seen: false }]} />);
     expect(screen.getByText(/Non distribué \(550 User unknown\)/)).toBeInTheDocument();
   });
 });

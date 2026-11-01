@@ -508,6 +508,17 @@ async def list_sent(
     return list((await session.scalars(query)).all())
 
 
+@router.post("/sent/{reply_id}/seen", response_model=Reply)
+async def mark_problem_seen(reply_id: UUID, session: Session) -> ReplyRow:
+    """Le problème a été lu. Le mail reste marqué non distribué ; seul le témoin s'éteint."""
+    row = await session.get(ReplyRow, reply_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Mail introuvable.")
+    row.problem_seen = True
+    await session.commit()
+    return row
+
+
 @router.post("/messages/{message_id}/draft", response_model=DraftOut)
 async def draft_reply(
     message_id: UUID, payload: DraftRequest, session: Session, http: Http, drafter: DrafterDep

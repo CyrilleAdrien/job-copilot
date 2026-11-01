@@ -75,6 +75,7 @@ class Reply(BaseModel):
     sent_at: datetime
     status: Literal["sending", "sent", "uncertain", "bounced"]
     error: str | None
+    problem_seen: bool
 
 
 class ReplyCreate(BaseModel):
