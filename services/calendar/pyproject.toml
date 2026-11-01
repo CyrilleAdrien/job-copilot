@@ -3,7 +3,13 @@ name = "jobcopilot-calendar"
 version = "0.1.0"
 description = "Entretiens et synchro CalDAV"
 requires-python = ">=3.12"
-dependencies = ["jobcopilot-common"]
+dependencies = [
+    "alembic>=1.20.1",
+    "caldav>=3.7.0",
+    "cryptography>=50.0.2",
+    "icalendar>=7.3.0",
+    "jobcopilot-common",
+]
 
 [tool.uv.sources]
 jobcopilot-common = { workspace = true }

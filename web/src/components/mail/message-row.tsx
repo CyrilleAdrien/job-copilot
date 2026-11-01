@@ -1,9 +1,11 @@
 "use client";
 
-import { ArrowUpRight, Check, Link2, Tag, Undo2 } from "lucide-react";
+import { ArrowUpRight, CalendarPlus, Check, Link2, Reply, Tag, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
+import { useState } from "react";
 
+import { ReplyComposer, ReplyList } from "@/components/mail/reply-composer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu } from "@/components/ui/menu";
@@ -21,13 +23,16 @@ export function MessageRow({
   applications,
   onUpdate,
   onApply,
+  onReplied,
 }: {
   message: MailMessage;
   application?: ApplicationSummary;
   applications: ApplicationSummary[];
   onUpdate: (changes: Partial<Pick<MailMessage, "category" | "application_id" | "reviewed">>) => void;
   onApply: () => void;
+  onReplied: (updated: MailMessage) => void;
 }) {
+  const [replying, setReplying] = useState(false);
   const { label, tone, icon: Icon } = categories[message.category];
   const suggested = message.suggested_status ? applicationStatuses[message.suggested_status].label : null;
 
@@ -81,6 +86,18 @@ export function MessageRow({
         )}
 
         <div className="ml-auto flex items-center gap-1">
+          <Button variant="ghost" size="sm" aria-expanded={replying} onClick={() => setReplying((open) => !open)}>
+            <Reply aria-hidden />
+            Répondre
+          </Button>
+          {application && (message.category === "interview" || message.category === "technical_test") && (
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/calendrier?new=1&application_id=${application.id}&kind=${message.category}`}>
+                <CalendarPlus aria-hidden />
+                Planifier
+              </Link>
+            </Button>
+          )}
           {canApply(message) && (
             <Button variant="secondary" size="sm" onClick={onApply}>
               Passer à « {suggested} »
@@ -124,6 +141,17 @@ export function MessageRow({
           )}
         </div>
       </div>
+      <ReplyList replies={message.replies} />
+      {replying && (
+        <ReplyComposer
+          message={message}
+          onCancel={() => setReplying(false)}
+          onSent={(updated) => {
+            setReplying(false);
+            onReplied(updated);
+          }}
+        />
+      )}
       {message.reason && <p className="sr-only">Classement : {message.reason}</p>}
     </motion.li>
   );

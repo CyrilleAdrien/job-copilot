@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import { EventItem } from "@/components/calendar/event-item";
 import { WeeklyChart } from "@/components/dashboard/weekly-chart";
 import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
@@ -17,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchProfile } from "@/lib/api";
 import { ApiError, followUpApplication, mailtoUrl, statusOrder } from "@/lib/applications";
 import { SearchOutcomes } from "@/components/dashboard/search-outcomes";
+import { fetchEvents, type CalendarEvent } from "@/lib/calendar";
 import { fetchStats, percent, type FollowUp, type Stats } from "@/lib/dashboard";
 import { fadeUp, spring } from "@/lib/motion";
 import { applicationStatuses } from "@/lib/statuses";
@@ -32,6 +34,7 @@ export function DashboardScreen() {
   const [signature, setSignature] = useState("");
   const [searchNames, setSearchNames] = useState<Record<string, string>>({});
   const [allFollowUps, setAllFollowUps] = useState(false);
+  const [meetings, setMeetings] = useState<CalendarEvent[]>([]);
 
   const load = useCallback(() => {
     fetchStats()
@@ -41,6 +44,10 @@ export function DashboardScreen() {
 
   useEffect(() => {
     load();
+    // Facultatif : le tableau de bord reste utilisable si le service calendar ne répond pas.
+    fetchEvents({ from: new Date().toISOString(), limit: 4 })
+      .then(setMeetings)
+      .catch(() => setMeetings([]));
     fetchProfile()
       .then((profile) => {
         setSignature(profile?.identity.full_name ?? "");
@@ -168,6 +175,28 @@ export function DashboardScreen() {
           </div>
 
           <SearchOutcomes stats={stats} names={searchNames} />
+
+          {meetings.length > 0 && (
+            <Card>
+              <CardHeader className="flex-row items-start justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <CardTitle>Prochains rendez-vous</CardTitle>
+                  <CardDescription>Entretiens, tests techniques et relances prévus.</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/calendrier">
+                    Calendrier
+                    <ArrowUpRight aria-hidden />
+                  </Link>
+                </Button>
+              </CardHeader>
+              <CardContent className="grid gap-3 pt-4 md:grid-cols-2 2xl:grid-cols-4">
+                {meetings.map((meeting) => (
+                  <EventItem key={meeting.id} event={meeting} href={`/calendrier?event=${meeting.id}`} compact />
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="flex-row items-start justify-between gap-4">

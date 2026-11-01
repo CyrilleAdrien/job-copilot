@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { CvPreview } from "@/components/profile/cv-preview";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { ImportButton } from "@/components/profile/import-button";
+import { ProfilePhotoCard } from "@/components/profile/profile-photo-card";
 import { ProfileView } from "@/components/profile/profile-view";
 import { SearchManager } from "@/components/profile/search-manager";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -111,6 +112,7 @@ export function ProfileScreen() {
         />
       ) : (
         <div className="flex flex-col gap-4">
+          <ProfilePhotoCard profile={profile} />
           <SegmentedControl label="Affichage du profil" segments={views} value={view} onChange={setView} />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={view} {...fadeUp} transition={spring.smooth}>

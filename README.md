@@ -14,7 +14,7 @@ Projet en cours de construction.
 | `jobs` | Collecte et scoring des offres (France Travail, Adzuna) |
 | `documents` | Génération des CV et lettres, stockage S3 |
 | `applications` | Candidatures, statuts, statistiques |
-| `mail` | Lecture IMAP et classement des réponses |
+| `mail` | Lecture IMAP et classement des réponses, envoi SMTP des réponses écrites dans l'app |
 | `calendar` | Entretiens, synchro CalDAV et .ics |
 
 Infrastructure locale : PostgreSQL 16 (un schéma par service), Redis 7 (cache et bus d'événements), SeaweedFS (stockage compatible S3) et Ollama (LLM local).
@@ -36,7 +36,7 @@ L'application s'ouvre sur http://localhost:3000. Le catalogue des composants est
 
 ## Profil
 
-Au premier lancement, http://localhost:3000/bienvenue propose deux chemins : remplir le profil en cinq étapes (identité, recherches, expériences, compétences, parcours) ou importer un `profile.yaml`. Le formulaire couvre toutes les sections d'un CV : formation, certifications, projets, bénévolat, publications, langues, savoir-être et centres d'intérêt. Les langues, niveaux, technologies, postes et villes sont proposés pendant la saisie. Le fichier [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet ; un ancien fichier avec une seule section `search` reste accepté.
+Au premier lancement, http://localhost:3000/bienvenue propose deux chemins : remplir le profil en cinq étapes (identité, recherches, expériences, compétences, parcours) ou importer un `profile.yaml`. Le formulaire couvre toutes les sections d'un CV : formation, certifications, projets, bénévolat, publications, langues, savoir-être et centres d'intérêt. Les langues, niveaux, technologies, postes et villes sont proposés pendant la saisie. Le fichier [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet ; un ancien fichier avec une seule section `search` reste accepté. L'écran Profil permet aussi de choisir une photo, affichée sur tout le site : elle ne figure ni sur les CV ni dans ce fichier.
 
 L'écran Profil affiche le profil mis en page comme un CV, en français ou en anglais, avec le même template que les CV générés. Il s'exporte en `profile.yaml` pour être sauvegardé ou modifié à la main.
 

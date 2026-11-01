@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowUpRight, Check, FileText, Mail, Trash2, X } from "lucide-react";
+import { ArrowUpRight, CalendarPlus, Check, FileText, Mail, Reply, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
+import { ReplyComposer, ReplyList } from "@/components/mail/reply-composer";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ import {
   type ApplicationChanges,
 } from "@/lib/applications";
 import { spring } from "@/lib/motion";
+import { EventItem } from "@/components/calendar/event-item";
+import { fetchEvents, type CalendarEvent } from "@/lib/calendar";
 import { categories, fetchMessages, type MailMessage } from "@/lib/mail";
 import { applicationStatuses, type ApplicationStatus } from "@/lib/statuses";
 
@@ -106,12 +109,16 @@ function SheetContent({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [exchanges, setExchanges] = useState<MailMessage[]>([]);
+  const [meetings, setMeetings] = useState<CalendarEvent[]>([]);
 
   useEffect(() => {
     // Les mails liés : facultatifs, la fiche reste utilisable si le service mail ne répond pas.
     fetchMessages({ application_id: id })
       .then(setExchanges)
       .catch(() => setExchanges([]));
+    fetchEvents({ application_id: id })
+      .then(setMeetings)
+      .catch(() => setMeetings([]));
     fetchApplication(id)
       .then((loaded) => {
         setApplication(loaded);
@@ -253,6 +260,28 @@ function SheetContent({
             onBlur={() => notes !== application.notes && save({ notes })}
           />
 
+          <section className="flex flex-col gap-3">
+            <h3 className="flex items-center gap-2 text-[13px] font-semibold">
+              Entretiens
+              <Link
+                href={`/calendrier?new=1&application_id=${application.id}&kind=interview`}
+                className="ml-auto inline-flex items-center gap-1 text-[12px] font-normal text-accent-strong hover:underline"
+              >
+                <CalendarPlus className="size-3.5" aria-hidden />
+                Planifier
+              </Link>
+            </h3>
+            {meetings.length === 0 ? (
+              <p className="text-[12px] text-text-tertiary">Aucun rendez-vous prévu.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {meetings.map((meeting) => (
+                  <EventItem key={meeting.id} event={meeting} href={`/calendrier?event=${meeting.id}`} compact />
+                ))}
+              </div>
+            )}
+          </section>
+
           {exchanges.length > 0 && (
             <section className="flex flex-col gap-3">
               <h3 className="flex items-center gap-2 text-[13px] font-semibold">
@@ -262,19 +291,13 @@ function SheetContent({
                 </Link>
               </h3>
               <ul className="flex flex-col gap-2">
-                {exchanges.map((message) => {
-                  const { label, icon: Icon } = categories[message.category];
-                  return (
-                    <li key={message.id} className="flex flex-col gap-1 rounded-[10px] border border-border bg-surface px-3.5 py-3">
-                      <span className="flex items-center gap-2 text-[12px] text-text-tertiary">
-                        <Icon className="size-3.5" aria-hidden />
-                        {label} · {dateFormatter.format(new Date(message.received_at))}
-                      </span>
-                      <span className="text-[13px] font-medium">{message.subject || "(sans objet)"}</span>
-                      {message.snippet && <span className="line-clamp-2 text-[12px] text-text-secondary">{message.snippet}</span>}
-                    </li>
-                  );
-                })}
+                {exchanges.map((message) => (
+                  <Exchange
+                    key={message.id}
+                    message={message}
+                    onReplied={(updated) => setExchanges((current) => current.map((m) => (m.id === updated.id ? updated : m)))}
+                  />
+                ))}
               </ul>
             </section>
           )}
@@ -355,5 +378,48 @@ function DocumentLink({ label, id }: { label: string; id: string | null }) {
       {label}
       <ArrowUpRight className="ml-auto size-3.5 text-text-tertiary" aria-hidden />
     </a>
+  );
+}
+
+/** Un mail de la section Échanges : ses réponses, et de quoi lui répondre. */
+function Exchange({ message, onReplied }: { message: MailMessage; onReplied: (updated: MailMessage) => void }) {
+  const [replying, setReplying] = useState(false);
+  const { label, icon: Icon } = categories[message.category];
+  return (
+    <li className="flex flex-col gap-1 rounded-[10px] border border-border bg-surface px-3.5 py-3">
+      <span className="flex items-center gap-2 text-[12px] text-text-tertiary">
+        <Icon className="size-3.5" aria-hidden />
+        {label} · {dateFormatter.format(new Date(message.received_at))}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto -my-1"
+          aria-expanded={replying}
+          onClick={() => setReplying((open) => !open)}
+        >
+          <Reply aria-hidden />
+          Répondre
+        </Button>
+      </span>
+      <span className="text-[13px] font-medium">{message.subject || "(sans objet)"}</span>
+      {message.snippet && <span className="line-clamp-2 text-[12px] text-text-secondary">{message.snippet}</span>}
+      {message.replies.length > 0 && (
+        <div className="pt-2">
+          <ReplyList replies={message.replies} />
+        </div>
+      )}
+      {replying && (
+        <div className="pt-2">
+          <ReplyComposer
+            message={message}
+            onCancel={() => setReplying(false)}
+            onSent={(updated) => {
+              setReplying(false);
+              onReplied(updated);
+            }}
+          />
+        </div>
+      )}
+    </li>
   );
 }

@@ -22,7 +22,7 @@ export const mainNav: NavItem[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/offres", label: "Offres", icon: BriefcaseBusiness },
   { href: "/candidatures", label: "Candidatures", icon: FileStack },
-  { href: "/calendrier", label: "Calendrier", icon: CalendarDays, step: 10 },
+  { href: "/calendrier", label: "Calendrier", icon: CalendarDays },
   { href: "/boite-de-reception", label: "Boîte de réception", icon: Inbox },
 ];
 

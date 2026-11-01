@@ -13,10 +13,12 @@ from jobcopilot_mail.deps import (
     ClassifierDep,
     Http,
     MailboxFactoryDep,
+    SenderFactoryDep,
     Session,
 )
 from jobcopilot_mail.mailbox import ImapMailbox, MailboxError
-from jobcopilot_mail.models import AccountRow, MessageRow
+from jobcopilot_mail.models import AccountRow, MessageRow, ReplyRow
+from jobcopilot_mail.outbox import Draft, SendError, build_reply
 from jobcopilot_mail.schemas import (
     Account,
     AccountCreate,
@@ -24,6 +26,7 @@ from jobcopilot_mail.schemas import (
     Message,
     MessageUpdate,
     Provider,
+    ReplyCreate,
     Review,
     SyncReport,
 )
@@ -282,4 +285,39 @@ async def apply_status(message_id: UUID, session: Session, http: Http) -> Messag
     row.status_applied = row.reviewed = True
     await session.commit()
     await session.refresh(row)
+    return row
+
+
+@router.post(
+    "/messages/{message_id}/reply", response_model=Message, status_code=status.HTTP_201_CREATED
+)
+async def reply(
+    message_id: UUID, payload: ReplyCreate, session: Session, sender_for: SenderFactoryDep
+) -> MessageRow:
+    """Envoie une réponse depuis la boîte qui a reçu le mail. Le statut de la candidature ne change
+    pas ; le mail quitte « À vérifier » sauf s'il reste à rattacher ou un statut à confirmer."""
+    row = await get_message(session, message_id)
+    account = await session.get(AccountRow, row.account_id)
+    email = build_reply(
+        Draft(account.email, payload.to, payload.subject, payload.body, row.message_id)
+    )
+    try:
+        await asyncio.to_thread(sender_for(account).send, email)
+    except SendError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    except SecretKeyMissing as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    session.add(
+        ReplyRow(
+            message_id=row.id,
+            to_address=payload.to,
+            subject=payload.subject,
+            body=payload.body,
+            smtp_message_id=email["Message-ID"],
+        )
+    )
+    if row.application_id and (row.suggested_status is None or row.status_applied):
+        row.reviewed = True
+    await session.commit()
+    await session.refresh(row, ["replies", "reviewed"])
     return row

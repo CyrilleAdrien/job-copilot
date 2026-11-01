@@ -1,7 +1,9 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from jobcopilot_profile.models import ExperienceRow, ProfileRow
+from jobcopilot_profile.models import ExperienceRow, PhotoRow, ProfileRow
 from jobcopilot_profile.schemas import Profile
 
 PROFILE_ID = 1
@@ -77,8 +79,28 @@ async def save_profile(session: AsyncSession, profile: Profile) -> Profile:
 
 async def delete_profile(session: AsyncSession) -> bool:
     result = await session.execute(delete(ProfileRow).where(ProfileRow.id == PROFILE_ID))
+    await session.execute(delete(PhotoRow))
     await session.commit()
     return result.rowcount > 0
+
+
+async def get_photo(session: AsyncSession) -> PhotoRow | None:
+    return await session.get(PhotoRow, PROFILE_ID)
+
+
+async def save_photo(session: AsyncSession, data: bytes, content_type: str) -> PhotoRow:
+    row = await get_photo(session)
+    if row is None:
+        row = PhotoRow(id=PROFILE_ID)
+        session.add(row)
+    row.data, row.content_type, row.updated_at = data, content_type, datetime.now(UTC)
+    await session.commit()
+    return row
+
+
+async def delete_photo(session: AsyncSession) -> None:
+    await session.execute(delete(PhotoRow))
+    await session.commit()
 
 
 class SearchNotFound(LookupError):

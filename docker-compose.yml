@@ -90,6 +90,10 @@ services:
   calendar:
     <<: *service
     build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: calendar } }
+    environment:
+      <<: *env
+      SECRET_KEY: ${SECRET_KEY:?Lance make secret pour créer la clé de chiffrement}
+      CALENDAR_DEMO: ${CALENDAR_DEMO:-false}
 
   postgres:
     image: postgres:16-alpine

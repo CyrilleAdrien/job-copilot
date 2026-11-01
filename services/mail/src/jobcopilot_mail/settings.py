@@ -22,6 +22,7 @@ class MailSettings(BaseSettings):
     mail_auto_apply_confidence: float = 0.75
     mail_http_timeout: float = 10.0
     imap_timeout: float = 30.0
+    smtp_timeout: float = 30.0
 
 
 @lru_cache

@@ -1,16 +1,18 @@
 "use client";
 
-import { AlertCircle, Check, Inbox, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Inbox, Plus, RefreshCw, Settings, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { AccountForm } from "@/components/mail/account-form";
+import { MailSidePanel } from "@/components/mail/mail-side-panel";
 import { MessageRow } from "@/components/mail/message-row";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Modal } from "@/components/ui/modal";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
@@ -44,6 +46,7 @@ export function InboxScreen() {
   const [view, setView] = useState<InboxView>("pending");
   const [category, setCategory] = useState<Category | "all">("all");
   const [adding, setAdding] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -108,6 +111,11 @@ export function InboxScreen() {
     }
   }
 
+  function replied(updated: MailMessage) {
+    setMessages((current) => current.map((m) => (m.id === updated.id ? updated : m)));
+    setNotice(`Réponse envoyée à ${updated.replies.at(-1)?.to_address}.`);
+  }
+
   async function removeAccount(id: string) {
     try {
       await deleteAccount(id);
@@ -126,10 +134,20 @@ export function InboxScreen() {
         description="Les réponses des recruteurs, rattachées à tes candidatures."
         actions={
           connected && (
-            <Button variant="secondary" onClick={sync} loading={syncing}>
-              <RefreshCw aria-hidden />
-              Synchroniser
-            </Button>
+            <>
+              <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
+                {accounts.some((account) => account.last_error) ? (
+                  <AlertCircle className="text-danger" aria-hidden />
+                ) : (
+                  <Settings aria-hidden />
+                )}
+                Réglages
+              </Button>
+              <Button variant="secondary" onClick={sync} loading={syncing}>
+                <RefreshCw aria-hidden />
+                Synchroniser
+              </Button>
+            </>
           )
         }
       />
@@ -174,7 +192,7 @@ export function InboxScreen() {
           </CardContent>
         </Card>
       ) : (
-        <motion.div {...fadeUp} transition={spring.smooth} className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <motion.div {...fadeUp} transition={spring.smooth} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Card>
             <CardHeader className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -227,6 +245,7 @@ export function InboxScreen() {
                         applications={applications}
                         onUpdate={(changes) => change(message.id, changes)}
                         onApply={() => apply(message.id)}
+                        onReplied={replied}
                       />
                     ))}
                   </AnimatePresence>
@@ -234,15 +253,27 @@ export function InboxScreen() {
               )}
             </CardContent>
           </Card>
+          <MailSidePanel
+            accounts={accounts}
+            messages={messages}
+            byId={byId}
+            onReopen={(id) => change(id, { reviewed: false })}
+          />
+        </motion.div>
+      )}
 
-          <Card className="self-start">
-            <CardHeader>
-              <CardTitle>Boîtes connectées</CardTitle>
-              <CardDescription>Lues toutes les 15 minutes, et à la demande.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 pt-4">
+      <Modal
+        open={settingsOpen && connected}
+        onClose={() => {
+          setSettingsOpen(false);
+          setAdding(false);
+        }}
+        title="Réglages de la boîte de réception"
+        description="Boîtes lues toutes les 15 minutes, et à la demande."
+      >
+        <section className="flex flex-col gap-4">
               <ul className="flex flex-col divide-y divide-border">
-                {accounts.map((account) => (
+                {(accounts ?? []).map((account) => (
                   <li key={account.id} className="flex items-start gap-3 py-3 first:pt-0">
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="truncate text-sm font-medium">{account.email}</span>
@@ -284,10 +315,8 @@ export function InboxScreen() {
                   Ajouter une boîte
                 </Button>
               )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+        </section>
+      </Modal>
     </>
   );
 }

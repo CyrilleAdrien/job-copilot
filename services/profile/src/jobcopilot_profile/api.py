@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common.db import get_session
@@ -29,6 +31,60 @@ async def replace_profile(profile: Profile, session: Session) -> Profile:
 async def remove_profile(session: Session) -> None:
     if not await repository.delete_profile(session):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Aucun profil configuré.")
+
+
+PHOTO_MAX_BYTES = 2 * 1024 * 1024
+
+
+def image_type(data: bytes) -> str | None:
+    """Le type vient du contenu, pas de ce que déclare le client : SVG et HTML sont refusés."""
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+class PhotoInfo(BaseModel):
+    updated_at: datetime | None
+
+
+@router.get("/photo/info", response_model=PhotoInfo)
+async def photo_info(session: Session) -> PhotoInfo:
+    """Sert à savoir s'il y a une photo, et à changer son adresse quand elle change."""
+    row = await repository.get_photo(session)
+    return PhotoInfo(updated_at=row.updated_at if row else None)
+
+
+@router.get("/photo")
+async def read_photo(session: Session) -> Response:
+    row = await repository.get_photo(session)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Aucune photo de profil.")
+    return Response(row.data, media_type=row.content_type)
+
+
+@router.put("/photo", response_model=PhotoInfo)
+async def replace_photo(request: Request, session: Session) -> PhotoInfo:
+    data = await request.body()
+    if len(data) > PHOTO_MAX_BYTES:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Photo trop lourde : 2 Mo au maximum."
+        )
+    content_type = image_type(data)
+    if content_type is None:
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Format non pris en charge : JPEG, PNG ou WebP."
+        )
+    row = await repository.save_photo(session, data, content_type)
+    return PhotoInfo(updated_at=row.updated_at)
+
+
+@router.delete("/photo", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_photo(session: Session) -> None:
+    await repository.delete_photo(session)
 
 
 NO_SEARCH = "Recherche introuvable."

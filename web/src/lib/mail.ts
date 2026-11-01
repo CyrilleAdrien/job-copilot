@@ -59,6 +59,16 @@ export type MailAccount = {
   messages: number;
 };
 
+export type MailReply = {
+  id: string;
+  to_address: string;
+  subject: string;
+  body: string;
+  sent_at: string;
+};
+
+export type ReplyDraft = { to: string; subject: string; body: string };
+
 export type MailMessage = {
   id: string;
   account_id: string;
@@ -75,6 +85,7 @@ export type MailMessage = {
   suggested_status: ApplicationStatus | null;
   status_applied: boolean;
   reviewed: boolean;
+  replies: MailReply[];
 };
 
 export type SyncReport = { accounts: number; new: number; linked: number; applied: number; errors: string[] };
@@ -120,6 +131,21 @@ export const updateMessage = async (
 export const applyMessage = async (id: string): Promise<MailMessage> =>
   json(await fetch(`${BASE}/messages/${id}/apply`, { method: "POST" }));
 
+export const sendReply = async (id: string, draft: ReplyDraft): Promise<MailMessage> =>
+  json(await fetch(`${BASE}/messages/${id}/reply`, send("POST", draft)));
+
+/** Objet proposé pour une réponse : pas de second « Re: ». */
+export function replySubject(subject: string) {
+  const clean = subject.trim();
+  if (!clean) return "Re: votre message";
+  return (/^r[eé]\s*:/i.test(clean) ? clean : `Re: ${clean}`).slice(0, 500);
+}
+
+/** Mêmes règles que le service mail : une seule adresse, un objet, un message non vide. */
+export function canSendReply({ to, subject, body }: ReplyDraft) {
+  return /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(to.trim()) && subject.trim() !== "" && body.trim() !== "";
+}
+
 /** « À vérifier » : pas encore traité, à rattacher, ou statut suggéré mais pas appliqué. */
 export function needsReview(message: MailMessage) {
   return !message.reviewed;
@@ -132,6 +158,20 @@ export function syncSummary(report: SyncReport) {
   const parts = [`${report.new} nouveau${report.new > 1 ? "x" : ""} mail${report.new > 1 ? "s" : ""}`];
   if (report.applied) parts.push(`${report.applied} statut${report.applied > 1 ? "s" : ""} mis à jour`);
   return `${parts.join(", ")}.`;
+}
+
+export type SentReply = MailReply & { message: MailMessage };
+
+/** Toutes les réponses envoyées, les plus récentes d'abord. */
+export function sentReplies(messages: MailMessage[]): SentReply[] {
+  return messages
+    .flatMap((message) => message.replies.map((reply) => ({ ...reply, message })))
+    .sort((a, b) => b.sent_at.localeCompare(a.sent_at));
+}
+
+/** Les mails traités, à la main ou par un statut appliqué. Les plus récents d'abord. */
+export function treatedMessages(messages: MailMessage[]) {
+  return messages.filter((message) => message.reviewed).sort((a, b) => b.received_at.localeCompare(a.received_at));
 }
 
 export type InboxView = "pending" | "all";
