@@ -187,3 +187,76 @@ async def test_a_profile_keeps_one_active_search(client):
     searches = [{**search, "archived": True} for search in PROFILE["searches"]]
     response = await client.put("/", json={**PROFILE, "searches": searches})
     assert response.status_code == 422
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+JPEG = b"\xff\xd8\xff\xe0" + b"0" * 32
+WEBP = b"RIFF\x10\x00\x00\x00WEBP" + b"0" * 32
+
+
+async def test_no_photo_yet(client):
+    assert (await client.get("/photo")).status_code == 404
+    assert (await client.get("/photo/info")).json() == {"updated_at": None}
+    assert (await client.delete("/photo")).status_code == 204
+
+
+@pytest.mark.parametrize(
+    ("data", "content_type"), [(PNG, "image/png"), (JPEG, "image/jpeg"), (WEBP, "image/webp")]
+)
+async def test_photo_is_served_with_the_type_of_its_content(client, data, content_type):
+    # Le type déclaré par le client ne compte pas.
+    saved = await client.put("/photo", content=data, headers={"content-type": "text/html"})
+    assert saved.status_code == 200
+    photo = await client.get("/photo")
+    assert photo.content == data
+    assert photo.headers["content-type"] == content_type
+    assert (await client.get("/photo/info")).json() == saved.json()
+
+
+async def test_replacing_a_photo_changes_its_version(client):
+    first = (await client.put("/photo", content=PNG)).json()["updated_at"]
+    second = (await client.put("/photo", content=JPEG)).json()["updated_at"]
+    assert second > first
+    assert (await client.get("/photo")).content == JPEG
+
+
+@pytest.mark.parametrize(
+    "data", [b"", b"<svg xmlns='http://www.w3.org/2000/svg'/>", b"<html></html>", b"RIFFxxxxWAVE"]
+)
+async def test_other_files_are_refused(client, data):
+    assert (await client.put("/photo", content=data)).status_code == 415
+    assert (await client.get("/photo")).status_code == 404
+
+
+async def test_too_heavy_photo_is_refused(client):
+    response = await client.put("/photo", content=PNG + b"0" * (2 * 1024 * 1024))
+    assert response.status_code == 413
+    assert (await client.get("/photo")).status_code == 404
+
+
+async def test_photo_survives_profile_changes_and_stays_out_of_the_profile(client):
+    await client.put("/", json=PROFILE)
+    await client.put("/photo", content=PNG)
+    await client.put("/", json=PROFILE)
+    exported = await client.get("/export")
+    await client.post(
+        "/import", content=exported.content, headers={"content-type": "application/yaml"}
+    )
+    assert (await client.get("/photo")).content == PNG
+    assert "photo" not in (await client.get("/")).text
+    assert "photo" not in exported.text
+
+
+async def test_deleting_the_profile_deletes_the_photo(client):
+    await client.put("/", json=PROFILE)
+    await client.put("/photo", content=PNG)
+    assert (await client.delete("/")).status_code == 204
+    assert (await client.get("/photo")).status_code == 404
+
+
+async def test_removing_the_photo_keeps_the_profile(client):
+    await client.put("/", json=PROFILE)
+    await client.put("/photo", content=PNG)
+    assert (await client.delete("/photo")).status_code == 204
+    assert (await client.get("/photo")).status_code == 404
+    assert (await client.get("/")).status_code == 200

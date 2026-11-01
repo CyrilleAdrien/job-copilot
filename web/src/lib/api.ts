@@ -66,3 +66,25 @@ export const restoreSearch = (id: string) => searchAction(id, "restore");
 export const deleteSearch = (id: string) => searchAction(id, "delete");
 
 export const profileExportUrl = "/api/profile/export";
+
+/** Adresse de la photo de profil, qui change avec la photo ; null s'il n'y en a pas. */
+export async function fetchPhotoUrl(): Promise<string | null> {
+  const response = await fetch("/api/profile/photo/info", { cache: "no-store" });
+  if (!response.ok) throw await parseError(response);
+  const { updated_at: updatedAt } = await response.json();
+  return updatedAt ? `/api/profile/photo?v=${encodeURIComponent(updatedAt)}` : null;
+}
+
+export async function uploadPhoto(photo: Blob): Promise<void> {
+  const response = await fetch("/api/profile/photo", {
+    method: "PUT",
+    headers: { "content-type": photo.type },
+    body: photo,
+  });
+  if (!response.ok) throw await parseError(response);
+}
+
+export async function deletePhoto(): Promise<void> {
+  const response = await fetch("/api/profile/photo", { method: "DELETE" });
+  if (!response.ok) throw await parseError(response);
+}

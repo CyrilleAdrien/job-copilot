@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { ProfileAvatar, useProfileIdentity } from "@/components/profile/profile-identity";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { spring } from "@/lib/motion";
 import { isActive, mainNav, secondaryNav, type NavItem } from "@/lib/navigation";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { name } = useProfileIdentity();
 
   return (
     <aside className="sticky top-0 flex h-dvh w-60 shrink-0 flex-col border-r border-border bg-sidebar px-3 py-4 backdrop-blur-xl">
@@ -27,7 +29,16 @@ export function Sidebar() {
         <NavGroup items={secondaryNav} pathname={pathname} title="Espace" />
       </nav>
 
-      <div className="flex items-center justify-between px-2.5 pt-4">
+      <Link
+        href="/profil"
+        aria-label="Mon profil"
+        className="mt-4 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 transition-colors duration-150 hover:bg-surface-hover"
+      >
+        <ProfileAvatar size={28} />
+        <span className="min-w-0 truncate text-[13px] font-medium">{name ?? "Mon profil"}</span>
+      </Link>
+
+      <div className="flex items-center justify-between px-2.5 pt-3">
         <span className="text-xs text-text-tertiary">Apparence</span>
         <ThemeToggle />
       </div>

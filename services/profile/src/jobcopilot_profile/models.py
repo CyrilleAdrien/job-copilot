@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -45,6 +45,18 @@ class ProfileRow(Base):
     experiences: Mapped[list["ExperienceRow"]] = relationship(
         order_by="ExperienceRow.position", cascade="all, delete-orphan", lazy="selectin"
     )
+
+
+class PhotoRow(Base):
+    """La photo de profil. À part du profil : les autres services et le YAML n'en ont pas besoin."""
+
+    __tablename__ = "photos"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    content_type: Mapped[str] = mapped_column(String(20))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ExperienceRow(Base):
