@@ -2,11 +2,10 @@
 
 import { AlertCircle, ArrowUpRight, Check, Copy, Download, KeyRound, Lock, RefreshCw, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ApiError } from "@/lib/api";
@@ -35,18 +34,13 @@ export function CalendarSync({
   onChange: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-6">
+    <>
+      <Section title="Calendrier connecté" description="Chaque événement y est recopié, modifié et supprimé avec l'app.">
+        {account ? <Connected account={account} onChange={onChange} /> : <ConnectForm onConnected={onChange} />}
+      </Section>
+      <div className="h-px bg-border" aria-hidden />
       <Subscription />
-      <Card>
-        <CardHeader>
-          <CardTitle>Calendrier connecté</CardTitle>
-          <CardDescription>Chaque événement y est recopié, modifié et supprimé avec l&apos;app.</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {account ? <Connected account={account} onChange={onChange} /> : <ConnectForm onConnected={onChange} />}
-        </CardContent>
-      </Card>
-    </div>
+    </>
   );
 }
 
@@ -66,14 +60,10 @@ function Subscription() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>S&apos;abonner</CardTitle>
-        <CardDescription>
-          Calendrier sur Mac ou Thunderbird relisent ce flux toutes les heures, sur cet ordinateur.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3 pt-4">
+    <Section
+      title="S'abonner"
+      description="Calendrier sur Mac ou Thunderbird relisent ce flux toutes les heures, sur cet ordinateur."
+    >
         <div className="flex items-center gap-2">
           <code className="min-w-0 flex-1 truncate rounded-[8px] border border-border bg-background-subtle px-2.5 py-2 text-[12px]" title={url}>
             {url}
@@ -93,8 +83,20 @@ function Subscription() {
             Télécharger le calendrier (.ics)
           </a>
         </Button>
-      </CardContent>
-    </Card>
+    </Section>
+  );
+}
+
+/** Rubrique de la fenêtre Réglages : titre, description, contenu. */
+export function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-[15px] font-semibold">{title}</h3>
+        {description && <p className="text-[13px] text-text-secondary">{description}</p>}
+      </div>
+      {children}
+    </section>
   );
 }
 
