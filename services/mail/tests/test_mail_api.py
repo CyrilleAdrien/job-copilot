@@ -174,3 +174,14 @@ async def test_account_checks_connection_and_never_stores_a_plain_password(clien
 async def test_providers_include_demo_only_in_demo_mode(client):
     ids = [p["id"] for p in (await client.get("/providers")).json()]
     assert ids == ["gmail", "icloud", "outlook", "other", "demo"]
+
+
+async def test_each_real_provider_explains_how_to_create_an_app_password(client):
+    providers = {p["id"]: p for p in (await client.get("/providers")).json()}
+    assert "https://myaccount.google.com/apppasswords" in [
+        link["url"] for link in providers["gmail"]["links"]
+    ]
+    for provider_id in ("gmail", "icloud", "outlook", "other"):
+        assert providers[provider_id]["steps"]
+    for provider in providers.values():
+        assert all(link["url"].startswith("https://") for link in provider["links"])

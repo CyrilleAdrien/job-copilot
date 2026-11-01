@@ -1,6 +1,7 @@
 "use client";
 
-import { KeyRound, Lock } from "lucide-react";
+import { ArrowUpRight, CircleHelp, KeyRound, Lock } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { ErrorBanner } from "@/components/profile/error-banner";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ApiError } from "@/lib/api";
 import { addAccount, fetchProviders, type MailAccount, type Provider } from "@/lib/mail";
+import { spring } from "@/lib/motion";
 
 /** Connexion d'une boîte en IMAP, avec un mot de passe d'application (chiffré côté serveur). */
 export function AccountForm({ onAdded, onCancel }: { onAdded: (account: MailAccount) => void; onCancel?: () => void }) {
@@ -19,6 +21,7 @@ export function AccountForm({ onAdded, onCancel }: { onAdded: (account: MailAcco
   const [host, setHost] = useState("");
   const [port, setPort] = useState("993");
   const [busy, setBusy] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
   useEffect(() => {
@@ -62,7 +65,68 @@ export function AccountForm({ onAdded, onCancel }: { onAdded: (account: MailAcco
           onChange={setProviderId}
         />
       )}
-      {provider && <p className="text-[13px] text-text-secondary">{provider.help}</p>}
+      {provider && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <p className="flex-1 text-[13px] text-text-secondary">{provider.help}</p>
+            {provider.steps.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-expanded={helpOpen}
+                aria-controls="app-password-help"
+                onClick={() => setHelpOpen((open) => !open)}
+              >
+                <CircleHelp aria-hidden />
+                {helpOpen ? "Masquer l'aide" : "Aide"}
+              </Button>
+            )}
+          </div>
+          <AnimatePresence initial={false}>
+            {helpOpen && provider.steps.length > 0 && (
+              <motion.div
+                key={provider.id}
+                id="app-password-help"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={spring.smooth}
+                className="overflow-hidden"
+              >
+                <section
+                  aria-label={`Créer un mot de passe d'application ${provider.label}`}
+                  className="flex flex-col gap-3 rounded-[12px] border border-border bg-background-subtle p-4"
+                >
+                  <h3 className="text-[13px] font-semibold">Créer un mot de passe d&apos;application {provider.label}</h3>
+                  <ol className="flex flex-col gap-2">
+                    {provider.steps.map((step, index) => (
+                      <li key={step} className="flex gap-2.5 text-[13px] text-text-secondary">
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold tabular-nums text-accent-strong">
+                          {index + 1}
+                        </span>
+                        <span className="pt-px">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  {provider.links.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {provider.links.map((link) => (
+                        <Button key={link.url} variant="secondary" size="sm" asChild>
+                          <a href={link.url} target="_blank" rel="noopener noreferrer">
+                            {link.label}
+                            <ArrowUpRight aria-hidden />
+                          </a>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {!demo && (
         <div className="grid gap-4 sm:grid-cols-2">

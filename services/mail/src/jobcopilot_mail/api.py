@@ -20,6 +20,7 @@ from jobcopilot_mail.models import AccountRow, MessageRow
 from jobcopilot_mail.schemas import (
     Account,
     AccountCreate,
+    HelpLink,
     Message,
     MessageUpdate,
     Provider,
@@ -39,12 +40,42 @@ PROVIDERS = [
         host="imap.gmail.com",
         help="Crée un mot de passe d'application sur myaccount.google.com/apppasswords "
         "(validation en deux étapes requise).",
+        steps=[
+            "Active la validation en deux étapes de ton compte Google, si ce n'est pas déjà fait.",
+            "Ouvre la page Mots de passe des applications et connecte-toi.",
+            "Donne un nom, par exemple « Job Copilot », puis clique sur Créer.",
+            "Copie les 16 caractères affichés, sans les espaces, et colle-les ici.",
+        ],
+        links=[
+            HelpLink(
+                label="Validation en deux étapes",
+                url="https://myaccount.google.com/signinoptions/twosv",
+            ),
+            HelpLink(
+                label="Mots de passe des applications",
+                url="https://myaccount.google.com/apppasswords",
+            ),
+        ],
     ),
     Provider(
         id="icloud",
         label="iCloud",
         host="imap.mail.me.com",
         help="Crée un mot de passe pour app sur account.apple.com, rubrique Connexion et sécurité.",
+        steps=[
+            "L'authentification à deux facteurs doit être active sur ton identifiant Apple.",
+            "Ouvre ton compte Apple, rubrique Connexion et sécurité.",
+            "Choisis « Mots de passe pour app », puis crée-en un nommé « Job Copilot ».",
+            "Copie le mot de passe affiché et colle-le ici. "
+            "L'adresse est ton adresse iCloud (@icloud.com, @me.com ou @mac.com).",
+        ],
+        links=[
+            HelpLink(label="Compte Apple", url="https://account.apple.com/account/manage"),
+            HelpLink(
+                label="Aide Apple : mots de passe pour app",
+                url="https://support.apple.com/fr-fr/102654",
+            ),
+        ],
     ),
     Provider(
         id="outlook",
@@ -52,9 +83,36 @@ PROVIDERS = [
         host="outlook.office365.com",
         help="Microsoft limite l'accès IMAP par mot de passe : si la connexion échoue, "
         "transfère tes réponses vers une boîte Gmail ou iCloud.",
+        steps=[
+            "Active la vérification en deux étapes dans la sécurité de ton compte Microsoft.",
+            "Dans « Options de sécurité avancées », crée un mot de passe d'application.",
+            "Copie-le et colle-le ici.",
+            "Si la connexion est refusée, ton compte n'accepte plus l'IMAP par mot de passe : "
+            "crée un transfert automatique de tes mails vers Gmail ou iCloud, "
+            "puis connecte cette boîte.",
+        ],
+        links=[
+            HelpLink(
+                label="Sécurité du compte Microsoft", url="https://account.microsoft.com/security"
+            ),
+            HelpLink(
+                label="Mots de passe d'application",
+                url="https://account.live.com/proofs/AppPassword",
+            ),
+        ],
     ),
     Provider(
-        id="other", label="Autre", host="", help="Serveur IMAP et port fournis par ton hébergeur."
+        id="other",
+        label="Autre",
+        host="",
+        help="Serveur IMAP et port fournis par ton hébergeur.",
+        steps=[
+            "Cherche « IMAP » dans l'aide de ton fournisseur : il donne le serveur "
+            "(par exemple imap.exemple.fr) et le port, en général 993 (SSL).",
+            "Si ton fournisseur propose des mots de passe d'application, crée-en un. "
+            "Sinon, utilise le mot de passe de la boîte.",
+            "Vérifie que l'accès IMAP est activé dans les réglages de la messagerie.",
+        ],
     ),
 ]
 

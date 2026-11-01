@@ -7,12 +7,20 @@ from pydantic import BaseModel, ConfigDict, Field
 from jobcopilot_mail.classify import Category
 
 
+class HelpLink(BaseModel):
+    label: str
+    url: str
+
+
 class Provider(BaseModel):
     id: str
     label: str
     host: str
     port: int = 993
     help: str
+    # Pas à pas pour créer le mot de passe d'application, et les pages à ouvrir.
+    steps: list[str] = []
+    links: list[HelpLink] = []
 
 
 class AccountCreate(BaseModel):

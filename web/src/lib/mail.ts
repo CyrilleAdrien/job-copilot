@@ -35,7 +35,16 @@ export const categories: Record<Category, { label: string; tone: Tone; icon: Luc
 };
 export const categoryOrder = Object.keys(categories) as Category[];
 
-export type Provider = { id: string; label: string; host: string; port: number; help: string };
+export type Provider = {
+  id: string;
+  label: string;
+  host: string;
+  port: number;
+  help: string;
+  /** Pas à pas pour créer le mot de passe d'application, et les pages à ouvrir. */
+  steps: string[];
+  links: { label: string; url: string }[];
+};
 
 export type MailAccount = {
   id: string;
