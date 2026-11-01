@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jobcopilot_mail.classify import Category
 
@@ -49,6 +49,30 @@ class Account(BaseModel):
     messages: int = 0
 
 
+class Reply(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    to_address: str
+    subject: str
+    body: str
+    sent_at: datetime
+
+
+class ReplyCreate(BaseModel):
+    # Une seule adresse, sans espace ni retour à la ligne : rien ne peut s'ajouter aux en-têtes.
+    to: str = Field(max_length=320, pattern=r"^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$")
+    subject: str = Field(min_length=1, max_length=500, pattern=r"^[^\r\n]+$")
+    body: str = Field(max_length=20000)
+
+    @field_validator("body")
+    @classmethod
+    def body_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Le message est vide.")
+        return value
+
+
 class Message(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,6 +91,7 @@ class Message(BaseModel):
     suggested_status: str | None
     status_applied: bool
     reviewed: bool
+    replies: list[Reply] = []
 
 
 class MessageUpdate(BaseModel):

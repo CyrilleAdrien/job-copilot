@@ -14,6 +14,7 @@ from jobcopilot_mail.crypto import decrypt
 from jobcopilot_mail.mailbox import DemoApplication, DemoMailbox, ImapMailbox, Mailbox
 from jobcopilot_mail.matching import Candidate
 from jobcopilot_mail.models import AccountRow
+from jobcopilot_mail.outbox import DemoSender, Sender, SmtpSender, smtp_server
 from jobcopilot_mail.settings import get_mail_settings
 
 DEMO_HOST = "demo"
@@ -58,8 +59,26 @@ def get_mailbox_factory():
     return mailbox_for
 
 
+def sender_for(account: AccountRow) -> Sender:
+    if account.host == DEMO_HOST:
+        return DemoSender()
+    host, port = smtp_server(account.host)
+    return SmtpSender(
+        host,
+        port,
+        account.username,
+        decrypt(account.password_encrypted),
+        get_mail_settings().smtp_timeout,
+    )
+
+
+def get_sender_factory():
+    return sender_for
+
+
 Session = Annotated[AsyncSession, Depends(get_session)]
 Cache = Annotated[Redis, Depends(get_cache)]
 Http = Annotated[httpx.AsyncClient, Depends(get_http)]
 ClassifierDep = Annotated[Classifier, Depends(get_classifier)]
 MailboxFactoryDep = Annotated[object, Depends(get_mailbox_factory)]
+SenderFactoryDep = Annotated[object, Depends(get_sender_factory)]

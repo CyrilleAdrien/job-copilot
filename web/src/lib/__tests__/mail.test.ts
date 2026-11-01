@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canApply, countByCategory, filterMessages, syncSummary, type MailMessage } from "@/lib/mail";
+import { canApply, canSendReply, countByCategory, filterMessages, replySubject, syncSummary, type MailMessage } from "@/lib/mail";
 
 const message = (overrides: Partial<MailMessage>): MailMessage => ({
   id: "m",
@@ -18,7 +18,27 @@ const message = (overrides: Partial<MailMessage>): MailMessage => ({
   suggested_status: null,
   status_applied: false,
   reviewed: false,
+  replies: [],
   ...overrides,
+});
+
+describe("réponse à un mail", () => {
+  it("adds Re: only once", () => {
+    expect(replySubject("Entretien")).toBe("Re: Entretien");
+    expect(replySubject("RE : Entretien")).toBe("RE : Entretien");
+    expect(replySubject("Ré: Entretien")).toBe("Ré: Entretien");
+    expect(replySubject("  ")).toBe("Re: votre message");
+    expect(replySubject("x".repeat(500))).toHaveLength(500);
+  });
+
+  it("needs one address, a subject and a message", () => {
+    const draft = { to: "rh@nimbus.io", subject: "Re: x", body: "Bonjour" };
+    expect(canSendReply(draft)).toBe(true);
+    expect(canSendReply({ ...draft, body: "  \n" })).toBe(false);
+    expect(canSendReply({ ...draft, subject: " " })).toBe(false);
+    expect(canSendReply({ ...draft, to: "rh" })).toBe(false);
+    expect(canSendReply({ ...draft, to: "a@b.fr, c@d.fr" })).toBe(false);
+  });
 });
 
 describe("boîte de réception", () => {

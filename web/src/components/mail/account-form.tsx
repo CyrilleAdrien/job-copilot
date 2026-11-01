@@ -159,8 +159,8 @@ export function AccountForm({ onAdded, onCancel }: { onAdded: (account: MailAcco
 
       <p className="flex gap-2 text-[12px] text-text-tertiary">
         <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        Lecture seule. Le mot de passe est chiffré sur ta machine. Seuls les mails liés à tes candidatures ou au recrutement
-        sont gardés et analysés.
+        Ta boîte est lue sans rien y modifier, et un mail ne part que si tu cliques sur Envoyer. Le mot de passe est chiffré sur
+        ta machine. Seuls les mails liés à tes candidatures ou au recrutement sont gardés et analysés.
       </p>
 
       {error && <ErrorBanner error={error} />}

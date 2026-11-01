@@ -5,9 +5,10 @@ import pytest
 
 from jobcopilot_mail import api as mail_api
 from jobcopilot_mail.classify import Classification
-from jobcopilot_mail.deps import get_cache, get_classifier, get_http
+from jobcopilot_mail.deps import get_cache, get_classifier, get_http, get_sender_factory
 from jobcopilot_mail.mailbox import MailboxError
 from jobcopilot_mail.main import app
+from jobcopilot_mail.outbox import SendError
 from jobcopilot_mail.sync import MAIL_CLASSIFIED
 
 
@@ -185,3 +186,127 @@ async def test_each_real_provider_explains_how_to_create_an_app_password(client)
         assert providers[provider_id]["steps"]
     for provider in providers.values():
         assert all(link["url"].startswith("https://") for link in provider["links"])
+
+
+class Outbox:
+    """Faux envoi : retient les mails, ou échoue si on lui donne une erreur."""
+
+    def __init__(self, error: Exception | None = None):
+        self.sent, self.error = [], error
+
+    def send(self, message):
+        if self.error:
+            raise self.error
+        self.sent.append(message)
+
+
+@pytest.fixture
+def outbox():
+    box = Outbox()
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: box
+    return box
+
+
+async def synced_messages(client) -> dict[str, dict]:
+    await demo_account(client)
+    await client.post("/sync")
+    return {m["category"]: m for m in (await client.get("/messages")).json()}
+
+
+def reply_to(address="rh@nimbus.example", subject="Re: Entretien", body="Bonjour, mardi 14 h."):
+    return {"to": address, "subject": subject, "body": body}
+
+
+async def test_reply_is_sent_recorded_and_threaded(client, upstream, outbox):
+    message = (await synced_messages(client))["interview"]
+    patches = len(upstream.patches)
+    response = await client.post(f"/messages/{message['id']}/reply", json=reply_to())
+    assert response.status_code == 201
+    assert [r["body"] for r in response.json()["replies"]] == ["Bonjour, mardi 14 h."]
+    sent = outbox.sent[0]
+    assert sent["From"] == "moi@demo"
+    assert sent["To"] == "rh@nimbus.example"
+    assert sent["In-Reply-To"].startswith("<demo-")
+    # La fiche lit la réponse avec le mail ; le statut de la candidature ne bouge pas.
+    linked = await client.get("/messages", params={"application_id": message["application_id"]})
+    assert linked.json()[0]["replies"][0]["to_address"] == "rh@nimbus.example"
+    assert len(upstream.patches) == patches
+    # Une seconde réponse s'ajoute à la première, une relecture n'y touche pas.
+    await client.post(f"/messages/{message['id']}/reply", json=reply_to(body="Ou mercredi."))
+    await client.post("/sync")
+    bodies = [
+        r["body"]
+        for m in (await client.get("/messages")).json()
+        if m["id"] == message["id"]
+        for r in m["replies"]
+    ]
+    assert bodies == ["Bonjour, mardi 14 h.", "Ou mercredi."]
+
+
+async def test_reply_keeps_a_mail_that_still_needs_a_decision(client, outbox):
+    # Sans candidature : le mail reste à rattacher, donc à vérifier.
+    loose = (await synced_messages(client))["acknowledgment"]
+    response = await client.post(f"/messages/{loose['id']}/reply", json=reply_to())
+    assert response.json()["reviewed"] is False
+
+
+async def test_reply_treats_a_linked_mail_without_pending_status(client, outbox):
+    loose = (await synced_messages(client))["acknowledgment"]
+    await client.patch(f"/messages/{loose['id']}", json={"application_id": APPLICATIONS[3]["id"]})
+    response = await client.post(f"/messages/{loose['id']}/reply", json=reply_to())
+    assert response.json()["reviewed"] is True
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        reply_to(body="   \n "),
+        reply_to(address="pas-une-adresse"),
+        reply_to(address="a@b.fr, c@d.fr"),
+        reply_to(address="a@b.fr\nBcc: c@d.fr"),
+        reply_to(subject=""),
+        reply_to(subject="Bonjour\nBcc: c@d.fr"),
+    ],
+)
+async def test_invalid_reply_sends_nothing(client, outbox, payload):
+    message = (await synced_messages(client))["interview"]
+    response = await client.post(f"/messages/{message['id']}/reply", json=payload)
+    assert response.status_code == 422
+    assert outbox.sent == []
+
+
+async def test_failed_send_is_reported_and_not_recorded(client):
+    message = (await synced_messages(client))["interview"]
+    box = Outbox(SendError("Serveur d'envoi injoignable."))
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: box
+    response = await client.post(f"/messages/{message['id']}/reply", json=reply_to())
+    assert response.status_code == 502
+    assert "injoignable" in response.json()["detail"]
+    assert all(m["replies"] == [] for m in (await client.get("/messages")).json())
+
+
+async def test_reply_to_unknown_mail(client, outbox):
+    response = await client.post(
+        "/messages/00000000-0000-0000-0000-000000000000/reply", json=reply_to()
+    )
+    assert response.status_code == 404
+
+
+async def test_disconnecting_the_mailbox_removes_its_replies(client, outbox):
+    message = (await synced_messages(client))["interview"]
+    await client.post(f"/messages/{message['id']}/reply", json=reply_to())
+    account = (await client.get("/accounts")).json()[0]
+    assert (await client.delete(f"/accounts/{account['id']}")).status_code == 204
+    assert (await client.get("/messages")).json() == []
+
+
+async def test_demo_mailbox_sends_nothing_over_the_network(client, monkeypatch):
+    # Sans faux envoi : la vraie fabrique doit choisir DemoSender, sans ouvrir de connexion.
+    def refuse(*args, **kwargs):
+        raise AssertionError("connexion SMTP ouverte par une boîte de démonstration")
+
+    monkeypatch.setattr("smtplib.SMTP", refuse)
+    monkeypatch.setattr("smtplib.SMTP_SSL", refuse)
+    message = (await synced_messages(client))["interview"]
+    response = await client.post(f"/messages/{message['id']}/reply", json=reply_to())
+    assert response.status_code == 201

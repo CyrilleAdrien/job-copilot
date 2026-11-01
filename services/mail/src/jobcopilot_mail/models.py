@@ -13,7 +13,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 SCHEMA = "mail"
 
@@ -68,3 +68,23 @@ class MessageRow(Base):
     status_applied: Mapped[bool] = mapped_column(Boolean, default=False)
     reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    replies: Mapped[list["ReplyRow"]] = relationship(
+        lazy="selectin", order_by="ReplyRow.sent_at", passive_deletes=True
+    )
+
+
+class ReplyRow(Base):
+    """Une réponse envoyée depuis l'application. Supprimée avec le mail, donc avec la boîte."""
+
+    __tablename__ = "replies"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey(f"{SCHEMA}.messages.id", ondelete="CASCADE"), index=True
+    )
+    to_address: Mapped[str] = mapped_column(String(320))
+    subject: Mapped[str] = mapped_column(String(500))
+    body: Mapped[str] = mapped_column(Text)
+    smtp_message_id: Mapped[str] = mapped_column(String(500))
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

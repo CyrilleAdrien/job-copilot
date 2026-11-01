@@ -14,7 +14,7 @@ Projet en cours de construction.
 | `jobs` | Collecte et scoring des offres (France Travail, Adzuna) |
 | `documents` | Génération des CV et lettres, stockage S3 |
 | `applications` | Candidatures, statuts, statistiques |
-| `mail` | Lecture IMAP et classement des réponses |
+| `mail` | Lecture IMAP et classement des réponses, envoi SMTP des réponses écrites dans l'app |
 | `calendar` | Entretiens, synchro CalDAV et .ics |
 
 Infrastructure locale : PostgreSQL 16 (un schéma par service), Redis 7 (cache et bus d'événements), SeaweedFS (stockage compatible S3) et Ollama (LLM local).

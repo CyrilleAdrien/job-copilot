@@ -110,6 +110,11 @@ export function InboxScreen() {
     }
   }
 
+  function replied(updated: MailMessage) {
+    setMessages((current) => current.map((m) => (m.id === updated.id ? updated : m)));
+    setNotice(`Réponse envoyée à ${updated.replies.at(-1)?.to_address}.`);
+  }
+
   async function removeAccount(id: string) {
     try {
       await deleteAccount(id);
@@ -239,6 +244,7 @@ export function InboxScreen() {
                         applications={applications}
                         onUpdate={(changes) => change(message.id, changes)}
                         onApply={() => apply(message.id)}
+                        onReplied={replied}
                       />
                     ))}
                   </AnimatePresence>
