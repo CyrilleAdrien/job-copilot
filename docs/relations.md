@@ -58,6 +58,7 @@ Flèche pleine : appel HTTP synchrone. Pointillés : événement Redis Streams.
 | Boîtes mail (mot de passe chiffré avec `SECRET_KEY`, utilisé en IMAP et en SMTP), mails gardés, catégorie, candidature liée, réponses envoyées | mail | web (Boîte de réception, section Échanges de la fiche de candidature) |
 | Événements (entretien, test technique, relance, rendez-vous), calendrier CalDAV connecté (mot de passe chiffré) | calendar | web (Calendrier, section Entretiens de la fiche, Prochains rendez-vous du tableau de bord), Calendrier sur Mac par le flux .ics, Google Agenda par lien ou import |
 | Statistiques du tableau de bord (`GET /stats`), dont les retours par recherche | applications, calculées depuis les candidatures et leur historique, en cache Redis 15 min | web (Tableau de bord ; noms des recherches lus dans profile) |
+| Export `.zip` et suppression de tout (`/api/data`, écran Réglages) | gateway, qui réunit `/data/export` et `/data` de chaque service | web (Réglages) |
 
 ## Arbre des fonctionnalités
 
@@ -130,4 +131,7 @@ flowchart TD
 | Un événement (création, modification, suppression) | grille et « À venir » du Calendrier, section Entretiens de la fiche, Prochains rendez-vous du tableau de bord, copie CalDAV (PUT ou DELETE, SEQUENCE incrémenté), flux .ics ; à la création, statut de la candidature et chiffres du tableau de bord |
 | Le calendrier connecté (connexion, déconnexion) | les événements à venir y sont recopiés à la connexion ; à la déconnexion, ils restent dans le calendrier distant |
 | Une candidature supprimée | ses événements restent dans le calendrier, sans lien vers la fiche |
+| Une table d'un service | l'export et la suppression la couvrent d'office ; une colonne dont le nom contient `password`, `secret`, `token` ou `api_key`, ou binaire, reste hors de l'export ; ce qui vit hors de Postgres (S3, Redis) passe par les fonctions de `main.py` de chaque service, et un nouveau flux Redis doit y être ajouté |
+| La suppression de toutes les données (`DELETE /api/data`) | base, bucket S3 et clés Redis vides ; groupes de lecture des flux conservés, donc une nouvelle génération crée toujours sa candidature ; boîte mail et calendrier distants intacts ; `make e2e` le vérifie |
+| Une route ou un écran du parcours principal | `web/e2e/parcours.spec.ts`, lancé par `make e2e` et en CI |
 | Le schéma d'un service | migration Alembic, schémas Pydantic, types TypeScript dans `web/src/lib/` |

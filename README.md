@@ -95,6 +95,19 @@ La mise en page est faite par [Typst](https://typst.app) : le template `cv` repr
 | `PUT` | `/api/documents/documents/{id}/content` | Modifier le contenu et refaire le PDF |
 | `GET` | `/api/documents/llm` | Modèle configuré et disponibilité |
 
+## Tes données
+
+Tout reste sur ta machine. L'écran **Réglages** permet :
+
+- d'**exporter** une archive `.zip` : un JSON par service, le `profile.yaml`, la photo, les CV et les lettres. Un service injoignable fait échouer l'export plutôt que de donner une archive incomplète ; un fichier illisible est listé dans `manifest.json`.
+- de **tout supprimer** : base, fichiers et cache, après une confirmation. Ta vraie boîte mail, ton calendrier en ligne et les mails déjà envoyés ne sont pas touchés.
+
+## Sécurité
+
+- Les mots de passe d'application (mail, CalDAV) sont chiffrés en base (Fernet) avec `SECRET_KEY`, générée par `make secret` et conservée dans `.env` (lisible par toi seul). Ils ne sortent jamais par l'API ni par l'export. Si tu perds cette clé, reconnecte tes comptes.
+- Les clés France Travail et Adzuna restent dans `.env` : elles ne sont pas stockées en base.
+- `web` et `gateway` ne sont publiés que sur `127.0.0.1`. L'API n'a pas de compte : elle refuse donc les noms d'hôte étrangers et les écritures venues d'un autre site.
+
 ## Développement
 
 ```bash
@@ -102,12 +115,15 @@ make test-db  # Postgres jetable pour les tests, une fois
 make lint
 make test
 make web      # front en mode développement
+make e2e      # parcours complet Playwright, sur une stack jetable
 ```
+
+`make e2e` lance une stack à part (projet `job-copilot-e2e`, ports 3100 et 8100) puis la détruit : tes données ne sont pas touchées. Le parcours refuse de démarrer sur une stack qui n'est pas vide et en démonstration.
 
 Structure :
 
 ```
-web/               interface Next.js (design system dans src/components/ui)
+web/               interface Next.js (design system dans src/components/ui, parcours dans e2e)
 libs/common/       configuration et health checks partagés
 services/<nom>/    un service FastAPI par dossier
 services/Dockerfile image commune aux services
