@@ -4,6 +4,7 @@ import { ArrowUpRight, ChevronRight, Undo2 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { UncertainNotice } from "@/components/mail/reply-composer";
 import { ProfileAvatar } from "@/components/profile/profile-identity";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,7 @@ export function MailSidePanel({
               <p className={cn("pl-[18px] text-[12px]", account.last_error ? "text-danger" : "text-text-tertiary")}>
                 {account.last_error ?? (account.last_sync_at ? `Lue ${timeAgo(account.last_sync_at, new Date())}` : "Connectée, pas encore lue")}
               </p>
+              {account.smtp_error && <p className="pl-[18px] text-[12px] text-danger">Envoi impossible : {account.smtp_error}</p>}
             </div>
           ))}
         </CardContent>
@@ -66,6 +68,7 @@ export function MailSidePanel({
                   </span>
                   <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-text-tertiary transition-transform duration-150 group-open:rotate-90" aria-hidden />
                 </summary>
+                {reply.status === "uncertain" && <div className="pl-[34px] pt-2"><UncertainNotice error={reply.error} /></div>}
                 <p className="whitespace-pre-wrap break-words pt-2 pl-[34px] text-[13px] text-text-secondary">{reply.body}</p>
                 {application && <div className="pl-[34px] pt-1"><ApplicationLink application={application} /></div>}
               </details>

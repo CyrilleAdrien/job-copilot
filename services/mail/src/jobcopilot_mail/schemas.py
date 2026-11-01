@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jobcopilot_mail.classify import Category
 
+SMTP_HOST = r"^[A-Za-z0-9.-]+$"
+
 
 class HelpLink(BaseModel):
     label: str
@@ -30,6 +32,14 @@ class AccountCreate(BaseModel):
     username: str | None = Field(None, max_length=320, description="L'adresse par défaut")
     password: str = Field("", max_length=500, description="Mot de passe d'application")
     folder: str = Field("INBOX", max_length=200)
+    # Facultatifs : déduits du serveur IMAP, modifiables ensuite.
+    smtp_host: str | None = Field(None, max_length=200, pattern=SMTP_HOST)
+    smtp_port: int | None = Field(None, ge=1, le=65535)
+
+
+class SmtpServer(BaseModel):
+    host: str = Field(max_length=200, pattern=SMTP_HOST)
+    port: int = Field(ge=1, le=65535)
 
 
 class Account(BaseModel):
@@ -43,6 +53,10 @@ class Account(BaseModel):
     port: int
     username: str
     folder: str
+    smtp_host: str | None
+    smtp_port: int | None
+    smtp_checked_at: datetime | None
+    smtp_error: str | None
     last_sync_at: datetime | None
     last_error: str | None
     created_at: datetime
@@ -57,6 +71,8 @@ class Reply(BaseModel):
     subject: str
     body: str
     sent_at: datetime
+    status: Literal["sending", "sent", "uncertain"]
+    error: str | None
 
 
 class ReplyCreate(BaseModel):
@@ -64,6 +80,7 @@ class ReplyCreate(BaseModel):
     to: str = Field(max_length=320, pattern=r"^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$")
     subject: str = Field(min_length=1, max_length=500, pattern=r"^[^\r\n]+$")
     body: str = Field(max_length=20000)
+    client_key: UUID | None = None
 
     @field_validator("body")
     @classmethod
@@ -80,6 +97,7 @@ class Message(BaseModel):
     account_id: UUID
     from_address: str
     from_name: str | None
+    reply_to: str | None
     subject: str
     received_at: datetime
     snippet: str

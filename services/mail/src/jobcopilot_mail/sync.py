@@ -100,6 +100,7 @@ async def sync_account(
             uid=header.uid,
             from_address=header.from_address,
             from_name=header.from_name,
+            reply_to=mail.reply_to,
             subject=header.subject,
             received_at=header.received_at,
             snippet=mail.text[:1000],

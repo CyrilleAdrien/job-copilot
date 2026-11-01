@@ -6,7 +6,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from jobcopilot_common import create_service_app, get_settings
 from jobcopilot_common.crypto import SecretKeyMissing
@@ -16,7 +16,7 @@ from jobcopilot_mail.api import router
 from jobcopilot_mail.deps import get_cache, get_classifier, get_http, mailbox_for
 from jobcopilot_mail.mailbox import MailboxError
 from jobcopilot_mail.migrate import upgrade
-from jobcopilot_mail.models import AccountRow, Base
+from jobcopilot_mail.models import AccountRow, Base, ReplyRow
 from jobcopilot_mail.settings import get_mail_settings
 from jobcopilot_mail.sync import MAIL_CLASSIFIED, sync_account
 from jobcopilot_mail.upstream import UpstreamError
@@ -42,6 +42,12 @@ async def periodic_sync() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await upgrade(get_settings().database_url)
+    # Un envoi en cours lors d'un arrêt a pu partir : on le dit plutôt que de le renvoyer.
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            update(ReplyRow).where(ReplyRow.status == "sending").values(status="uncertain")
+        )
+        await session.commit()
     task = asyncio.create_task(periodic_sync()) if get_mail_settings().mail_sync_enabled else None
     yield
     if task:

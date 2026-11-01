@@ -53,6 +53,12 @@ export type MailAccount = {
   port: number;
   username: string;
   folder: string;
+  /** Serveur d'envoi ; absent pour la boîte de démonstration. */
+  smtp_host: string | null;
+  smtp_port: number | null;
+  /** Dernier test ou envoi. Vide : l'envoi n'a encore jamais été testé. */
+  smtp_checked_at: string | null;
+  smtp_error: string | null;
   last_sync_at: string | null;
   last_error: string | null;
   created_at: string;
@@ -65,6 +71,9 @@ export type MailReply = {
   subject: string;
   body: string;
   sent_at: string;
+  /** uncertain : la connexion a été coupée pendant la transmission, le mail est peut-être parti. */
+  status: "sending" | "sent" | "uncertain";
+  error: string | null;
 };
 
 export type ReplyDraft = { to: string; subject: string; body: string };
@@ -74,6 +83,8 @@ export type MailMessage = {
   account_id: string;
   from_address: string;
   from_name: string | null;
+  /** L'adresse de réponse demandée par le mail, si elle diffère de l'expéditeur. */
+  reply_to: string | null;
   subject: string;
   received_at: string;
   snippet: string;
@@ -131,8 +142,47 @@ export const updateMessage = async (
 export const applyMessage = async (id: string): Promise<MailMessage> =>
   json(await fetch(`${BASE}/messages/${id}/apply`, { method: "POST" }));
 
-export const sendReply = async (id: string, draft: ReplyDraft): Promise<MailMessage> =>
-  json(await fetch(`${BASE}/messages/${id}/reply`, send("POST", draft)));
+/** `clientKey` reste le même pour un brouillon : un second clic ne renvoie pas le mail. */
+export const sendReply = async (id: string, draft: ReplyDraft, clientKey: string): Promise<MailMessage> =>
+  json(await fetch(`${BASE}/messages/${id}/reply`, send("POST", { ...draft, client_key: clientKey })));
+
+/** Teste la connexion d'envoi, sans envoyer de mail. */
+export const checkSending = async (accountId: string): Promise<MailAccount> =>
+  json(await fetch(`${BASE}/accounts/${accountId}/smtp-check`, { method: "POST" }));
+
+export const updateSmtpServer = async (accountId: string, server: { host: string; port: number }): Promise<MailAccount> =>
+  json(await fetch(`${BASE}/accounts/${accountId}/smtp`, send("PUT", server)));
+
+/** À qui répondre : l'adresse demandée par le mail, sinon son expéditeur. */
+export const replyRecipient = (message: Pick<MailMessage, "reply_to" | "from_address">) =>
+  message.reply_to ?? message.from_address;
+
+const COMMON_DOMAINS = [
+  "gmail.com", "googlemail.com", "outlook.com", "outlook.fr", "hotmail.com", "hotmail.fr", "live.com", "live.fr",
+  "yahoo.com", "yahoo.fr", "icloud.com", "orange.fr", "wanadoo.fr", "free.fr", "laposte.net", "protonmail.com", "proton.me",
+];
+const WRONG_ENDING: Record<string, string> = { "gmail.fr": "gmail.com", "icloud.fr": "icloud.com" };
+
+/** Une lettre en trop, en moins, remplacée, ou deux lettres voisines inversées. */
+function oneTypoApart(a: string, b: string) {
+  if (a === b || Math.abs(a.length - b.length) > 1) return false;
+  let start = 0;
+  while (start < a.length && a[start] === b[start]) start += 1;
+  if (a.length === b.length) {
+    const swapped = a[start] === b[start + 1] && a[start + 1] === b[start];
+    return a.slice(start + (swapped ? 2 : 1)) === b.slice(start + (swapped ? 2 : 1));
+  }
+  const [longer, shorter] = a.length > b.length ? [a, b] : [b, a];
+  return longer.slice(start + 1) === shorter.slice(start);
+}
+
+/** L'adresse corrigée si le domaine ressemble à une faute de frappe : `@gamil.com` pour `@gmail.com`. */
+export function addressTypo(address: string): string | null {
+  const [local, domain, ...rest] = address.trim().toLowerCase().split("@");
+  if (!local || !domain || rest.length > 0 || COMMON_DOMAINS.includes(domain)) return null;
+  const fixed = WRONG_ENDING[domain] ?? COMMON_DOMAINS.find((known) => oneTypoApart(domain, known));
+  return fixed ? `${local}@${fixed}` : null;
+}
 
 /** Objet proposé pour une réponse : pas de second « Re: ». */
 export function replySubject(subject: string) {

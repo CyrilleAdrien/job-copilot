@@ -12,6 +12,7 @@ import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SendSettings } from "@/components/mail/send-settings";
 import { Modal } from "@/components/ui/modal";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -113,7 +114,12 @@ export function InboxScreen() {
 
   function replied(updated: MailMessage) {
     setMessages((current) => current.map((m) => (m.id === updated.id ? updated : m)));
-    setNotice(`Réponse envoyée à ${updated.replies.at(-1)?.to_address}.`);
+    const reply = updated.replies.at(-1);
+    setNotice(
+      reply?.status === "uncertain"
+        ? "Envoi incertain : vérifie ton dossier Envoyés avant de renvoyer."
+        : `Réponse acceptée par le serveur d'envoi, à destination de ${reply?.to_address}.`,
+    );
   }
 
   async function removeAccount(id: string) {
@@ -287,6 +293,10 @@ export function InboxScreen() {
                           {account.last_error}
                         </span>
                       )}
+                      <SendSettings
+                        account={account}
+                        onChange={(updated) => setAccounts((all) => all?.map((item) => (item.id === updated.id ? updated : item)) ?? all)}
+                      />
                     </div>
                     <Button
                       variant="ghost"

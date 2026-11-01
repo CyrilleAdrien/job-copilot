@@ -59,10 +59,16 @@ def get_mailbox_factory():
     return mailbox_for
 
 
+def smtp_server_of(account: AccountRow) -> tuple[str, int]:
+    if account.smtp_host and account.smtp_port:
+        return account.smtp_host, account.smtp_port
+    return smtp_server(account.host)
+
+
 def sender_for(account: AccountRow) -> Sender:
     if account.host == DEMO_HOST:
         return DemoSender()
-    host, port = smtp_server(account.host)
+    host, port = smtp_server_of(account)
     return SmtpSender(
         host,
         port,

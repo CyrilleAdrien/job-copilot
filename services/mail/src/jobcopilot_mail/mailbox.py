@@ -10,12 +10,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.header import decode_header, make_header
 from email.message import Message
+from email.utils import parseaddr
 from html import unescape
 from typing import Protocol
 
 from imapclient import IMAPClient
 from imapclient.exceptions import IMAPClientError, LoginError
 
+ADDRESS = re.compile(r"[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+")
 BODY_LIMIT = 4000
 CHUNK = 200
 
@@ -38,6 +40,7 @@ class Header:
 class RawMail:
     header: Header
     text: str
+    reply_to: str | None = None
 
 
 @dataclass
@@ -79,6 +82,12 @@ def text_of(message: Message) -> str:
         (plain if part.get_content_subtype() == "plain" else html).append(content)
     text = "\n".join(plain) or re.sub(r"<[^>]+>", " ", unescape("\n".join(html)))
     return re.sub(r"\s+", " ", text).strip()[:BODY_LIMIT]
+
+
+def reply_address(message: Message, sender: str) -> str | None:
+    """L'adresse de réponse demandée par le mail, si elle diffère de l'expéditeur."""
+    address = parseaddr(decode(message.get("Reply-To")))[1].lower()
+    return address if address != sender and ADDRESS.fullmatch(address) else None
 
 
 def chunks(items: list[int], size: int = CHUNK) -> Iterable[list[int]]:
@@ -138,7 +147,14 @@ class ImapMailbox:
             for batch in chunks(sorted(kept)):
                 for uid, data in client.fetch(batch, ["BODY.PEEK[]"]).items():
                     message = email.message_from_bytes(data[b"BODY[]"])
-                    result.mails.append(RawMail(kept[uid], text_of(message)))
+                    header = kept[uid]
+                    result.mails.append(
+                        RawMail(
+                            header,
+                            text_of(message),
+                            reply_address(message, header.from_address),
+                        )
+                    )
             return result
         except IMAPClientError as exc:
             raise MailboxError(f"Lecture de la boîte interrompue : {exc}") from exc

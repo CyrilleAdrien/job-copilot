@@ -1,4 +1,5 @@
 import json
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -8,7 +9,7 @@ from jobcopilot_mail.classify import Classification
 from jobcopilot_mail.deps import get_cache, get_classifier, get_http, get_sender_factory
 from jobcopilot_mail.mailbox import MailboxError
 from jobcopilot_mail.main import app
-from jobcopilot_mail.outbox import SendError
+from jobcopilot_mail.outbox import DemoSender, SendError, SendUncertain
 from jobcopilot_mail.sync import MAIL_CLASSIFIED
 
 
@@ -55,6 +56,7 @@ def upstream():
 @pytest.fixture
 async def client(database, cache, upstream):
     app.dependency_overrides[get_cache] = lambda: cache
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: DemoSender()
     app.dependency_overrides[get_http] = lambda: httpx.AsyncClient(
         transport=httpx.MockTransport(upstream)
     )
@@ -194,6 +196,9 @@ class Outbox:
     def __init__(self, error: Exception | None = None):
         self.sent, self.error = [], error
 
+    def check(self):
+        return None
+
     def send(self, message):
         if self.error:
             raise self.error
@@ -275,7 +280,7 @@ async def test_invalid_reply_sends_nothing(client, outbox, payload):
     assert outbox.sent == []
 
 
-async def test_failed_send_is_reported_and_not_recorded(client):
+async def test_failed_send_is_reported_and_not_listed(client):
     message = (await synced_messages(client))["interview"]
     box = Outbox(SendError("Serveur d'envoi injoignable."))
     app.dependency_overrides[get_sender_factory] = lambda: lambda account: box
@@ -283,6 +288,99 @@ async def test_failed_send_is_reported_and_not_recorded(client):
     assert response.status_code == 502
     assert "injoignable" in response.json()["detail"]
     assert all(m["replies"] == [] for m in (await client.get("/messages")).json())
+    [account] = (await client.get("/accounts")).json()
+    assert "injoignable" in account["smtp_error"]
+
+
+async def test_same_draft_is_not_sent_twice(client, outbox):
+    message = (await synced_messages(client))["interview"]
+    payload = {**reply_to(), "client_key": str(uuid4())}
+    url = f"/messages/{message['id']}/reply"
+    assert (await client.post(url, json=payload)).status_code == 201
+    second = await client.post(url, json=payload)
+    assert second.status_code == 201
+    assert len(outbox.sent) == 1
+    assert len(second.json()["replies"]) == 1
+    assert second.json()["replies"][0]["status"] == "sent"
+
+
+async def test_retry_after_a_failure_keeps_the_same_message_id(client):
+    message = (await synced_messages(client))["interview"]
+    payload = {**reply_to(address="rh@nimbus.example"), "client_key": str(uuid4())}
+    url = f"/messages/{message['id']}/reply"
+    failing = Outbox(SendError("Serveur d'envoi injoignable."))
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: failing
+    assert (await client.post(url, json=payload)).status_code == 502
+    working = Outbox()
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: working
+    response = await client.post(url, json={**payload, "to": "corrige@nimbus.example"})
+    assert response.status_code == 201
+    [reply] = response.json()["replies"]
+    assert reply["status"] == "sent" and reply["to_address"] == "corrige@nimbus.example"
+    assert working.sent[0]["To"] == "corrige@nimbus.example"
+    [account] = (await client.get("/accounts")).json()
+    assert account["smtp_error"] is None
+
+
+async def test_uncertain_send_is_recorded_and_never_resent_automatically(client):
+    message = (await synced_messages(client))["interview"]
+    payload = {**reply_to(), "client_key": str(uuid4())}
+    url = f"/messages/{message['id']}/reply"
+    box = Outbox(SendUncertain("Peut-être parti."))
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: box
+    response = await client.post(url, json=payload)
+    assert response.status_code == 201
+    [reply] = response.json()["replies"]
+    assert reply["status"] == "uncertain" and reply["error"] == "Peut-être parti."
+    working = Outbox()
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: working
+    assert (await client.post(url, json=payload)).status_code == 201
+    assert working.sent == []
+
+
+class Checker(DemoSender):
+    def __init__(self, error=None):
+        self.error = error
+
+    def check(self):
+        if self.error:
+            raise SendError(self.error)
+
+
+async def test_connection_tests_sending_without_blocking_reading(client, monkeypatch):
+    monkeypatch.setattr(mail_api.ImapMailbox, "check", lambda self: None)
+    payload = {"email": "moi@gmail.com", "host": "imap.gmail.com", "password": "abcd"}
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: Checker("Port fermé.")
+    response = await client.post("/accounts", json=payload)
+    assert response.status_code == 201
+    created = response.json()
+    assert (created["smtp_host"], created["smtp_port"]) == ("smtp.gmail.com", 465)
+    assert created["smtp_error"] == "Port fermé." and created["smtp_checked_at"]
+
+    app.dependency_overrides[get_sender_factory] = lambda: lambda account: Checker()
+    checked = (await client.post(f"/accounts/{created['id']}/smtp-check")).json()
+    assert checked["smtp_error"] is None
+
+
+async def test_smtp_server_can_be_changed_and_is_tested(client, monkeypatch):
+    monkeypatch.setattr(mail_api.ImapMailbox, "check", lambda self: None)
+    payload = {"email": "moi@ovh.fr", "host": "imap.ovh.fr", "password": "abcd"}
+    created = (await client.post("/accounts", json=payload)).json()
+    assert (created["smtp_host"], created["smtp_port"]) == ("smtp.ovh.fr", 587)
+    url = f"/accounts/{created['id']}/smtp"
+    updated = (await client.put(url, json={"host": "ssl0.ovh.net", "port": 465})).json()
+    assert (updated["smtp_host"], updated["smtp_port"]) == ("ssl0.ovh.net", 465)
+    assert (await client.put(url, json={"host": "a b", "port": 465})).status_code == 422
+    assert (
+        await client.post("/accounts/00000000-0000-0000-0000-000000000000/smtp-check")
+    ).status_code == 404
+
+
+async def test_demo_mailbox_has_no_sending_server(client):
+    account = await demo_account(client)
+    assert account["smtp_host"] is None and account["smtp_error"] is None
+    url = f"/accounts/{account['id']}/smtp"
+    assert (await client.put(url, json={"host": "a.fr", "port": 465})).status_code == 409
 
 
 async def test_reply_to_unknown_mail(client, outbox):

@@ -105,6 +105,16 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     const composer = page.getByRole("form", { name: "Répondre à ce mail" });
     await expect(composer.getByRole("button", { name: /Aide à la rédaction/ })).toBeDisabled();
     await composer.getByLabel("Message").fill("Bonjour, je suis disponible mardi à 14 h.");
+    // Une faute de frappe dans le domaine bloque l'envoi tant qu'elle n'est pas tranchée.
+    const recipient = composer.getByLabel("À", { exact: true });
+    const original = await recipient.inputValue();
+    await recipient.fill("alex@gamil.com");
+    await expect(composer.getByRole("alert")).toContainText("alex@gmail.com");
+    await expect(composer.getByRole("button", { name: "Envoyer" })).toBeDisabled();
+    await composer.getByRole("button", { name: "Corriger" }).click();
+    await expect(recipient).toHaveValue("alex@gmail.com");
+    await expect(composer.getByRole("button", { name: "Envoyer" })).toBeEnabled();
+    await recipient.fill(original);
     await composer.getByRole("button", { name: "Envoyer" }).click();
     await expect(composer).toHaveCount(0);
     await expect(panel.getByRole("list", { name: "Envoyés" })).toContainText("Re: ");

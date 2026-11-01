@@ -11,7 +11,7 @@ const account: MailAccount = {
   host: "imap.exemple.fr",
   port: 993,
   username: "moi@exemple.fr",
-  folder: "INBOX",
+  folder: "INBOX", smtp_host: null, smtp_port: null, smtp_checked_at: null, smtp_error: null,
   last_sync_at: null,
   last_error: null,
   created_at: "2026-10-20T10:00:00Z",
@@ -22,7 +22,7 @@ const message: MailMessage = {
   id: "m1",
   account_id: "a",
   from_address: "rh@nimbus.io",
-  from_name: null,
+  from_name: null, reply_to: null,
   subject: "Invitation à un entretien",
   received_at: "2026-10-20T10:00:00Z",
   snippet: "",
@@ -61,7 +61,7 @@ describe("MailSidePanel", () => {
   });
 
   it("lists the sent replies with their text", () => {
-    const reply = { id: "r", to_address: "rh@nimbus.io", subject: "Re: Invitation", body: "Mardi 14 h", sent_at: "2026-10-21T10:00:00Z" };
+    const reply = { id: "r", to_address: "rh@nimbus.io", subject: "Re: Invitation", body: "Mardi 14 h", sent_at: "2026-10-21T10:00:00Z", status: "sent" as const, error: null };
     panel({ messages: [{ ...message, replies: [reply] }] });
     const sent = within(screen.getByRole("list", { name: "Envoyés" }));
     expect(sent.getByText("rh@nimbus.io")).toBeInTheDocument();

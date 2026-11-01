@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { canApply, canSendReply, countByCategory, filterMessages, replySubject, sentReplies, syncSummary, treatedMessages, type MailMessage } from "@/lib/mail";
+import { addressTypo, canApply, canSendReply, replyRecipient, countByCategory, filterMessages, replySubject, sentReplies, syncSummary, treatedMessages, type MailMessage } from "@/lib/mail";
 
 const message = (overrides: Partial<MailMessage>): MailMessage => ({
   id: "m",
   account_id: "a",
   from_address: "rh@nimbus.io",
-  from_name: null,
+  from_name: null, reply_to: null,
   subject: "Votre candidature",
   received_at: "2026-10-20T10:00:00Z",
   snippet: "",
@@ -23,7 +23,7 @@ const message = (overrides: Partial<MailMessage>): MailMessage => ({
 });
 
 describe("panneau de droite", () => {
-  const reply = (id: string, sent_at: string) => ({ id, to_address: "rh@nimbus.io", subject: "Re: x", body: "Bonjour", sent_at });
+  const reply = (id: string, sent_at: string) => ({ id, to_address: "rh@nimbus.io", subject: "Re: x", body: "Bonjour", sent_at, status: "sent" as const, error: null });
 
   it("lists every reply, the most recent first, with its mail", () => {
     const sent = sentReplies([
@@ -97,5 +97,35 @@ describe("boîte de réception", () => {
       "Aucun nouveau mail lié à tes candidatures.",
     );
     expect(syncSummary({ accounts: 1, new: 3, linked: 2, applied: 1, errors: [] })).toBe("3 nouveaux mails, 1 statut mis à jour.");
+  });
+});
+
+describe("addressTypo", () => {
+  it.each([
+    ["cyrillef07@gamil.com", "cyrillef07@gmail.com"],
+    ["a@gmial.com", "a@gmail.com"],
+    ["a@gmai.com", "a@gmail.com"],
+    ["a@gmaill.com", "a@gmail.com"],
+    ["a@gmail.con", "a@gmail.com"],
+    ["a@gmail.fr", "a@gmail.com"],
+    ["a@outlok.com", "a@outlook.com"],
+    ["a@hotnail.fr", "a@hotmail.fr"],
+    [" A@Gamil.com ", "a@gmail.com"],
+  ])("suggests a fix for %s", (address, fixed) => {
+    expect(addressTypo(address)).toBe(fixed);
+  });
+
+  it.each(["a@gmail.com", "rh@nimbus.io", "rh@ma-societe.fr", "a@yahoo.fr", "pas-une-adresse", "a@b@gmail.com", ""])(
+    "leaves %s alone",
+    (address) => {
+      expect(addressTypo(address)).toBeNull();
+    },
+  );
+});
+
+describe("replyRecipient", () => {
+  it("prefers the address requested by the mail", () => {
+    expect(replyRecipient({ reply_to: "jobs@ats.io", from_address: "no-reply@a.fr" })).toBe("jobs@ats.io");
+    expect(replyRecipient({ reply_to: null, from_address: "rh@a.fr" })).toBe("rh@a.fr");
   });
 });
