@@ -3,7 +3,7 @@ name = "jobcopilot-mail"
 version = "0.1.0"
 description = "Lecture IMAP et classement des réponses"
 requires-python = ">=3.12"
-dependencies = ["jobcopilot-common"]
+dependencies = ["jobcopilot-common", "alembic>=1.14", "imapclient>=3.0", "cryptography>=43"]
 
 [tool.uv.sources]
 jobcopilot-common = { workspace = true }

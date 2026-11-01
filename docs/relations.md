@@ -13,25 +13,29 @@ flowchart LR
     jobs
     documents
     applications
-    mail["mail (étape 9)"]
+    mail
     calendar["calendar (étape 10)"]
   end
 
-  gateway --> profile & jobs & documents & applications
+  gateway --> profile & jobs & documents & applications & mail
 
   jobs -- "GET /  (recherches, compétences)" --> profile
   documents -- "GET /  (profil complet)" --> profile
   documents -- "GET /offers/{id}" --> jobs
   applications -- "GET /offers/{id}" --> jobs
   applications -- "GET /generations" --> documents
+  mail -- "GET /applications (rattachement)<br/>PATCH statut, source mail" --> applications
+  mail -- "IMAP, lecture seule,<br/>toutes les 15 min" --> imap[(Boîtes mail)]
+  mail --> ollama
 
   documents -. "document.generated" .-> redis[(Redis Streams)]
   redis -. "groupe applications :<br/>joint les documents,<br/>crée la candidature si besoin" .-> applications
   applications -. "application.created<br/>application.status_changed" .-> redis
-  redis -. "à venir" .-> mail & calendar
+  mail -. "mail.classified" .-> redis
+  redis -. "à venir" .-> calendar
 
   applications --> statscache[(Redis : statistiques,<br/>vidées à chaque modification)]
-  profile & jobs & documents & applications --> pg[(Postgres, un schéma par service)]
+  profile & jobs & documents & applications & mail --> pg[(Postgres, un schéma par service)]
   jobs --> cache[(Redis cache)]
   documents --> s3[(S3 local : PDF)]
   documents --> ollama[(Ollama)]
@@ -46,7 +50,8 @@ Flèche pleine : appel HTTP synchrone. Pointillés : événement Redis Streams.
 | Profil, recherches (actives ou archivées), niveau visé | profile | jobs (filtres, score), documents (CV), web (Profil, sélecteur d'Offres, filtre « Recherche d'origine ») |
 | Offres, score, favoris par recherche | jobs | web (Offres, fiche d'offre, Candidatures : favoris sans candidature), documents, applications |
 | CV et lettres générés (versions, PDF) | documents | applications (dernier CV et dernière lettre), web (fiche d'offre, fiche de candidature) |
-| Candidatures, statuts, historique | applications | web (Candidatures, badge de statut sur Offres, panneau Candidature de la fiche d'offre), mail et calendar à venir |
+| Candidatures, statuts, historique | applications | web (Candidatures, badge de statut sur Offres, panneau Candidature de la fiche d'offre), mail (rattachement, statut d'après un mail), calendar à venir |
+| Boîtes mail (mot de passe chiffré avec `SECRET_KEY`), mails gardés, catégorie, candidature liée | mail | web (Boîte de réception, section Échanges de la fiche de candidature) |
 | Statistiques du tableau de bord (`GET /stats`), dont les retours par recherche | applications, calculées depuis les candidatures et leur historique, en cache Redis 15 min | web (Tableau de bord ; noms des recherches lus dans profile) |
 
 ## Arbre des fonctionnalités
@@ -75,6 +80,11 @@ flowchart TD
   R -->|search_id de la candidature| PR[Profil qui fonctionne le mieux]
   C -->|historique : test, entretien, offre, refus| PR
   PR --> TB
+  BX[Boîte mail connectée] -->|lecture filtrée : mails liés ou de recrutement| MR[Mails classés]
+  MR -->|confiance >= 0,75, vers l'avant, rattachement sans ambiguïté| C
+  MR -->|sinon : « À vérifier »| BR[Boîte de réception]
+  BR -->|Passer à « X », rattacher, corriger| C
+  MR --> EC[Échanges sur la fiche]
 ```
 
 ## Ce qu'il faut revérifier après un changement
@@ -91,4 +101,8 @@ flowchart TD
 | Une génération de documents | fiche d'offre, fiche de candidature (CV et lettre joints), candidature créée « À envoyer » si l'offre n'en avait pas, entrée dans « À finaliser », badge sur Offres, favori retiré des favoris en attente |
 | La liste des statuts | `Status` et `STATUSES` (schemas.py), `RESPONSES` et `PROGRESS` (stats.py), `lib/statuses.ts` et `statusOrder` (web) : colonnes du Kanban, filtres, tableau de bord |
 | Une recherche renommée | noms affichés dans l'analyse par profil et dans le filtre « Recherche d'origine » (l'identifiant ne change pas) |
+| La lecture des mails (rattachement, classement, statut automatique) | Boîte de réception (« À vérifier », catégories), statut et historique de la fiche (« d'après un mail »), Kanban, tableau de bord (cache vidé par le PATCH), Échanges de la fiche ; une seconde lecture ne crée pas de doublon |
+| Un mail rattaché, détaché ou recatégorisé | section Échanges de la fiche, bouton « Passer à » (statut proposé) |
+| Les fournisseurs de messagerie (`PROVIDERS`, api.py) | formulaire de connexion : serveur, texte d'aide, étapes et liens du bouton « Aide » |
+| Une boîte déconnectée | ses mails disparaissent de la Boîte de réception et des Échanges ; les statuts déjà appliqués restent |
 | Le schéma d'un service | migration Alembic, schémas Pydantic, types TypeScript dans `web/src/lib/` |

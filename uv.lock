@@ -686,6 +686,15 @@ wheels = [
 ]
 
 [[package]]
+name = "imapclient"
+version = "4.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8d/f7/4e2d2e93313d7d7542a8378200ea931ff4e29b730d9eb5a9d8debafcbc68/imapclient-4.1.0.tar.gz", hash = "sha256:b7cefa7c9bf3ec029c007dfade191480b82eb3816fc20ab23ef48e7aec841a7f", size = 71344, upload-time = "2026-09-18T11:21:57.568Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/52/49/12fe5860e37f2e915ecbcc6c743bc71c84c6d0f4c9002f3c5a66f79b172d/imapclient-4.1.0-py3-none-any.whl", hash = "sha256:5fd62ab2a099494ed2a5a21e7bda03c1e99e3d55bdedb4e9c12c8176873a8fe4", size = 56039, upload-time = "2026-09-18T11:21:56.499Z" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -831,11 +840,19 @@ name = "jobcopilot-mail"
 version = "0.1.0"
 source = { editable = "services/mail" }
 dependencies = [
+    { name = "alembic" },
+    { name = "cryptography" },
+    { name = "imapclient" },
     { name = "jobcopilot-common" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "jobcopilot-common", editable = "libs/common" }]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.14" },
+    { name = "cryptography", specifier = ">=43" },
+    { name = "imapclient", specifier = ">=3.0" },
+    { name = "jobcopilot-common", editable = "libs/common" },
+]
 
 [[package]]
 name = "jobcopilot-profile"

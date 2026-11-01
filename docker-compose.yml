@@ -80,6 +80,12 @@ services:
   mail:
     <<: *service
     build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: mail } }
+    environment:
+      <<: *env
+      SECRET_KEY: ${SECRET_KEY:?Lance make secret pour créer la clé de chiffrement}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      MAIL_DEMO: ${MAIL_DEMO:-false}
+      MAIL_SYNC_MINUTES: ${MAIL_SYNC_MINUTES:-15}
 
   calendar:
     <<: *service

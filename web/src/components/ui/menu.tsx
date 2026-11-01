@@ -79,7 +79,7 @@ export function Menu({
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={spring.snappy}
             className={cn(
-              "absolute top-full z-30 mt-1.5 min-w-60 rounded-[12px] border border-border bg-surface p-1 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.25)]",
+              "absolute top-full z-30 mt-1.5 max-h-80 min-w-60 overflow-y-auto rounded-[12px] border border-border bg-surface p-1 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.25)]",
               align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left",
             )}
           >

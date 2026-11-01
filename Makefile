@@ -1,13 +1,21 @@
-.PHONY: setup up down logs ready models lint test test-db web
+.PHONY: setup secret up down logs ready models lint test test-db web
 
 setup: ## Prépare le fichier .env et l'environnement Python de dev
 	test -f .env || cp .env.example .env
+	$(MAKE) secret
 	uv sync --all-packages
 	cd web && npm ci
 
+secret: ## Crée la clé de chiffrement SECRET_KEY dans .env si elle manque
+	@grep -qs '^SECRET_KEY=..*' .env && echo "SECRET_KEY déjà présente" || { \
+	  key=$$(openssl rand -hex 32); \
+	  if grep -qs '^SECRET_KEY=' .env; then sed -i.bak "s/^SECRET_KEY=.*/SECRET_KEY=$$key/" .env && rm -f .env.bak; \
+	  else echo "SECRET_KEY=$$key" >> .env; fi; \
+	  echo "SECRET_KEY ajoutée à .env"; }
+
 NATIVE_OLLAMA := $(shell grep -qs '^OLLAMA_URL=.*host.docker.internal' .env && echo yes)
 
-up: ## Construit et démarre toute la stack
+up: secret ## Construit et démarre toute la stack (crée la clé de chiffrement si besoin)
 	docker compose up -d --build
 ifeq ($(NATIVE_OLLAMA),yes)
 	@# Ollama natif : le conteneur ollama d'une version précédente ne doit plus tourner.
