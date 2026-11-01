@@ -1,39 +1,53 @@
 import asyncio
+import logging
+from datetime import UTC, datetime
+from email.message import EmailMessage
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common.crypto import SecretKeyMissing, encrypt
+from jobcopilot_common.llm import LLMError
 from jobcopilot_mail.classify import STATUS_FOR, Category
 from jobcopilot_mail.deps import (
     DEMO_HOST,
     Cache,
     ClassifierDep,
+    DrafterDep,
     Http,
     MailboxFactoryDep,
     SenderFactoryDep,
     Session,
+    smtp_server_of,
 )
+from jobcopilot_mail.drafting import DraftContext
 from jobcopilot_mail.mailbox import ImapMailbox, MailboxError
 from jobcopilot_mail.models import AccountRow, MessageRow, ReplyRow
-from jobcopilot_mail.outbox import Draft, SendError, build_reply
+from jobcopilot_mail.outbox import Draft, SendError, SendUncertain, build_reply, smtp_server
 from jobcopilot_mail.schemas import (
     Account,
     AccountCreate,
+    DraftOut,
+    DraftRequest,
     HelpLink,
     Message,
     MessageUpdate,
     Provider,
+    Reply,
     ReplyCreate,
     Review,
+    SmtpServer,
     SyncReport,
 )
 from jobcopilot_mail.settings import get_mail_settings
 from jobcopilot_mail.sync import sync_account
-from jobcopilot_mail.upstream import UpstreamError, set_status
+from jobcopilot_mail.upstream import UpstreamError, list_candidates, profile_name, set_status
 
+log = logging.getLogger(__name__)
 router = APIRouter(tags=["mail"])
 
 PROVIDERS = [
@@ -135,7 +149,21 @@ async def account_out(session: Session, row: AccountRow) -> Account:
     count = await session.scalar(
         select(func.count()).select_from(MessageRow).where(MessageRow.account_id == row.id)
     )
-    return Account.model_validate(row).model_copy(update={"messages": count or 0})
+    host, port = (None, None) if row.host == DEMO_HOST else smtp_server_of(row)
+    return Account.model_validate(row).model_copy(
+        update={"messages": count or 0, "smtp_host": host, "smtp_port": port}
+    )
+
+
+async def check_sending(row: AccountRow, senders: SenderFactoryDep) -> None:
+    """Teste l'envoi sans envoyer de mail. Une panne n'empêche pas de lire la boîte."""
+    row.smtp_checked_at = datetime.now(UTC)
+    try:
+        await asyncio.to_thread(senders(row).check)
+    except (SendError, SecretKeyMissing) as exc:
+        row.smtp_error = str(exc)
+    else:
+        row.smtp_error = None
 
 
 @router.get("/accounts", response_model=list[Account])
@@ -145,8 +173,13 @@ async def list_accounts(session: Session) -> list[Account]:
 
 
 @router.post("/accounts", response_model=Account, status_code=status.HTTP_201_CREATED)
-async def add_account(payload: AccountCreate, session: Session) -> Account:
-    """Vérifie la connexion avant d'enregistrer : un compte enregistré est un compte qui marche."""
+async def add_account(
+    payload: AccountCreate, session: Session, senders: SenderFactoryDep
+) -> Account:
+    """Vérifie la lecture avant d'enregistrer : un compte enregistré est un compte qui se lit.
+
+    L'envoi est testé aussi, mais sa panne ne bloque pas : la boîte reste utile en lecture.
+    """
     demo = payload.host == DEMO_HOST
     if demo and not get_mail_settings().mail_demo:
         raise HTTPException(
@@ -180,9 +213,45 @@ async def add_account(payload: AccountCreate, session: Session) -> Account:
         password_encrypted=secret,
         folder=payload.folder,
     )
+    if not demo:
+        row.smtp_host, row.smtp_port = (
+            (payload.smtp_host, payload.smtp_port)
+            if payload.smtp_host and payload.smtp_port
+            else smtp_server(payload.host)
+        )
+    await check_sending(row, senders)
     session.add(row)
     await session.commit()
     await session.refresh(row)
+    return await account_out(session, row)
+
+
+async def get_account(session: Session, account_id: UUID) -> AccountRow:
+    row = await session.get(AccountRow, account_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Compte introuvable.")
+    return row
+
+
+@router.post("/accounts/{account_id}/smtp-check", response_model=Account)
+async def test_sending(account_id: UUID, session: Session, senders: SenderFactoryDep) -> Account:
+    row = await get_account(session, account_id)
+    await check_sending(row, senders)
+    await session.commit()
+    return await account_out(session, row)
+
+
+@router.put("/accounts/{account_id}/smtp", response_model=Account)
+async def set_smtp_server(
+    account_id: UUID, payload: SmtpServer, session: Session, senders: SenderFactoryDep
+) -> Account:
+    """Change le serveur d'envoi et le teste aussitôt."""
+    row = await get_account(session, account_id)
+    if row.host == DEMO_HOST:
+        raise HTTPException(status.HTTP_409_CONFLICT, "La boîte de démonstration n'envoie rien.")
+    row.smtp_host, row.smtp_port = payload.host, payload.port
+    await check_sending(row, senders)
+    await session.commit()
     return await account_out(session, row)
 
 
@@ -220,6 +289,7 @@ async def sync(
         report.new += result.new
         report.linked += result.linked
         report.applied += result.applied
+        report.bounced += result.bounced
     return report
 
 
@@ -288,36 +358,194 @@ async def apply_status(message_id: UUID, session: Session, http: Http) -> Messag
     return row
 
 
+async def deliver(
+    session: AsyncSession,
+    account: AccountRow,
+    payload: ReplyCreate,
+    message: MessageRow | None,
+    senders: SenderFactoryDep,
+    mailboxes: MailboxFactoryDep,
+    http: Http,
+) -> tuple[ReplyRow, bool]:
+    """Enregistre le mail avec son état, puis l'envoie. Vrai si cet appel l'a réellement envoyé.
+
+    Un même brouillon (`client_key`) ne repart pas s'il est déjà parti ou peut-être parti ;
+    après un échec net, il réessaie avec le même identifiant.
+    """
+    attempt = None
+    if payload.client_key is not None:
+        attempt = await session.scalar(
+            select(ReplyRow).where(
+                ReplyRow.account_id == account.id, ReplyRow.client_key == payload.client_key
+            )
+        )
+    if attempt is not None and attempt.status == "sending":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ce mail est déjà en cours d'envoi.")
+    if attempt is not None and attempt.status != "failed":
+        return attempt, False
+
+    email = build_reply(
+        Draft(
+            account.email,
+            payload.to,
+            payload.subject,
+            payload.body,
+            message.message_id if message else None,
+            message_id=attempt.smtp_message_id if attempt else None,
+            references=(message.references or "").split() if message else [],
+            sender_name=await profile_name(http),
+        )
+    )
+    if attempt is None:
+        attempt = ReplyRow(
+            account_id=account.id,
+            message_id=message.id if message else None,
+            client_key=payload.client_key,
+            smtp_message_id=email["Message-ID"],
+        )
+        session.add(attempt)
+    attempt.to_address, attempt.subject, attempt.body = payload.to, payload.subject, payload.body
+    attempt.status, attempt.error = "sending", None
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ce mail est déjà en cours d'envoi.") from exc
+
+    try:
+        await asyncio.to_thread(senders(account).send, email)
+    except (SendError, SecretKeyMissing) as exc:
+        attempt.status, attempt.error = "failed", str(exc)
+        account.smtp_error = str(exc)
+        account.smtp_checked_at = datetime.now(UTC)
+        await session.commit()
+        code = (
+            status.HTTP_502_BAD_GATEWAY
+            if isinstance(exc, SendError)
+            else status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+        raise HTTPException(code, str(exc)) from exc
+    except SendUncertain as exc:
+        attempt.status, attempt.error = "uncertain", str(exc)
+    else:
+        attempt.status, attempt.sent_at = "sent", datetime.now(UTC)
+        account.smtp_error, account.smtp_checked_at = None, datetime.now(UTC)
+    await session.commit()
+    if attempt.status == "sent":
+        await keep_sent_copy(account, email, mailboxes)
+    return attempt, True
+
+
+async def keep_sent_copy(
+    account: AccountRow, email: EmailMessage, mailboxes: MailboxFactoryDep
+) -> None:
+    """Le mail est parti : une copie ratée se signale dans les journaux, pas à l'envoi."""
+    try:
+        await asyncio.to_thread(mailboxes(account, []).save_sent, email)
+    except (MailboxError, SecretKeyMissing, OSError):
+        log.warning("copie dans Envoyés impossible pour %s", account.id, exc_info=True)
+
+
 @router.post(
     "/messages/{message_id}/reply", response_model=Message, status_code=status.HTTP_201_CREATED
 )
 async def reply(
-    message_id: UUID, payload: ReplyCreate, session: Session, sender_for: SenderFactoryDep
+    message_id: UUID,
+    payload: ReplyCreate,
+    session: Session,
+    sender_for: SenderFactoryDep,
+    mailbox_for: MailboxFactoryDep,
+    http: Http,
 ) -> MessageRow:
     """Envoie une réponse depuis la boîte qui a reçu le mail. Le statut de la candidature ne change
-    pas ; le mail quitte « À vérifier » sauf s'il reste à rattacher ou un statut à confirmer."""
+    pas ; le mail quitte « À vérifier » sauf s'il reste à rattacher ou un statut à confirmer.
+    """
     row = await get_message(session, message_id)
     account = await session.get(AccountRow, row.account_id)
-    email = build_reply(
-        Draft(account.email, payload.to, payload.subject, payload.body, row.message_id)
+    attempt, delivered = await deliver(
+        session, account, payload, row, sender_for, mailbox_for, http
     )
-    try:
-        await asyncio.to_thread(sender_for(account).send, email)
-    except SendError as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
-    except SecretKeyMissing as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
-    session.add(
-        ReplyRow(
-            message_id=row.id,
-            to_address=payload.to,
-            subject=payload.subject,
-            body=payload.body,
-            smtp_message_id=email["Message-ID"],
-        )
-    )
-    if row.application_id and (row.suggested_status is None or row.status_applied):
+    if (
+        delivered
+        and attempt.status == "sent"
+        and row.application_id
+        and (row.suggested_status is None or row.status_applied)
+    ):
         row.reviewed = True
-    await session.commit()
+        await session.commit()
     await session.refresh(row, ["replies", "reviewed"])
     return row
+
+
+@router.post(
+    "/accounts/{account_id}/send", response_model=Reply, status_code=status.HTTP_201_CREATED
+)
+async def send_new(
+    account_id: UUID,
+    payload: ReplyCreate,
+    session: Session,
+    sender_for: SenderFactoryDep,
+    mailbox_for: MailboxFactoryDep,
+    http: Http,
+) -> ReplyRow:
+    """Envoie un nouveau message, sans rapport avec un mail reçu."""
+    account = await get_account(session, account_id)
+    attempt, _ = await deliver(session, account, payload, None, sender_for, mailbox_for, http)
+    return attempt
+
+
+@router.get("/sent", response_model=list[Reply])
+async def list_sent(
+    session: Session, limit: Annotated[int, Query(ge=1, le=500)] = 200
+) -> list[ReplyRow]:
+    """Les mails envoyés, réponses et nouveaux messages, les plus récents d'abord."""
+    query = (
+        select(ReplyRow)
+        .where(ReplyRow.status != "failed")
+        .order_by(ReplyRow.sent_at.desc())
+        .limit(limit)
+    )
+    return list((await session.scalars(query)).all())
+
+
+@router.post("/sent/{reply_id}/seen", response_model=Reply)
+async def mark_problem_seen(reply_id: UUID, session: Session) -> ReplyRow:
+    """Le problème a été lu. Le mail reste marqué non distribué ; seul le témoin s'éteint."""
+    row = await session.get(ReplyRow, reply_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Mail introuvable.")
+    row.problem_seen = True
+    await session.commit()
+    return row
+
+
+@router.post("/messages/{message_id}/draft", response_model=DraftOut)
+async def draft_reply(
+    message_id: UUID, payload: DraftRequest, session: Session, http: Http, drafter: DrafterDep
+) -> DraftOut:
+    """Propose un texte de réponse. Rien n'est envoyé ni enregistré."""
+    row = await get_message(session, message_id)
+    application = None
+    if row.application_id:
+        try:
+            found = next(
+                (c for c in await list_candidates(http) if c.id == str(row.application_id)), None
+            )
+        except UpstreamError:
+            found = None
+        if found:
+            application = f"{found.title} chez {found.company or 'entreprise non précisée'}"
+    try:
+        body = await drafter.draft(
+            DraftContext(
+                sender=row.from_name or row.from_address,
+                subject=row.subject,
+                text=row.snippet,
+                notes=payload.notes,
+                application=application,
+                signature=await profile_name(http),
+            )
+        )
+    except LLMError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return DraftOut(body=body)

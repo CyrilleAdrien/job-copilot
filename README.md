@@ -108,6 +108,19 @@ Tout reste sur ta machine. L'écran **Réglages** permet :
 - Les clés France Travail et Adzuna restent dans `.env` : elles ne sont pas stockées en base.
 - `web` et `gateway` ne sont publiés que sur `127.0.0.1`. L'API n'a pas de compte : elle refuse donc les noms d'hôte étrangers et les écritures venues d'un autre site.
 
+## Écrire et répondre aux mails
+
+La boîte de réception se lit comme une messagerie : une ligne par mail, en gras s'il reste à vérifier, et les dossiers À vérifier, Envoyés et Traités. Les actions (statut, rattachement, catégorie, réponse) apparaissent à l'ouverture du mail. « Nouveau message » écrit à n'importe quelle adresse.
+
+Chaque mail part d'une boîte connectée, en SMTP chiffré, avec le même mot de passe d'application que la lecture, et porte le nom de ton profil.
+
+- **À la connexion**, l'envoi est testé sans envoyer de mail. Le serveur et le port se corrigent dans les réglages de la boîte de réception, qui permettent aussi de relancer le test.
+- **Le destinataire** d'une réponse est l'adresse demandée par le mail (`Reply-To`), sinon l'expéditeur. Une faute de frappe dans un domaine courant (`@gamil.com`) bloque l'envoi jusqu'à ce que tu la corriges ou la confirmes.
+- **« Accepté par le serveur »** veut dire que ton fournisseur a pris le mail en charge, pas qu'il est arrivé. Si un avis de non-distribution revient, le mail passe à « Non distribué » à la lecture suivante, avec la raison. Un domaine qui existe peut aussi accepter le mail sans rien dire.
+- **Si la connexion est coupée pendant l'envoi**, le mail est marqué « incertain » : l'app ne le renvoie pas d'elle-même. Vérifie ton dossier Envoyés. Un second clic sur le même brouillon ne repart pas non plus.
+- **Le dossier Envoyés de ta messagerie** reçoit une copie, sauf chez Gmail et Outlook, qui la font eux-mêmes. Une copie ratée n'annule pas l'envoi.
+- **« Rédiger avec l'IA »** met en forme tes idées avec Ollama, en local. Tu donnes l'intention (« oui, mardi 14 h ») ; le texte remplit le formulaire et rien ne part sans ton clic. Le code pose la salutation et la signature, et refuse un texte écrit du côté du recruteur ou qui accepte quelque chose que tu n'as pas dit. Tout chiffre que tu n'as pas fourni devient `[à compléter]`, ce qui bloque l'envoi. Relis quand même : un petit modèle peut encore oublier une idée ou ajouter une phrase.
+
 ## Développement
 
 ```bash

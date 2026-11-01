@@ -6,7 +6,15 @@ import pytest
 
 from jobcopilot_common.llm import LLMError
 from jobcopilot_mail.classify import LLMClassifier, RuleClassifier
-from jobcopilot_mail.mailbox import Header, ImapMailbox, text_of
+from jobcopilot_mail.mailbox import (
+    Header,
+    ImapMailbox,
+    bounce_of,
+    is_bounce_sender,
+    readable_text_of,
+    references_of,
+    text_of,
+)
 from jobcopilot_mail.matching import Candidate, match
 from jobcopilot_mail.sync import should_apply
 
@@ -163,3 +171,110 @@ def test_imap_header_and_text_are_decoded():
         "<p>Nous avons &eacute;tudi&eacute; <b>votre</b> profil</p>", subtype="html"
     )
     assert text_of(html_only) == "Nous avons étudié votre profil"
+
+
+def test_readable_text_keeps_paragraphs_and_cleans_html():
+    message = EmailMessage()
+    message.set_content("Bonjour,\n\n\n\nVotre profil   retient l'attention.\n")
+    assert readable_text_of(message) == "Bonjour,\n\nVotre profil retient l'attention."
+    html = EmailMessage()
+    html.set_content(
+        "<html><head><style>p{color:red}</style></head>"
+        "<body><p>Bonjour,</p><p>Mardi&nbsp;14 h<br>en visio</p></body></html>",
+        subtype="html",
+    )
+    assert readable_text_of(html) == "Bonjour,\nMardi 14 h\nen visio"
+
+
+def test_references_are_read_as_a_list():
+    message = EmailMessage()
+    message["References"] = "<a@x.fr> <b@x.fr>"
+    assert references_of(message) == ["<a@x.fr>", "<b@x.fr>"]
+
+
+def delivery_report(action: str) -> bytes:
+    return (
+        "From: Mail Delivery Subsystem <mailer-daemon@googlemail.com>\r\n"
+        "Message-ID: <avis@mx.google.com>\r\n"
+        "Content-Type: multipart/report; report-type=delivery-status; boundary=b\r\n\r\n"
+        "--b\r\nContent-Type: text/plain\r\n\r\nNon distribué\r\n"
+        "--b\r\nContent-Type: message/delivery-status\r\n\r\n"
+        "Reporting-MTA: dns; mx.google.com\r\n\r\n"
+        f"Final-Recipient: rfc822; rh@nimbus.example\r\nAction: {action}\r\n"
+        "Status: 5.1.1\r\nDiagnostic-Code: smtp; 550 5.1.1 User unknown\r\n"
+        "--b\r\nContent-Type: text/rfc822-headers\r\n\r\n"
+        "Message-ID: <reponse@exemple.fr>\r\nSubject: Re: x\r\n"
+        "--b--\r\n"
+    ).encode()
+
+
+def test_bounce_names_the_original_mail_and_the_reason():
+    bounce = bounce_of(delivery_report("failed"))
+    assert "<reponse@exemple.fr>" in bounce.message_ids
+    assert "<avis@mx.google.com>" not in bounce.message_ids
+    assert bounce.reason == "rh@nimbus.example : 550 5.1.1 User unknown"
+
+
+def test_a_delayed_delivery_is_not_a_bounce():
+    assert bounce_of(delivery_report("delayed")) is None
+
+
+def test_a_bounce_sender_is_recognised_by_its_local_part():
+    assert is_bounce_sender("mailer-daemon@googlemail.com")
+    assert is_bounce_sender("postmaster@outlook.com")
+    assert not is_bounce_sender("rh@mailer-daemon.example")
+
+
+class FakeImap:
+    def __init__(self, sent_folder="Sent Messages", present=False):
+        self.folder, self.present = sent_folder, present
+        self.appended, self.logged_out = [], False
+
+    def find_special_folder(self, flag):
+        return self.folder
+
+    def select_folder(self, folder):
+        return {}
+
+    def search(self, criteria):
+        return [1] if self.present else []
+
+    def append(self, folder, content, flags=()):
+        self.appended.append((folder, flags))
+
+    def logout(self):
+        self.logged_out = True
+
+
+def sent_copy_box(host: str, client: FakeImap) -> ImapMailbox:
+    box = ImapMailbox(host, 993, "moi", "secret", "INBOX", 1.0)
+    box.connect = lambda: client
+    return box
+
+
+def sent_mail() -> EmailMessage:
+    message = EmailMessage()
+    message["Message-ID"] = "<reponse@exemple.fr>"
+    message.set_content("Bonjour")
+    return message
+
+
+def test_sent_copy_is_added_once_to_the_sent_folder():
+    client = FakeImap()
+    sent_copy_box("imap.mail.me.com", client).save_sent(sent_mail())
+    assert client.appended == [("Sent Messages", [b"\\Seen"])] and client.logged_out
+    present = FakeImap(present=True)
+    sent_copy_box("imap.mail.me.com", present).save_sent(sent_mail())
+    assert present.appended == []
+
+
+def test_gmail_keeps_its_own_copy():
+    box = ImapMailbox("imap.gmail.com", 993, "moi", "secret", "INBOX", 1.0)
+    box.connect = None  # toute connexion ferait échouer le test
+    box.save_sent(sent_mail())
+
+
+def test_no_sent_folder_means_no_copy():
+    client = FakeImap(sent_folder=None)
+    sent_copy_box("imap.exemple.fr", client).save_sent(sent_mail())
+    assert client.appended == [] and client.logged_out

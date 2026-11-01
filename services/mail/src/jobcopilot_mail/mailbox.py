@@ -9,13 +9,20 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.header import decode_header, make_header
-from email.message import Message
+from email.message import EmailMessage, Message
+from email.utils import parseaddr
 from html import unescape
 from typing import Protocol
 
 from imapclient import IMAPClient
 from imapclient.exceptions import IMAPClientError, LoginError
+from imapclient.imapclient import SEEN, SENT
 
+ADDRESS = re.compile(r"[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+")
+MESSAGE_ID = re.compile(r"<[^<>\s]+>")
+# Ces serveurs rangent eux-mêmes dans Envoyés ce qui passe par leur SMTP.
+SERVER_KEEPS_SENT = {"imap.gmail.com", "outlook.office365.com"}
+BOUNCE_SENDERS = {"mailer-daemon", "postmaster", "mail-daemon"}
 BODY_LIMIT = 4000
 CHUNK = 200
 
@@ -38,6 +45,18 @@ class Header:
 class RawMail:
     header: Header
     text: str
+    reply_to: str | None = None
+    # Le même texte avec ses paragraphes, pour le lire. `text` reste sur une ligne pour le classer.
+    readable: str = ""
+    references: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Bounce:
+    """Un avis de non-distribution : on en garde la raison, jamais le mail lui-même."""
+
+    message_ids: list[str]
+    reason: str
 
 
 @dataclass
@@ -45,6 +64,7 @@ class ReadResult:
     uid_validity: int | None
     max_uid: int
     mails: list[RawMail] = field(default_factory=list)
+    bounces: list[Bounce] = field(default_factory=list)
 
 
 Keep = Callable[[Header], bool]
@@ -52,6 +72,8 @@ Keep = Callable[[Header], bool]
 
 class Mailbox(Protocol):
     def check(self) -> None: ...
+
+    def save_sent(self, message: EmailMessage) -> None: ...
 
     def read(
         self, last_uid: int, uid_validity: int | None, since: datetime, keep: Keep
@@ -68,8 +90,7 @@ def decode(value: bytes | str | None) -> str:
         return raw.strip()
 
 
-def text_of(message: Message) -> str:
-    """Texte brut du mail : la partie text/plain, sinon le HTML sans balises."""
+def parts_of(message: Message) -> tuple[list[str], list[str]]:
     plain, html = [], []
     for part in message.walk() if message.is_multipart() else [message]:
         if part.get_content_maintype() != "text" or part.get_filename():
@@ -77,8 +98,62 @@ def text_of(message: Message) -> str:
         payload = part.get_payload(decode=True) or b""
         content = payload.decode(part.get_content_charset() or "utf-8", "replace")
         (plain if part.get_content_subtype() == "plain" else html).append(content)
+    return plain, html
+
+
+def text_of(message: Message) -> str:
+    """Texte brut du mail sur une ligne : la partie text/plain, sinon le HTML sans balises."""
+    plain, html = parts_of(message)
     text = "\n".join(plain) or re.sub(r"<[^>]+>", " ", unescape("\n".join(html)))
     return re.sub(r"\s+", " ", text).strip()[:BODY_LIMIT]
+
+
+def readable_text_of(message: Message) -> str:
+    """Le texte à afficher : les paragraphes restent, le HTML perd ses balises."""
+    plain, html = parts_of(message)
+    text = "\n".join(plain)
+    if not text:
+        text = re.sub(r"(?is)<(style|script|head)\b.*?</\1>", " ", "\n".join(html))
+        text = re.sub(r"(?i)<br\s*/?>|</(p|div|li|tr|h[1-6])>", "\n", text)
+        text = unescape(re.sub(r"<[^>]+>", " ", text))
+    lines = [re.sub(r"[ \t\xa0]+", " ", line).strip() for line in text.splitlines()]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()[:BODY_LIMIT]
+
+
+def references_of(message: Message) -> list[str]:
+    return MESSAGE_ID.findall(decode(message.get("References")))
+
+
+def is_bounce_sender(address: str) -> bool:
+    return address.partition("@")[0] in BOUNCE_SENDERS
+
+
+def bounce_of(raw: bytes) -> Bounce | None:
+    """Lit un avis de non-distribution. Un simple retard (Action: delayed) n'en est pas un."""
+    message = email.message_from_bytes(raw)
+    reason, delivery_report = "", False
+    for part in message.walk():
+        if part.get_content_type() != "message/delivery-status":
+            continue
+        delivery_report = True
+        for block in part.get_payload():
+            if str(block.get("Action", "")).strip().lower() != "failed":
+                continue
+            recipient = str(block.get("Final-Recipient", "")).rpartition(";")[2].strip()
+            diagnostic = " ".join(str(block.get("Diagnostic-Code", "")).split())
+            reason = reason or f"{recipient} : {diagnostic.rpartition(';')[2].strip()}".strip(" :")
+    if delivery_report and not reason:
+        return None
+    # L'avis cite le mail d'origine dans ses en-têtes, sa copie jointe ou son texte.
+    found = {match.decode("ascii", "ignore") for match in re.findall(rb"<[^<>\s@]+@[^<>\s]+>", raw)}
+    found.discard(decode(message.get("Message-ID")))
+    return Bounce(sorted(found), reason[:300]) if found else None
+
+
+def reply_address(message: Message, sender: str) -> str | None:
+    """L'adresse de réponse demandée par le mail, si elle diffère de l'expéditeur."""
+    address = parseaddr(decode(message.get("Reply-To")))[1].lower()
+    return address if address != sender and ADDRESS.fullmatch(address) else None
 
 
 def chunks(items: list[int], size: int = CHUNK) -> Iterable[list[int]]:
@@ -117,6 +192,23 @@ class ImapMailbox:
         finally:
             client.logout()
 
+    def save_sent(self, message: EmailMessage) -> None:
+        """Range la réponse dans Envoyés, sauf si le serveur l'y a déjà mise."""
+        if self.host in SERVER_KEEPS_SENT:
+            return
+        client = self.connect()
+        try:
+            folder = client.find_special_folder(SENT)
+            if folder is None:
+                return
+            client.select_folder(folder)
+            if not client.search(["HEADER", "Message-ID", message["Message-ID"]]):
+                client.append(folder, message.as_bytes(), flags=[SEEN])
+        except IMAPClientError as exc:
+            raise MailboxError(f"Copie dans Envoyés impossible : {exc}") from exc
+        finally:
+            client.logout()
+
     def read(
         self, last_uid: int, uid_validity: int | None, since: datetime, keep: Keep
     ) -> ReadResult:
@@ -130,15 +222,32 @@ class ImapMailbox:
             uids = sorted(uid for uid in client.search(criteria) if uid > last_uid)
             result = ReadResult(uid_validity=validity, max_uid=max(uids, default=last_uid))
             kept: dict[int, Header] = {}
+            bounces: list[int] = []
             for batch in chunks(uids):
                 for uid, data in client.fetch(batch, ["ENVELOPE", "INTERNALDATE"]).items():
                     header = self.header(uid, data)
-                    if header is not None and keep(header):
+                    if header is not None and is_bounce_sender(header.from_address):
+                        bounces.append(uid)
+                    elif header is not None and keep(header):
                         kept[uid] = header
+            for batch in chunks(sorted(bounces)):
+                for data in client.fetch(batch, ["BODY.PEEK[]"]).values():
+                    bounce = bounce_of(data[b"BODY[]"])
+                    if bounce is not None:
+                        result.bounces.append(bounce)
             for batch in chunks(sorted(kept)):
                 for uid, data in client.fetch(batch, ["BODY.PEEK[]"]).items():
                     message = email.message_from_bytes(data[b"BODY[]"])
-                    result.mails.append(RawMail(kept[uid], text_of(message)))
+                    header = kept[uid]
+                    result.mails.append(
+                        RawMail(
+                            header,
+                            text_of(message),
+                            reply_address(message, header.from_address),
+                            readable_text_of(message),
+                            references_of(message),
+                        )
+                    )
             return result
         except IMAPClientError as exc:
             raise MailboxError(f"Lecture de la boîte interrompue : {exc}") from exc
@@ -190,6 +299,9 @@ class DemoMailbox:
         self.now = now or datetime.now(UTC)
 
     def check(self) -> None:
+        return None
+
+    def save_sent(self, message: EmailMessage) -> None:
         return None
 
     def mails(self) -> list[RawMail]:

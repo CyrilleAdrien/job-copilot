@@ -13,9 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common.crypto import SecretKeyMissing
 from jobcopilot_mail.classify import STATUS_FOR, Classifier
-from jobcopilot_mail.mailbox import Mailbox, MailboxError
+from jobcopilot_mail.mailbox import Bounce, Mailbox, MailboxError
 from jobcopilot_mail.matching import Candidate, match
-from jobcopilot_mail.models import AccountRow, MessageRow
+from jobcopilot_mail.models import AccountRow, MessageRow, ReplyRow
 from jobcopilot_mail.settings import get_mail_settings
 from jobcopilot_mail.upstream import UpstreamError, list_candidates, set_status
 
@@ -34,6 +34,7 @@ class SyncResult:
     new: int = 0
     linked: int = 0
     applied: int = 0
+    bounced: int = 0
 
 
 def should_apply(current: str, target: str) -> bool:
@@ -48,6 +49,24 @@ async def publish(cache: Redis, fields: dict[str, str]) -> None:
         await cache.xadd(MAIL_CLASSIFIED, fields, maxlen=1000)
     except Exception:  # noqa: BLE001
         log.warning("événement %s non publié", MAIL_CLASSIFIED, exc_info=True)
+
+
+async def mark_bounced(session: AsyncSession, account: AccountRow, bounces: list[Bounce]) -> int:
+    """Marque les mails envoyés d'ici que ces avis déclarent non distribués."""
+    marked = 0
+    for bounce in bounces:
+        rows = await session.scalars(
+            select(ReplyRow).where(
+                ReplyRow.account_id == account.id,
+                ReplyRow.smtp_message_id.in_(bounce.message_ids),
+                ReplyRow.status.in_(("sent", "uncertain")),
+            )
+        )
+        for row in rows:
+            row.status, row.problem_seen = "bounced", False
+            row.error = bounce.reason or "Le serveur du destinataire a refusé ce mail."
+            marked += 1
+    return marked
 
 
 async def sync_account(
@@ -100,9 +119,11 @@ async def sync_account(
             uid=header.uid,
             from_address=header.from_address,
             from_name=header.from_name,
+            reply_to=mail.reply_to,
             subject=header.subject,
             received_at=header.received_at,
-            snippet=mail.text[:1000],
+            references=" ".join(mail.references) or None,
+            snippet=mail.readable or mail.text,
             category=verdict.category,
             confidence=verdict.confidence,
             reason=verdict.reason,
@@ -138,6 +159,7 @@ async def sync_account(
                 "status_applied": str(row.status_applied).lower(),
             },
         )
+    result.bounced = await mark_bounced(session, account, read.bounces)
     account.last_uid = read.max_uid
     account.uid_validity = read.uid_validity
     account.last_sync_at = now

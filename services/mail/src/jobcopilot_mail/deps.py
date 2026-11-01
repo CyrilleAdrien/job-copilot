@@ -11,6 +11,7 @@ from jobcopilot_common.crypto import decrypt
 from jobcopilot_common.db import get_session
 from jobcopilot_common.llm import Ollama
 from jobcopilot_mail.classify import Classifier, LLMClassifier, RuleClassifier
+from jobcopilot_mail.drafting import Drafter, LLMDrafter, TemplateDrafter
 from jobcopilot_mail.mailbox import DemoApplication, DemoMailbox, ImapMailbox, Mailbox
 from jobcopilot_mail.matching import Candidate
 from jobcopilot_mail.models import AccountRow
@@ -37,6 +38,14 @@ def get_classifier() -> Classifier:
     return LLMClassifier(Ollama(get_settings()))
 
 
+@lru_cache
+def get_drafter() -> Drafter:
+    settings = get_mail_settings()
+    if settings.llm_provider == "demo":
+        return TemplateDrafter()
+    return LLMDrafter(Ollama(get_settings()), settings.draft_timeout)
+
+
 def mailbox_for(account: AccountRow, candidates: list[Candidate]) -> Mailbox:
     if account.host == DEMO_HOST:
         return DemoMailbox(
@@ -59,10 +68,16 @@ def get_mailbox_factory():
     return mailbox_for
 
 
+def smtp_server_of(account: AccountRow) -> tuple[str, int]:
+    if account.smtp_host and account.smtp_port:
+        return account.smtp_host, account.smtp_port
+    return smtp_server(account.host)
+
+
 def sender_for(account: AccountRow) -> Sender:
     if account.host == DEMO_HOST:
         return DemoSender()
-    host, port = smtp_server(account.host)
+    host, port = smtp_server_of(account)
     return SmtpSender(
         host,
         port,
@@ -80,5 +95,6 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 Cache = Annotated[Redis, Depends(get_cache)]
 Http = Annotated[httpx.AsyncClient, Depends(get_http)]
 ClassifierDep = Annotated[Classifier, Depends(get_classifier)]
+DrafterDep = Annotated[Drafter, Depends(get_drafter)]
 MailboxFactoryDep = Annotated[object, Depends(get_mailbox_factory)]
 SenderFactoryDep = Annotated[object, Depends(get_sender_factory)]
