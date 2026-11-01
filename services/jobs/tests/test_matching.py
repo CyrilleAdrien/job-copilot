@@ -1,4 +1,8 @@
+from datetime import UTC, datetime
+
+from jobcopilot_jobs import api as jobs_api
 from jobcopilot_jobs.matching import dedup_key, normalize, score_offer
+from jobcopilot_jobs.models import OfferRow
 from jobcopilot_jobs.schemas import Criteria
 
 CRITERIA = Criteria(
@@ -105,3 +109,39 @@ def test_offers_above_the_wanted_level_are_set_aside():
     # « confirmé » vise un profil intermédiaire, pas un senior.
     assert not senior("Ingénieur DevOps confirmé", seniority="mid")
     assert not senior("Ingénieur DevOps senior", seniority="senior")
+
+
+def test_window_counts_match_a_full_scoring_and_each_offer_is_scored_once(monkeypatch):
+    def row(number: int, title: str, description: str) -> OfferRow:
+        return OfferRow(
+            id=number,
+            source="demo",
+            external_id=str(number),
+            title=title,
+            company="Nimbus",
+            description=description,
+            url="https://example.org",
+            published_at=datetime.now(UTC),
+        )
+
+    criteria = CRITERIA.model_copy(update={"match_mode": "skills", "min_skills": 2})
+    rows = [
+        row(1, "Ingénieur DevOps", "Kubernetes et Terraform"),  # gardée
+        row(2, "Ingénieur DevOps", "Kubernetes seulement"),  # pas assez de compétences
+        row(3, "Ingénieur DevOps senior", "Kubernetes et Terraform, 8 ans d'expérience"),  # niveau
+        row(4, "Comptable", "Kubernetes et Terraform"),  # autre métier : pas comptée
+        row(5, "Ingénieur DevOps", "Kubernetes, Terraform, ESN"),  # mot exclu : pas comptée
+    ]
+    calls = []
+    real = jobs_api.score_offer
+
+    def counting(*args):
+        calls.append(args[1])
+        return real(*args)
+
+    monkeypatch.setattr(jobs_api, "score_offer", counting)
+    offers, below_threshold, above_level = jobs_api.score_window(rows, criteria, {1})
+
+    assert [(offer.id, offer.favorite) for offer in offers] == [(1, True)]
+    assert (below_threshold, above_level) == (1, 1)
+    assert len(calls) == len(rows)
