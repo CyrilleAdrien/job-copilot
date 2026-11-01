@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canApply, canSendReply, countByCategory, filterMessages, replySubject, syncSummary, type MailMessage } from "@/lib/mail";
+import { canApply, canSendReply, countByCategory, filterMessages, replySubject, sentReplies, syncSummary, treatedMessages, type MailMessage } from "@/lib/mail";
 
 const message = (overrides: Partial<MailMessage>): MailMessage => ({
   id: "m",
@@ -20,6 +20,29 @@ const message = (overrides: Partial<MailMessage>): MailMessage => ({
   reviewed: false,
   replies: [],
   ...overrides,
+});
+
+describe("panneau de droite", () => {
+  const reply = (id: string, sent_at: string) => ({ id, to_address: "rh@nimbus.io", subject: "Re: x", body: "Bonjour", sent_at });
+
+  it("lists every reply, the most recent first, with its mail", () => {
+    const sent = sentReplies([
+      message({ id: "1", replies: [reply("a", "2026-10-20T10:00:00Z"), reply("c", "2026-10-22T10:00:00Z")] }),
+      message({ id: "2", replies: [reply("b", "2026-10-21T10:00:00Z")] }),
+      message({ id: "3" }),
+    ]);
+    expect(sent.map((item) => item.id)).toEqual(["c", "b", "a"]);
+    expect(sent[1].message.id).toBe("2");
+  });
+
+  it("lists only the treated mails, the most recent first", () => {
+    const treated = treatedMessages([
+      message({ id: "1", reviewed: true, received_at: "2026-10-18T10:00:00Z" }),
+      message({ id: "2" }),
+      message({ id: "3", reviewed: true, received_at: "2026-10-22T10:00:00Z" }),
+    ]);
+    expect(treated.map((item) => item.id)).toEqual(["3", "1"]);
+  });
 });
 
 describe("réponse à un mail", () => {

@@ -160,6 +160,20 @@ export function syncSummary(report: SyncReport) {
   return `${parts.join(", ")}.`;
 }
 
+export type SentReply = MailReply & { message: MailMessage };
+
+/** Toutes les réponses envoyées, les plus récentes d'abord. */
+export function sentReplies(messages: MailMessage[]): SentReply[] {
+  return messages
+    .flatMap((message) => message.replies.map((reply) => ({ ...reply, message })))
+    .sort((a, b) => b.sent_at.localeCompare(a.sent_at));
+}
+
+/** Les mails traités, à la main ou par un statut appliqué. Les plus récents d'abord. */
+export function treatedMessages(messages: MailMessage[]) {
+  return messages.filter((message) => message.reviewed).sort((a, b) => b.received_at.localeCompare(a.received_at));
+}
+
 export type InboxView = "pending" | "all";
 
 /** Mails affichés : « À vérifier » ou tous, puis la catégorie choisie. Les plus récents d'abord. */

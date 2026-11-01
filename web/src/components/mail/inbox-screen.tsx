@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { AccountForm } from "@/components/mail/account-form";
+import { MailSidePanel } from "@/components/mail/mail-side-panel";
 import { MessageRow } from "@/components/mail/message-row";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
@@ -191,7 +192,7 @@ export function InboxScreen() {
           </CardContent>
         </Card>
       ) : (
-        <motion.div {...fadeUp} transition={spring.smooth} className="flex flex-col gap-6">
+        <motion.div {...fadeUp} transition={spring.smooth} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Card>
             <CardHeader className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -252,7 +253,12 @@ export function InboxScreen() {
               )}
             </CardContent>
           </Card>
-
+          <MailSidePanel
+            accounts={accounts}
+            messages={messages}
+            byId={byId}
+            onReopen={(id) => change(id, { reviewed: false })}
+          />
         </motion.div>
       )}
 

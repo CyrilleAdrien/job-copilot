@@ -51,6 +51,7 @@ Flèche pleine : appel HTTP synchrone. Pointillés : événement Redis Streams.
 | Donnée | Service propriétaire | Lue par |
 | --- | --- | --- |
 | Profil, recherches (actives ou archivées), niveau visé | profile | jobs (filtres, score), documents (CV), web (Profil, sélecteur d'Offres, filtre « Recherche d'origine ») |
+| Photo de profil (à part du profil : absente de `GET /` et du YAML, supprimée avec le profil) | profile | web (barre latérale sur tous les écrans, écran Profil, panneau Envoyés de la Boîte de réception) |
 | Offres, score, favoris par recherche | jobs | web (Offres, fiche d'offre, Candidatures : favoris sans candidature), documents, applications |
 | CV et lettres générés (versions, PDF) | documents | applications (dernier CV et dernière lettre), web (fiche d'offre, fiche de candidature) |
 | Candidatures, statuts, historique | applications | web (Candidatures, badge de statut sur Offres, panneau Candidature de la fiche d'offre), mail (rattachement, statut d'après un mail), calendar (titre, statut à faire avancer) |
@@ -90,9 +91,14 @@ flowchart TD
   BR -->|Passer à « X », rattacher, corriger| C
   MR --> EC[Échanges sur la fiche]
   MR -->|entretien ou test : Planifier| EV[Événement du calendrier]
+  P --> PH[Photo de profil]
+  PH --> SB[Barre latérale, tous les écrans]
   BR -->|Répondre| RE[Réponse envoyée en SMTP]
   EC -->|Répondre| RE
   RE -->|sans changer le statut| MR
+  RE --> PE[Panneau Envoyés]
+  MR -->|traité| PT[Panneau Traités]
+  PT -->|À revoir| BR
   C -->|Planifier depuis la fiche| EV
   EV -->|entretien ou test, vers l'avant| C
   EV --> CD[Calendrier CalDAV et flux .ics]
@@ -115,7 +121,10 @@ flowchart TD
 | Une recherche renommée | noms affichés dans l'analyse par profil et dans le filtre « Recherche d'origine » (l'identifiant ne change pas) |
 | La lecture des mails (rattachement, classement, statut automatique) | Boîte de réception (« À vérifier », catégories), statut et historique de la fiche (« d'après un mail »), Kanban, tableau de bord (cache vidé par le PATCH), Échanges de la fiche ; une seconde lecture ne crée pas de doublon |
 | Un mail rattaché, détaché ou recatégorisé | section Échanges de la fiche, bouton « Passer à » (statut proposé) |
-| Une réponse à un mail (`POST /messages/{id}/reply`) | ligne de la Boîte de réception et section Échanges de la fiche ; le mail quitte « À vérifier » s'il est rattaché sans statut à confirmer ; statut, Kanban, tableau de bord et calendrier ne changent pas ; une seconde lecture n'y touche pas |
+| La photo de profil (`PUT` ou `DELETE /photo`) | avatar de la barre latérale sur tous les écrans, carte de l'écran Profil, panneau Envoyés ; le profil, le YAML, les CV et les autres services ne changent pas |
+| Un mail traité ou remis à revoir | onglet « À vérifier » et panneau Traités de la Boîte de réception |
+| L'état d'une boîte (`last_error`) | témoin vert ou rouge du panneau de droite, icône du bouton Réglages |
+| Une réponse à un mail (`POST /messages/{id}/reply`) | ligne de la Boîte de réception, panneaux Envoyés et Traités, section Échanges de la fiche ; le mail quitte « À vérifier » s'il est rattaché sans statut à confirmer ; statut, Kanban, tableau de bord et calendrier ne changent pas ; une seconde lecture n'y touche pas |
 | Les fournisseurs de messagerie (`PROVIDERS`, api.py) | formulaire de connexion : serveur, texte d'aide, étapes et liens du bouton « Aide » ; serveur d'envoi (`KNOWN_SERVERS`, outbox.py) |
 | Une boîte déconnectée | ses mails et ses réponses enregistrées disparaissent de la Boîte de réception et des Échanges ; les statuts déjà appliqués et les mails déjà partis restent |
 | Un événement (création, modification, suppression) | grille et « À venir » du Calendrier, section Entretiens de la fiche, Prochains rendez-vous du tableau de bord, copie CalDAV (PUT ou DELETE, SEQUENCE incrémenté), flux .ics ; à la création, statut de la candidature et chiffres du tableau de bord |
