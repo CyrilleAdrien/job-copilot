@@ -88,8 +88,8 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.goto("/boite-de-reception");
     await page.getByRole("radio", { name: "Démonstration" }).click();
     await page.getByRole("button", { name: "Connecter la boîte" }).click();
-    const panel = page.getByRole("complementary", { name: "Boîtes connectées, envoyés et traités" });
-    await expect(panel.getByRole("img", { name: "Connectée" })).toBeVisible();
+    const folders = page.getByRole("complementary", { name: "Dossiers de la boîte de réception" });
+    await expect(folders.getByRole("img", { name: "Connectée" })).toBeVisible();
 
     await page.getByRole("button", { name: "Synchroniser" }).click();
     await expect
@@ -100,10 +100,13 @@ test("parcours complet, du profil à la suppression des données", async ({ page
       .toBeGreaterThan(2);
 
     await page.reload();
-    await page.getByRole("radio", { name: "Tous" }).click();
-    await page.getByRole("button", { name: "Répondre" }).first().click();
+    await page.getByRole("list", { name: "Mails" }).getByRole("button").first().click();
+    await page.getByRole("button", { name: "Répondre" }).click();
     const composer = page.getByRole("form", { name: "Répondre à ce mail" });
-    await expect(composer.getByRole("button", { name: /Aide à la rédaction/ })).toBeDisabled();
+    await composer.getByLabel("Message").fill("disponible mardi");
+    await composer.getByRole("button", { name: "Rédiger avec l'IA" }).click();
+    // La proposition remplit le formulaire ; rien ne part sans un clic sur Envoyer.
+    await expect(composer.getByLabel("Message")).toHaveValue(/Cordialement/);
     await composer.getByLabel("Message").fill("Bonjour, je suis disponible mardi à 14 h.");
     // Une faute de frappe dans le domaine bloque l'envoi tant qu'elle n'est pas tranchée.
     const recipient = composer.getByLabel("À", { exact: true });
@@ -117,7 +120,17 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await recipient.fill(original);
     await composer.getByRole("button", { name: "Envoyer" }).click();
     await expect(composer).toHaveCount(0);
-    await expect(panel.getByRole("list", { name: "Envoyés" })).toContainText("Re: ");
+    await folders.getByRole("button", { name: "Envoyés" }).click();
+    await expect(page.getByRole("list", { name: "Mails envoyés" })).toContainText("Re: ");
+
+    await page.getByRole("button", { name: "Nouveau message" }).click();
+    const compose = page.getByRole("form", { name: "Nouveau message" });
+    await compose.getByLabel("À", { exact: true }).fill("recrutement@exemple.fr");
+    await compose.getByLabel("Objet").fill("Candidature spontanée");
+    await compose.getByLabel("Message").fill("Bonjour, voici ma candidature.");
+    await compose.getByRole("button", { name: "Envoyer" }).click();
+    await expect(compose).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Mails envoyés" })).toContainText("Candidature spontanée");
   });
 
   await test.step("un entretien s'ajoute au calendrier et au flux .ics", async () => {

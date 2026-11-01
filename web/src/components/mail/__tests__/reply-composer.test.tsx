@@ -81,15 +81,42 @@ describe("ReplyComposer", () => {
     expect(onSent).not.toHaveBeenCalled();
   });
 
-  it("offers the writing help as a button that does nothing yet", async () => {
-    const fetchMock = vi.fn();
+  it("fills the message with the proposal, using what was typed as notes, and sends nothing", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: "Bonjour, mardi me convient." }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
+    const { user, onSent } = setup();
+    await user.type(screen.getByLabelText("Message"), "oui mardi");
+    await user.click(screen.getByRole("button", { name: "Rédiger avec l'IA" }));
+    expect(await screen.findByDisplayValue("Bonjour, mardi me convient.")).toBeInTheDocument();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/mail/messages/m1/draft");
+    expect(JSON.parse(init.body)).toEqual({ notes: "oui mardi" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onSent).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Reprendre mon texte" }));
+    expect(screen.getByLabelText("Message")).toHaveValue("oui mardi");
+  });
+
+  it("blocks sending while a passage is left to fill", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: "Disponible le [à compléter]." }), { status: 200 })));
+    const { user, send } = setup();
+    expect(screen.getByRole("button", { name: "Rédiger avec l'IA" })).toBeDisabled();
+    await user.type(screen.getByLabelText("Message"), "oui");
+    await user.click(screen.getByRole("button", { name: "Rédiger avec l'IA" }));
+    expect(await screen.findByText(/Remplace/)).toBeInTheDocument();
+    expect(send).toBeDisabled();
+    await user.clear(screen.getByLabelText("Message"));
+    await user.type(screen.getByLabelText("Message"), "Disponible mardi.");
+    expect(send).toBeEnabled();
+  });
+
+  it("keeps the text and shows why when the model is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: "Ollama est injoignable." }), { status: 503 })));
     const { user } = setup();
-    const help = screen.getByRole("button", { name: /Aide à la rédaction/ });
-    expect(help).toBeDisabled();
-    await user.click(help);
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Message")).toHaveValue("");
+    await user.type(screen.getByLabelText("Message"), "Mes idées");
+    await user.click(screen.getByRole("button", { name: "Rédiger avec l'IA" }));
+    expect(await screen.findByText("Ollama est injoignable.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toHaveValue("Mes idées");
   });
 
   it("cancels without sending", async () => {
@@ -168,13 +195,18 @@ describe("ReplyList", () => {
   it("shows nothing without a reply, then each reply with its recipient", () => {
     const { rerender, container } = render(<ReplyList replies={[]} />);
     expect(container).toBeEmptyDOMElement();
-    rerender(<ReplyList replies={[{ id: "r", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "sent" as const, error: null }]} />);
+    rerender(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "sent" as const, error: null }]} />);
     expect(screen.getByText(/Réponse à rh@nimbus.io/)).toBeInTheDocument();
     expect(screen.getByText("Mardi")).toBeInTheDocument();
   });
 
   it("says when a reply may not have left", () => {
-    render(<ReplyList replies={[{ id: "r", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "uncertain", error: null }]} />);
+    render(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "uncertain", error: null }]} />);
     expect(screen.getByText(/vérifie ton dossier Envoyés/)).toBeInTheDocument();
+  });
+
+  it("says when a reply was not delivered, and why", () => {
+    render(<ReplyList replies={[{ id: "r", account_id: "a", message_id: "m1", to_address: "rh@nimbus.io", subject: "Re: x", body: "Mardi", sent_at: "2026-10-21T10:00:00Z", status: "bounced", error: "550 User unknown" }]} />);
+    expect(screen.getByText(/Non distribué \(550 User unknown\)/)).toBeInTheDocument();
   });
 });

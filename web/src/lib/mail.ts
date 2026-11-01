@@ -67,12 +67,18 @@ export type MailAccount = {
 
 export type MailReply = {
   id: string;
+  account_id: string;
+  /** Vide pour un nouveau message, sans mail d'origine. */
+  message_id: string | null;
   to_address: string;
   subject: string;
   body: string;
   sent_at: string;
-  /** uncertain : la connexion a été coupée pendant la transmission, le mail est peut-être parti. */
-  status: "sending" | "sent" | "uncertain";
+  /**
+   * uncertain : la connexion a été coupée pendant la transmission, le mail est peut-être parti.
+   * bounced : le serveur l'a accepté, puis un avis de non-distribution est arrivé.
+   */
+  status: "sending" | "sent" | "uncertain" | "bounced";
   error: string | null;
 };
 
@@ -99,7 +105,7 @@ export type MailMessage = {
   replies: MailReply[];
 };
 
-export type SyncReport = { accounts: number; new: number; linked: number; applied: number; errors: string[] };
+export type SyncReport = { accounts: number; new: number; linked: number; applied: number; bounced: number; errors: string[] };
 
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) throw await parseError(response);
@@ -145,6 +151,20 @@ export const applyMessage = async (id: string): Promise<MailMessage> =>
 /** `clientKey` reste le même pour un brouillon : un second clic ne renvoie pas le mail. */
 export const sendReply = async (id: string, draft: ReplyDraft, clientKey: string): Promise<MailMessage> =>
   json(await fetch(`${BASE}/messages/${id}/reply`, send("POST", { ...draft, client_key: clientKey })));
+
+export const sendNewMail = async (accountId: string, draft: ReplyDraft, clientKey: string): Promise<MailReply> =>
+  json(await fetch(`${BASE}/accounts/${accountId}/send`, send("POST", { ...draft, client_key: clientKey })));
+
+export const fetchSent = async (): Promise<MailReply[]> => json(await fetch(`${BASE}/sent`, { cache: "no-store" }));
+
+/** Proposition d'Ollama pour une réponse. Rien n'est envoyé. `notes` : ce que l'utilisateur veut dire. */
+export const draftReply = async (id: string, notes: string): Promise<string> => {
+  const draft = await json<{ body: string }>(await fetch(`${BASE}/messages/${id}/draft`, send("POST", { notes })));
+  return draft.body;
+};
+
+/** Ce que le modèle ne pouvait pas savoir : l'envoi reste bloqué tant que ce texte est là. */
+export const TO_FILL = "[à compléter]";
 
 /** Teste la connexion d'envoi, sans envoyer de mail. */
 export const checkSending = async (accountId: string): Promise<MailAccount> =>
@@ -204,33 +224,39 @@ export function needsReview(message: MailMessage) {
 /** Résumé d'une lecture, en une phrase. */
 export function syncSummary(report: SyncReport) {
   if (report.accounts === 0) return "Aucune boîte connectée.";
-  if (report.new === 0) return "Aucun nouveau mail lié à tes candidatures.";
+  const bounced = report.bounced ? `${report.bounced} mail${report.bounced > 1 ? "s" : ""} non distribué${report.bounced > 1 ? "s" : ""}` : null;
+  if (report.new === 0) return bounced ? `${bounced}.` : "Aucun nouveau mail lié à tes candidatures.";
   const parts = [`${report.new} nouveau${report.new > 1 ? "x" : ""} mail${report.new > 1 ? "s" : ""}`];
+  if (bounced) parts.push(bounced);
   if (report.applied) parts.push(`${report.applied} statut${report.applied > 1 ? "s" : ""} mis à jour`);
   return `${parts.join(", ")}.`;
 }
 
-export type SentReply = MailReply & { message: MailMessage };
+export type InboxView = "inbox" | "pending" | "treated";
+export type MailFolder = InboxView | "sent";
 
-/** Toutes les réponses envoyées, les plus récentes d'abord. */
-export function sentReplies(messages: MailMessage[]): SentReply[] {
-  return messages
-    .flatMap((message) => message.replies.map((reply) => ({ ...reply, message })))
-    .sort((a, b) => b.sent_at.localeCompare(a.sent_at));
-}
-
-/** Les mails traités, à la main ou par un statut appliqué. Les plus récents d'abord. */
-export function treatedMessages(messages: MailMessage[]) {
-  return messages.filter((message) => message.reviewed).sort((a, b) => b.received_at.localeCompare(a.received_at));
-}
-
-export type InboxView = "pending" | "all";
-
-/** Mails affichés : « À vérifier » ou tous, puis la catégorie choisie. Les plus récents d'abord. */
+/** Mails d'un dossier, puis de la catégorie choisie. Les plus récents d'abord. */
 export function filterMessages(messages: MailMessage[], view: InboxView, category: Category | "all") {
   return messages
-    .filter((message) => (view === "all" || needsReview(message)) && (category === "all" || message.category === category))
+    .filter((message) => view === "inbox" || (view === "pending") === needsReview(message))
+    .filter((message) => category === "all" || message.category === category)
     .sort((a, b) => b.received_at.localeCompare(a.received_at));
+}
+
+const timeOnly = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
+const dayMonth = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
+const fullDate = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** Date courte de la liste : l'heure aujourd'hui, le jour cette année, la date complète avant. */
+export function listDate(value: string, now: Date = new Date()) {
+  const date = new Date(value);
+  if (date.toDateString() === now.toDateString()) return timeOnly.format(date);
+  return (date.getFullYear() === now.getFullYear() ? dayMonth : fullDate).format(date);
+}
+
+/** Première lettre affichée dans la pastille de l'expéditeur. */
+export function senderInitial(message: Pick<MailMessage, "from_name" | "from_address">) {
+  return (message.from_name || message.from_address).trim().charAt(0).toUpperCase() || "?";
 }
 
 /** Nombre de mails par catégorie, pour les pastilles du filtre. */

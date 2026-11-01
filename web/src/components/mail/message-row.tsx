@@ -1,158 +1,79 @@
 "use client";
 
-import { ArrowUpRight, CalendarPlus, Check, Link2, Reply, Tag, Undo2 } from "lucide-react";
-import Link from "next/link";
-import { motion } from "motion/react";
-import { useState } from "react";
+import { Check, Undo2 } from "lucide-react";
 
-import { ReplyComposer, ReplyList } from "@/components/mail/reply-composer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Menu } from "@/components/ui/menu";
-import type { ApplicationSummary } from "@/lib/applications";
-import { canApply, categories, categoryOrder, type Category, type MailMessage } from "@/lib/mail";
-import { spring } from "@/lib/motion";
-import { applicationStatuses } from "@/lib/statuses";
+import { categories, listDate, type MailMessage, type MailReply } from "@/lib/mail";
+import { cn } from "@/lib/utils";
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const ROW = "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-4 py-2.5 text-left text-sm transition-colors duration-150 hover:bg-background-subtle md:grid-cols-[180px_minmax(0,1fr)_auto]";
 
-/** Un mail classé : catégorie, candidature liée, statut appliqué ou proposé, et les corrections possibles. */
+/** Une ligne, comme dans une messagerie : expéditeur, objet, début du texte, date. En gras : à vérifier. */
 export function MessageRow({
   message,
-  application,
-  applications,
-  onUpdate,
-  onApply,
-  onReplied,
+  onOpen,
+  onToggleReviewed,
 }: {
   message: MailMessage;
-  application?: ApplicationSummary;
-  applications: ApplicationSummary[];
-  onUpdate: (changes: Partial<Pick<MailMessage, "category" | "application_id" | "reviewed">>) => void;
-  onApply: () => void;
-  onReplied: (updated: MailMessage) => void;
+  onOpen: () => void;
+  onToggleReviewed: () => void;
 }) {
-  const [replying, setReplying] = useState(false);
-  const { label, tone, icon: Icon } = categories[message.category];
-  const suggested = message.suggested_status ? applicationStatuses[message.suggested_status].label : null;
+  const { label, tone } = categories[message.category];
+  const unread = !message.reviewed;
+  const subject = message.subject || "(sans objet)";
+  // Un accusé de réception ou un mail sans catégorie n'apporte rien de plus dans la liste.
+  const showLabel = message.category !== "acknowledgment" && message.category !== "other";
 
   return (
-    <motion.li
-      layout="position"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={spring.smooth}
-      className="flex flex-col gap-2.5 py-4"
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <Badge tone={tone}>
-          <Icon aria-hidden strokeWidth={2} />
-          {label}
-        </Badge>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{message.subject || "(sans objet)"}</span>
-        <time className="text-[12px] tabular-nums text-text-tertiary" dateTime={message.received_at}>
-          {dateFormatter.format(new Date(message.received_at))}
+    <li className="group relative">
+      <button type="button" onClick={onOpen} className={ROW}>
+        <span className={cn("truncate", unread ? "font-semibold" : "text-text-secondary")}>{message.from_name || message.from_address}</span>
+        <time className={cn("col-start-2 row-start-1 text-[12px] tabular-nums md:col-start-3", unread ? "font-semibold" : "text-text-tertiary")} dateTime={message.received_at}>
+          {listDate(message.received_at)}
         </time>
-      </div>
-      <p className="text-[12px] text-text-tertiary">{message.from_name ? `${message.from_name} · ${message.from_address}` : message.from_address}</p>
-      {message.snippet && <p className="line-clamp-2 text-[13px] text-text-secondary">{message.snippet}</p>}
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-0.5 text-[12px]">
-        {application ? (
-          <Link
-            href={`/candidatures?id=${application.id}`}
-            className="inline-flex min-w-0 items-center gap-1 font-medium text-accent-strong hover:underline"
-          >
-            <span className="truncate">
-              {application.title}
-              {application.company ? ` · ${application.company}` : ""}
-            </span>
-            <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
-          </Link>
-        ) : (
-          <span className="text-text-tertiary">Aucune candidature liée</span>
-        )}
-        {application && message.match_reason?.endsWith("à confirmer") && (
-          <span className="text-warning" title="Plusieurs candidatures en cours chez cette entreprise">
-            Rattachement à confirmer
+        <span className="col-span-2 flex min-w-0 items-center gap-2 md:col-span-1 md:col-start-2 md:row-start-1">
+          {showLabel && <Badge tone={tone}>{label}</Badge>}
+          <span className="min-w-0 truncate">
+            <span className={cn(unread && "font-semibold")}>{subject}</span>
+            {message.snippet && <span className="text-text-tertiary"> – {message.snippet}</span>}
           </span>
-        )}
-        {message.status_applied && suggested && (
-          <span className="inline-flex items-center gap-1 text-success">
-            <Check className="size-3.5" aria-hidden />
-            Passée à « {suggested} »
-          </span>
-        )}
-
-        <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="sm" aria-expanded={replying} onClick={() => setReplying((open) => !open)}>
-            <Reply aria-hidden />
-            Répondre
-          </Button>
-          {application && (message.category === "interview" || message.category === "technical_test") && (
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`/calendrier?new=1&application_id=${application.id}&kind=${message.category}`}>
-                <CalendarPlus aria-hidden />
-                Planifier
-              </Link>
-            </Button>
-          )}
-          {canApply(message) && (
-            <Button variant="secondary" size="sm" onClick={onApply}>
-              Passer à « {suggested} »
-            </Button>
-          )}
-          <Menu
-            label="Rattacher à une candidature"
-            align="end"
-            trigger={<Link2 className="size-4" aria-hidden />}
-            items={[
-              ...applications.map((item) => ({
-                label: `${item.title}${item.company ? ` · ${item.company}` : ""}`,
-                onSelect: () => onUpdate({ application_id: item.id }),
-              })),
-              ...(message.application_id
-                ? [{ label: "Détacher", tone: "danger" as const, separated: true, onSelect: () => onUpdate({ application_id: null }) }]
-                : []),
-            ]}
-          />
-          <Menu
-            label="Corriger la catégorie"
-            align="end"
-            trigger={<Tag className="size-4" aria-hidden />}
-            items={categoryOrder
-              .filter((category) => category !== message.category)
-              .map((category: Category) => {
-                const { label: name, icon: CategoryIcon } = categories[category];
-                return { label: name, icon: <CategoryIcon aria-hidden />, onSelect: () => onUpdate({ category }) };
-              })}
-          />
-          {message.reviewed ? (
-            <Button variant="ghost" size="sm" onClick={() => onUpdate({ reviewed: false })}>
-              <Undo2 aria-hidden />
-              À revoir
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={() => onUpdate({ reviewed: true })}>
-              <Check aria-hidden />
-              Traité
-            </Button>
-          )}
-        </div>
+        </span>
+      </button>
+      <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 bg-background-subtle md:group-focus-within:block md:group-hover:block">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          aria-label={`${message.reviewed ? "Remettre à vérifier" : "Marquer comme traité"} : ${subject}`}
+          title={message.reviewed ? "Remettre à vérifier" : "Marquer comme traité"}
+          onClick={onToggleReviewed}
+        >
+          {message.reviewed ? <Undo2 aria-hidden /> : <Check aria-hidden />}
+        </Button>
       </div>
-      <ReplyList replies={message.replies} />
-      {replying && (
-        <ReplyComposer
-          message={message}
-          onCancel={() => setReplying(false)}
-          onSent={(updated) => {
-            setReplying(false);
-            onReplied(updated);
-          }}
-        />
-      )}
-      {message.reason && <p className="sr-only">Classement : {message.reason}</p>}
-    </motion.li>
+    </li>
+  );
+}
+
+/** Un mail envoyé dans la liste. Seul un problème de distribution ajoute une mention. */
+export function SentRow({ reply, onOpen }: { reply: MailReply; onOpen: () => void }) {
+  return (
+    <li>
+      <button type="button" onClick={onOpen} className={ROW}>
+        <span className="truncate text-text-secondary">À : {reply.to_address}</span>
+        <time className="col-start-2 row-start-1 text-[12px] tabular-nums text-text-tertiary md:col-start-3" dateTime={reply.sent_at}>
+          {listDate(reply.sent_at)}
+        </time>
+        <span className="col-span-2 flex min-w-0 items-center gap-2 md:col-span-1 md:col-start-2 md:row-start-1">
+          {reply.status === "bounced" && <Badge tone="danger">Non distribué</Badge>}
+          {reply.status === "uncertain" && <Badge tone="warning">Incertain</Badge>}
+          <span className="min-w-0 truncate">
+            {reply.subject}
+            <span className="text-text-tertiary"> – {reply.body}</span>
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }

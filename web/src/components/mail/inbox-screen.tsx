@@ -6,45 +6,49 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { AccountForm } from "@/components/mail/account-form";
-import { MailSidePanel } from "@/components/mail/mail-side-panel";
-import { MessageRow } from "@/components/mail/message-row";
+import { ComposeWindow } from "@/components/mail/compose-window";
+import { MailFolders } from "@/components/mail/mail-folders";
+import { MessageRow, SentRow } from "@/components/mail/message-row";
+import { MessageView, SentView } from "@/components/mail/message-view";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SendSettings } from "@/components/mail/send-settings";
 import { Modal } from "@/components/ui/modal";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
 import { fetchApplications, type ApplicationSummary } from "@/lib/applications";
 import { timeAgo } from "@/lib/jobs";
 import {
   applyMessage,
-  categories,
-  categoryOrder,
   countByCategory,
   deleteAccount,
   fetchAccounts,
   fetchMessages,
+  fetchSent,
   filterMessages,
   needsReview,
   syncMail,
   syncSummary,
   updateMessage,
   type Category,
-  type InboxView,
   type MailAccount,
+  type MailFolder,
   type MailMessage,
+  type MailReply,
 } from "@/lib/mail";
 import { fadeUp, spring } from "@/lib/motion";
-import { cn } from "@/lib/utils";
 
 export function InboxScreen() {
   const [accounts, setAccounts] = useState<MailAccount[] | null>(null);
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [applications, setApplications] = useState<ApplicationSummary[]>([]);
-  const [view, setView] = useState<InboxView>("pending");
+  const [sent, setSent] = useState<MailReply[]>([]);
+  const [folder, setFolder] = useState<MailFolder>("inbox");
+  // Le mail ouvert : tant qu'il y en a un, il remplace la liste.
+  const [opened, setOpened] = useState<{ kind: "message" | "sent"; id: string } | null>(null);
+  const [composing, setComposing] = useState(false);
   const [category, setCategory] = useState<Category | "all">("all");
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -54,13 +58,15 @@ export function InboxScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [loadedAccounts, loadedMessages, loadedApplications] = await Promise.all([
+      const [loadedAccounts, loadedMessages, loadedApplications, loadedSent] = await Promise.all([
         fetchAccounts(),
         fetchMessages(),
         fetchApplications(),
+        fetchSent(),
       ]);
       setAccounts(loadedAccounts);
       setMessages(loadedMessages);
+      setSent(loadedSent);
       setApplications(loadedApplications);
     } catch (e) {
       setError(e as ApiError);
@@ -73,9 +79,17 @@ export function InboxScreen() {
 
   const byId = useMemo(() => new Map(applications.map((item) => [item.id, item])), [applications]);
   const pending = messages.filter(needsReview).length;
-  const scope = view === "pending" ? messages.filter(needsReview) : messages;
-  const counts = countByCategory(scope);
-  const visible = filterMessages(messages, view, category);
+  const inboxFolder = folder === "sent" ? "inbox" : folder;
+  const counts = countByCategory(filterMessages(messages, inboxFolder, "all"));
+  const visible = filterMessages(messages, inboxFolder, category);
+  const openedMessage = opened?.kind === "message" ? messages.find((m) => m.id === opened.id) : undefined;
+  const openedSent = opened?.kind === "sent" ? sent.find((m) => m.id === opened.id) : undefined;
+
+  function chooseFolder(next: MailFolder) {
+    setFolder(next);
+    setCategory("all");
+    setOpened(null);
+  }
 
   async function sync() {
     setSyncing(true);
@@ -115,10 +129,21 @@ export function InboxScreen() {
   function replied(updated: MailMessage) {
     setMessages((current) => current.map((m) => (m.id === updated.id ? updated : m)));
     const reply = updated.replies.at(-1);
+    if (reply) announceSent(reply);
+    fetchSent().then(setSent).catch(() => undefined);
+  }
+
+  function composed(reply: MailReply) {
+    setComposing(false);
+    setSent((current) => [reply, ...current]);
+    announceSent(reply);
+  }
+
+  function announceSent(reply: MailReply) {
     setNotice(
-      reply?.status === "uncertain"
+      reply.status === "uncertain"
         ? "Envoi incertain : vérifie ton dossier Envoyés avant de renvoyer."
-        : `Réponse acceptée par le serveur d'envoi, à destination de ${reply?.to_address}.`,
+        : `Mail accepté par le serveur d'envoi, à destination de ${reply.to_address}.`,
     );
   }
 
@@ -198,75 +223,86 @@ export function InboxScreen() {
           </CardContent>
         </Card>
       ) : (
-        <motion.div {...fadeUp} transition={spring.smooth} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <Card>
-            <CardHeader className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <SegmentedControl
-                  label="Mails affichés"
-                  segments={[
-                    { value: "pending", label: `À vérifier${pending ? ` (${pending})` : ""}` },
-                    { value: "all", label: "Tous" },
-                  ]}
-                  value={view}
-                  onChange={setView}
-                />
-              </div>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Catégorie">
-                <CategoryChip label="Toutes" count={scope.length} selected={category === "all"} onClick={() => setCategory("all")} />
-                {categoryOrder
-                  .filter((c) => counts[c] > 0 || category === c)
-                  .map((c) => (
-                    <CategoryChip
-                      key={c}
-                      label={categories[c].label}
-                      count={counts[c]}
-                      selected={category === c}
-                      onClick={() => setCategory(category === c ? "all" : c)}
-                    />
-                  ))}
-              </div>
-            </CardHeader>
-            <CardContent className="pt-1">
-              {visible.length === 0 ? (
-                <div className="py-6">
-                  <EmptyState
-                    icon={Inbox}
-                    title={view === "pending" ? "Tout est à jour" : "Aucun mail pour l'instant"}
-                    description={
-                      view === "pending"
-                        ? "Aucun mail ne demande ton attention. Les statuts sûrs ont été mis à jour tout seuls."
-                        : "Synchronise ta boîte pour lire les réponses à tes candidatures."
-                    }
-                  />
+        <motion.div {...fadeUp} transition={spring.smooth} className="grid items-start gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <MailFolders
+            folder={folder}
+            counts={{ inbox: pending, pending }}
+            alertSent={sent.some((reply) => reply.status === "bounced")}
+            category={category}
+            categoryCounts={counts}
+            accounts={accounts}
+            onCompose={() => setComposing(true)}
+            onFolder={chooseFolder}
+            onCategory={(next) => {
+              setCategory(next);
+              setOpened(null);
+            }}
+          />
+          <Card className="min-w-0 overflow-hidden">
+            {openedMessage ? (
+              <MessageView
+                key={openedMessage.id}
+                message={openedMessage}
+                application={openedMessage.application_id ? byId.get(openedMessage.application_id) : undefined}
+                applications={applications}
+                onBack={() => setOpened(null)}
+                onUpdate={(changes) => change(openedMessage.id, changes)}
+                onApply={() => apply(openedMessage.id)}
+                onReplied={replied}
+              />
+            ) : openedSent ? (
+              <SentView
+                key={openedSent.id}
+                reply={openedSent}
+                original={messages.find((m) => m.id === openedSent.message_id)}
+                onBack={() => setOpened(null)}
+                onOpenOriginal={() => openedSent.message_id && setOpened({ kind: "message", id: openedSent.message_id })}
+              />
+            ) : folder === "sent" ? (
+              sent.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState icon={Inbox} title="Aucun mail envoyé" description="Tes réponses et tes nouveaux messages apparaîtront ici." />
                 </div>
               ) : (
-                <ul className="flex flex-col divide-y divide-border">
-                  <AnimatePresence initial={false}>
-                    {visible.map((message) => (
-                      <MessageRow
-                        key={message.id}
-                        message={message}
-                        application={message.application_id ? byId.get(message.application_id) : undefined}
-                        applications={applications}
-                        onUpdate={(changes) => change(message.id, changes)}
-                        onApply={() => apply(message.id)}
-                        onReplied={replied}
-                      />
-                    ))}
-                  </AnimatePresence>
+                <ul aria-label="Mails envoyés" className="flex flex-col divide-y divide-border">
+                  {sent.map((reply) => (
+                    <SentRow key={reply.id} reply={reply} onOpen={() => setOpened({ kind: "sent", id: reply.id })} />
+                  ))}
                 </ul>
-              )}
-            </CardContent>
+              )
+            ) : visible.length === 0 ? (
+              <div className="p-6">
+                <EmptyState
+                  icon={Inbox}
+                  title={folder === "pending" ? "Tout est à jour" : folder === "treated" ? "Aucun mail traité" : "Aucun mail pour l'instant"}
+                  description={
+                    folder === "pending"
+                      ? "Aucun mail ne demande ton attention. Les statuts sûrs ont été mis à jour tout seuls."
+                      : folder === "treated"
+                        ? "Les mails que tu marques comme traités apparaîtront ici."
+                        : "Synchronise ta boîte pour lire les réponses à tes candidatures."
+                  }
+                />
+              </div>
+            ) : (
+              <ul aria-label="Mails" className="flex flex-col divide-y divide-border">
+                {visible.map((message) => (
+                  <MessageRow
+                    key={message.id}
+                    message={message}
+                    onOpen={() => setOpened({ kind: "message", id: message.id })}
+                    onToggleReviewed={() => change(message.id, { reviewed: !message.reviewed })}
+                  />
+                ))}
+              </ul>
+            )}
           </Card>
-          <MailSidePanel
-            accounts={accounts}
-            messages={messages}
-            byId={byId}
-            onReopen={(id) => change(id, { reviewed: false })}
-          />
         </motion.div>
       )}
+
+      <AnimatePresence>
+        {composing && connected && <ComposeWindow accounts={accounts} onSent={composed} onClose={() => setComposing(false)} />}
+      </AnimatePresence>
 
       <Modal
         open={settingsOpen && connected}
@@ -328,24 +364,5 @@ export function InboxScreen() {
         </section>
       </Modal>
     </>
-  );
-}
-
-function CategoryChip({ label, count, selected, onClick }: { label: string; count: number; selected: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors duration-150",
-        selected
-          ? "border-accent-strong bg-accent-soft text-accent-strong"
-          : "border-border bg-surface text-text-secondary hover:text-text",
-      )}
-    >
-      {label}
-      <span className="tabular-nums opacity-70">{count}</span>
-    </button>
   );
 }
