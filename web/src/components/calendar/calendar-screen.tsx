@@ -2,9 +2,9 @@
 
 import { AlertCircle, CalendarDays, Plus, Settings } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { CalendarSync } from "@/components/calendar/calendar-sync";
 import { EventEditor, type EditorTarget } from "@/components/calendar/event-editor";
 import { EventItem } from "@/components/calendar/event-item";
 import { MonthView } from "@/components/calendar/month-view";
@@ -12,7 +12,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
 import { fetchApplications, type ApplicationSummary } from "@/lib/applications";
@@ -38,7 +37,6 @@ export function CalendarScreen() {
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [target, setTarget] = useState<EditorTarget | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [now] = useState(() => new Date());
 
@@ -114,9 +112,11 @@ export function CalendarScreen() {
         description="Entretiens, tests techniques et relances, dans l'app et dans ton calendrier."
         actions={
           <>
-            <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
-              {account?.last_error ? <AlertCircle className="text-danger" aria-hidden /> : <Settings aria-hidden />}
-              Réglages
+            <Button variant="secondary" asChild>
+              <Link href="/reglages#calendrier">
+                {account?.last_error ? <AlertCircle className="text-danger" aria-hidden /> : <Settings aria-hidden />}
+                Réglages
+              </Link>
             </Button>
             <Button onClick={() => setTarget({ mode: "create", day: dayKey(new Date(now.getTime() + 86400000)) })}>
               <Plus aria-hidden />
@@ -189,15 +189,6 @@ export function CalendarScreen() {
           </div>
         </motion.div>
       )}
-
-      <Modal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        title="Réglages du calendrier"
-        description="Où recopier tes rendez-vous, et comment t'y abonner."
-      >
-        <CalendarSync account={account} onChange={load} />
-      </Modal>
 
       <EventEditor target={target} applications={applications} onClose={close} onSaved={saved} onDeleted={deleted} />
     </>

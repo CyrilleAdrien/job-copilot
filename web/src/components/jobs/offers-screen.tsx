@@ -57,7 +57,7 @@ export function OffersScreen() {
     else setError(e);
   }, []);
 
-  /** Interroge les sources (cache de 15 min côté serveur) puis relit la liste. */
+  /** Interroge les sources (cache côté serveur, délai dans Réglages) puis relit la liste. */
   const sync = useCallback(
     async (window: Window, order: SortOrder, searchId: string | undefined, force = false) => {
       const call = ++latest.current;

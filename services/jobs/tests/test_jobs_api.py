@@ -155,8 +155,8 @@ async def test_offer_detail(client):
 async def test_sources(client):
     body = (await client.get("/sources")).json()
     assert body == [
-        {"name": "first", "label": "first", "configured": True},
-        {"name": "second", "label": "second", "configured": True},
+        {"name": "first", "label": "first", "configured": True, "origin": "env"},
+        {"name": "second", "label": "second", "configured": True, "origin": "env"},
     ]
 
 

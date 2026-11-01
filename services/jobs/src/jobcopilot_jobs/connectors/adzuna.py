@@ -34,6 +34,19 @@ class Adzuna:
     def configured(self) -> bool:
         return bool(self.app_id and self.app_key)
 
+    async def check(self) -> None:
+        params = {"app_id": self.app_id or "", "app_key": self.app_key or ""}
+        try:
+            response = await self.client.get(
+                SEARCH_URL.format(country="fr"), params={**params, "results_per_page": 1}
+            )
+        except httpx.HTTPError as exc:
+            raise SourceError("Adzuna injoignable") from exc
+        if response.status_code in (401, 403):
+            raise SourceError("identifiants Adzuna refusés")
+        if response.status_code != 200:
+            raise SourceError(f"Adzuna a répondu {response.status_code}")
+
     async def search(self, query: Query) -> list[RawOffer]:
         params: dict[str, str | int] = {
             "app_id": self.app_id or "",

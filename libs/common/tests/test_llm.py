@@ -2,10 +2,12 @@ import json
 
 import httpx
 import pytest
+from fakeredis import FakeAsyncRedis
 from pydantic import BaseModel
+from redis.exceptions import RedisError
 
 from jobcopilot_common import Settings
-from jobcopilot_common.llm import LLMError, Ollama
+from jobcopilot_common.llm import MODEL_KEY, LLMError, Ollama
 
 
 class Answer(BaseModel):
@@ -80,3 +82,31 @@ async def test_available_checks_the_model_is_pulled():
     tags = {"models": [{"name": "qwen2.5:7b"}]}
     assert await ollama(lambda _: httpx.Response(200, json=tags)).available()
     assert not await ollama(lambda _: httpx.Response(200, json={"models": []})).available()
+
+
+async def test_model_chosen_in_settings_replaces_the_default():
+    cache = FakeAsyncRedis(decode_responses=True)
+    seen = []
+
+    def chat(request):
+        seen.append(json.loads(request.content)["model"])
+        return httpx.Response(200, json={"message": {"content": '{"ok": true}'}})
+
+    class Ok(BaseModel):
+        ok: bool
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(chat)) as client:
+        llm = Ollama(Settings(ollama_model="defaut:7b"), client, cache)
+        await llm.complete("s", "p", Ok)
+        await cache.set(MODEL_KEY, "choisi:4b")
+        await llm.complete("s", "p", Ok)
+    assert seen == ["defaut:7b", "choisi:4b"]
+
+
+async def test_unavailable_redis_falls_back_on_the_default():
+    class Down:
+        async def get(self, key):
+            raise RedisError("down")
+
+    llm = Ollama(Settings(ollama_model="defaut:7b"), httpx.AsyncClient(), Down())
+    assert await llm.current_model() == "defaut:7b"

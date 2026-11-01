@@ -1,14 +1,16 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from jobcopilot_common.crypto import SecretKeyMissing, fernet
 from jobcopilot_common.db import get_session
-from jobcopilot_jobs import repository, service
-from jobcopilot_jobs.connectors import Connector
-from jobcopilot_jobs.deps import Cache, get_connectors, get_criteria
+from jobcopilot_jobs import credentials, repository, service
+from jobcopilot_jobs.connectors import Connector, FranceTravail, SourceError
+from jobcopilot_jobs.connectors.france_travail import TOKEN_KEY
+from jobcopilot_jobs.deps import Cache, Http, connector_for, get_connectors, get_criteria
 from jobcopilot_jobs.matching import Match, score_offer
 from jobcopilot_jobs.models import OfferRow
 from jobcopilot_jobs.schemas import (
@@ -17,8 +19,10 @@ from jobcopilot_jobs.schemas import (
     OfferDetail,
     OfferList,
     RefreshResult,
+    SearchSettings,
     Sort,
     SourceInfo,
+    SourceKeys,
 )
 
 WINDOWS = (1, 3, 7, 14, 30)
@@ -167,11 +171,12 @@ async def refresh_offers(
     max_age_days: Window,
     force: bool = False,
 ) -> RefreshResult:
-    """Interroge les sources. Le résultat est mis en cache 15 minutes, `force` l'ignore."""
+    """Interroge les sources. Le résultat reste en cache le délai des réglages, `force` l'ignore."""
     if max_age_days:
         criteria = criteria.model_copy(update={"max_age_days": max_age_days})
     try:
-        return await service.refresh(session, cache, criteria, connectors, force=force)
+        ttl = await credentials.refresh_minutes(session) * 60
+        return await service.refresh(session, cache, criteria, connectors, force=force, ttl=ttl)
     except service.RefreshInProgress as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Une actualisation est déjà en cours."
@@ -192,5 +197,88 @@ async def remove_favorite(offer_id: int, session: Session, criteria: Profile) ->
 
 
 @router.get("/sources", response_model=list[SourceInfo])
-async def list_sources(connectors: Connectors) -> list[SourceInfo]:
-    return [SourceInfo(name=c.name, label=c.label, configured=c.configured()) for c in connectors]
+async def list_sources(connectors: Connectors, session: Session) -> list[SourceInfo]:
+    stored = await credentials.stored_names(session)
+    return [
+        SourceInfo(
+            name=c.name,
+            label=c.label,
+            configured=c.configured(),
+            origin=("settings" if c.name in stored else "env") if c.configured() else None,
+        )
+        for c in connectors
+    ]
+
+
+def source_info(connector: Connector, origin: Literal["settings", "env"] | None) -> SourceInfo:
+    return SourceInfo(
+        name=connector.name,
+        label=connector.label,
+        configured=connector.configured(),
+        origin=origin,
+    )
+
+
+async def verify(connector: Connector) -> None:
+    try:
+        await connector.check()
+    except SourceError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{str(exc).capitalize()}.") from exc
+
+
+@router.put("/sources/{name}", response_model=SourceInfo)
+async def save_source_keys(
+    name: str, keys: SourceKeys, session: Session, cache: Cache, http: Http
+) -> SourceInfo:
+    """Teste les clés, puis les chiffre. Des clés refusées ne sont pas enregistrées."""
+    connector = connector_for(name, cache, http, keys.key_id.strip(), keys.secret.strip())
+    if connector is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source inconnue.")
+    await verify(connector)
+    try:
+        await credentials.save(session, name, keys.key_id.strip(), keys.secret.strip())
+    except SecretKeyMissing as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return source_info(connector, "settings")
+
+
+@router.post("/sources/{name}/test", response_model=SourceInfo)
+async def test_source_keys(name: str, connectors: Connectors, session: Session) -> SourceInfo:
+    connector = next((c for c in connectors if c.name == name), None)
+    if connector is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Source inconnue.")
+    if not connector.configured():
+        raise HTTPException(status.HTTP_409_CONFLICT, "Aucune clé pour cette source.")
+    await verify(connector)
+    stored = await credentials.stored_names(session)
+    return source_info(connector, "settings" if name in stored else "env")
+
+
+@router.delete("/sources/{name}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_source_keys(name: str, session: Session, cache: Cache) -> None:
+    """Retire les clés des réglages. Celles de .env, s'il y en a, reprennent la main."""
+    await credentials.remove(session, name)
+    if name == FranceTravail.name:
+        await cache.delete(TOKEN_KEY)
+
+
+async def search_settings_out(session: AsyncSession) -> SearchSettings:
+    try:
+        fernet()
+        encryption = True
+    except SecretKeyMissing:
+        encryption = False
+    return SearchSettings(
+        refresh_minutes=await credentials.refresh_minutes(session), encryption=encryption
+    )
+
+
+@router.get("/search-settings", response_model=SearchSettings)
+async def read_search_settings(session: Session) -> SearchSettings:
+    return await search_settings_out(session)
+
+
+@router.put("/search-settings", response_model=SearchSettings)
+async def write_search_settings(payload: SearchSettings, session: Session) -> SearchSettings:
+    await credentials.set_refresh_minutes(session, payload.refresh_minutes)
+    return await search_settings_out(session)

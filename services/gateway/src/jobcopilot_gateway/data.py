@@ -3,18 +3,24 @@
 import asyncio
 import io
 import json
+import logging
 import os
 import zipfile
 from datetime import UTC, datetime
 
 import httpx
 from fastapi import APIRouter, HTTPException, Response, status
+from redis.exceptions import RedisError
+
+from jobcopilot_common.llm import MODEL_KEY
+from jobcopilot_gateway import system
 
 SERVICES = ["profile", "jobs", "documents", "applications", "mail", "calendar"]
 TIMEOUT = 120.0
 ZIP_FOLDER = "job-copilot"
 PHOTO_EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
+log = logging.getLogger(__name__)
 router = APIRouter(tags=["data"])
 
 
@@ -131,6 +137,15 @@ async def _erase_service(client: httpx.AsyncClient, name: str) -> None:
     response.raise_for_status()
 
 
+async def forget_model() -> None:
+    """Le choix du modèle revient à .env. Il ne vaut pas une suppression ratée : les données
+    sont déjà effacées, et ce choix n'en est pas une."""
+    try:
+        await system.get_cache().delete(MODEL_KEY)
+    except (RedisError, OSError):
+        log.warning("choix du modèle non effacé", exc_info=True)
+
+
 @router.delete("/api/data", status_code=status.HTTP_204_NO_CONTENT)
 async def erase_all() -> None:
     """Supprime tout, service par service. Peut être relancé si un service n'a pas répondu."""
@@ -148,3 +163,4 @@ async def erase_all() -> None:
             status.HTTP_502_BAD_GATEWAY,
             f"Suppression incomplète, relance-la. Service indisponible : {', '.join(failed)}.",
         )
+    await forget_model()

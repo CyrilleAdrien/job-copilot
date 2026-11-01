@@ -6,8 +6,11 @@ from typing import Annotated
 import httpx
 from fastapi import Depends, HTTPException, Query, status
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common import get_settings
+from jobcopilot_common.db import get_session
+from jobcopilot_jobs import credentials
 from jobcopilot_jobs.connectors import Adzuna, Connector, Demo, FranceTravail
 from jobcopilot_jobs.schemas import Criteria
 from jobcopilot_jobs.settings import get_jobs_settings
@@ -27,14 +30,33 @@ Cache = Annotated[Redis, Depends(get_cache)]
 Http = Annotated[httpx.AsyncClient, Depends(get_http)]
 
 
-def get_connectors(cache: Cache, http: Http) -> list[Connector]:
-    """Sources par ordre de préférence : en cas de doublon, la première est gardée."""
+def connector_for(name: str, cache: Redis, http: httpx.AsyncClient, key_id: str, secret: str):
+    """Une source avec les clés données, pour les tester avant de les enregistrer."""
+    match name:
+        case FranceTravail.name:
+            return FranceTravail(http, cache, key_id, secret)
+        case Adzuna.name:
+            return Adzuna(http, key_id, secret)
+    return None
+
+
+async def get_connectors(
+    cache: Cache, http: Http, session: Annotated[AsyncSession, Depends(get_session)]
+) -> list[Connector]:
+    """Sources par ordre de préférence : en cas de doublon, la première est gardée.
+
+    Les clés des réglages priment sur celles de .env.
+    """
     settings = get_jobs_settings()
+    stored = await credentials.load(session)
+    france_travail = stored.get(
+        FranceTravail.name,
+        (settings.france_travail_client_id, settings.france_travail_client_secret),
+    )
+    adzuna = stored.get(Adzuna.name, (settings.adzuna_app_id, settings.adzuna_app_key))
     connectors: list[Connector] = [
-        FranceTravail(
-            http, cache, settings.france_travail_client_id, settings.france_travail_client_secret
-        ),
-        Adzuna(http, settings.adzuna_app_id, settings.adzuna_app_key),
+        FranceTravail(http, cache, *france_travail),
+        Adzuna(http, *adzuna),
     ]
     if settings.jobs_demo:
         connectors.append(Demo())

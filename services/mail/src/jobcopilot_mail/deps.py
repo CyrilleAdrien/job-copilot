@@ -35,7 +35,7 @@ def get_http() -> httpx.AsyncClient:
 def get_classifier() -> Classifier:
     if get_mail_settings().llm_provider == "demo":
         return RuleClassifier()
-    return LLMClassifier(Ollama(get_settings()))
+    return LLMClassifier(Ollama(get_settings(), cache=get_cache()))
 
 
 @lru_cache
@@ -43,7 +43,7 @@ def get_drafter() -> Drafter:
     settings = get_mail_settings()
     if settings.llm_provider == "demo":
         return TemplateDrafter()
-    return LLMDrafter(Ollama(get_settings()), settings.draft_timeout)
+    return LLMDrafter(Ollama(get_settings(), cache=get_cache()), settings.draft_timeout)
 
 
 def mailbox_for(account: AccountRow, candidates: list[Candidate]) -> Mailbox:

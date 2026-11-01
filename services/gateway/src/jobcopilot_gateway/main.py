@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
-from jobcopilot_gateway import data
+from jobcopilot_gateway import data, system
 from jobcopilot_gateway.data import SERVICES, service_url
 from jobcopilot_gateway.guard import LocalOnly
 
@@ -28,6 +28,7 @@ app = FastAPI(title="job-copilot API", version="0.1.0")
 app.add_middleware(LocalOnly)
 # Avant le relais générique, dont le motif /api/{service}/{path} couvrirait /api/data/export.
 app.include_router(data.router)
+app.include_router(system.router)
 
 
 @app.get("/health", tags=["health"])
@@ -35,16 +36,27 @@ async def liveness() -> dict[str, str]:
     return {"service": "gateway", "status": "ok"}
 
 
-@app.get("/ready", tags=["health"])
-async def readiness(response: Response) -> dict:
-    """État de tous les services et de leurs dépendances, en un seul appel."""
+async def system_state() -> dict:
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         results = await asyncio.gather(*(fetch_ready(client, name) for name in SERVICES))
     services = {name: result for name, result in zip(SERVICES, results, strict=True)}
     ready = all(result["status"] == "ok" for result in services.values())
-    if not ready:
-        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return {"status": "ok" if ready else "degraded", "services": services}
+
+
+@app.get("/ready", tags=["health"])
+async def readiness(response: Response) -> dict:
+    """État de tous les services et de leurs dépendances, en un seul appel."""
+    state = await system_state()
+    if state["status"] != "ok":
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return state
+
+
+@app.get("/api/system/status", tags=["system"])
+async def system_status() -> dict:
+    """Le même état pour l'écran Réglages : une panne y est une réponse, pas une erreur."""
+    return await system_state()
 
 
 @app.api_route(

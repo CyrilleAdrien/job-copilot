@@ -75,6 +75,7 @@ async def refresh(
     criteria: Criteria,
     connectors: list[Connector],
     force: bool = False,
+    ttl: int | None = None,
 ) -> RefreshResult:
     settings = get_jobs_settings()
     key = cache_key(criteria, connectors)
@@ -97,7 +98,7 @@ async def refresh(
         )
         # Une source en erreur sera réessayée au prochain appel, sans attendre l'expiration.
         if all(status.status != "error" for status in statuses):
-            await cache.set(key, result.model_dump_json(), ex=settings.jobs_refresh_ttl)
+            await cache.set(key, result.model_dump_json(), ex=ttl or settings.jobs_refresh_ttl)
         await cache.set(LAST_REFRESH, now.isoformat())
         return result
     finally:

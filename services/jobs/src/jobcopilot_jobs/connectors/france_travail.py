@@ -24,6 +24,9 @@ CITY_DEPARTMENTS = {"75056": "75", "69123": "69", "13055": "13"}
 NO_LOCATION = {"france", "teletravail", "télétravail", "remote", "full remote"}
 
 
+TOKEN_KEY = "jobs:france_travail:token"
+
+
 class FranceTravail:
     name = "france_travail"
     label = "France Travail"
@@ -39,8 +42,16 @@ class FranceTravail:
     def configured(self) -> bool:
         return bool(self.client_id and self.secret)
 
+    async def check(self) -> None:
+        """Demande un nouveau jeton : l'ancien, en cache, ne prouverait rien."""
+        await self.cache.delete(TOKEN_KEY)
+        try:
+            await self.token()
+        except httpx.HTTPError as exc:
+            raise SourceError("France Travail injoignable") from exc
+
     async def token(self) -> str:
-        cached = await self.cache.get("jobs:france_travail:token")
+        cached = await self.cache.get(TOKEN_KEY)
         if cached:
             return cached
         response = await self.client.post(
@@ -57,7 +68,7 @@ class FranceTravail:
             raise SourceError("identifiants France Travail refusés")
         body = response.json()
         ttl = max(int(body.get("expires_in", 1500)) - 60, 60)
-        await self.cache.set("jobs:france_travail:token", body["access_token"], ex=ttl)
+        await self.cache.set(TOKEN_KEY, body["access_token"], ex=ttl)
         return body["access_token"]
 
     async def place(self, location: str) -> dict[str, str] | None:

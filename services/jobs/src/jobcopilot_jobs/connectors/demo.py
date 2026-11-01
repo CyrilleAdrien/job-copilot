@@ -51,6 +51,9 @@ class Demo:
     name = "demo"
     label = "Démonstration"
 
+    async def check(self) -> None:
+        return None
+
     def configured(self) -> bool:
         return True
 

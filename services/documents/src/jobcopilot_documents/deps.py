@@ -26,7 +26,7 @@ def get_http() -> httpx.AsyncClient:
 
 @lru_cache
 def get_llm() -> Ollama:
-    return Ollama(get_settings())
+    return Ollama(get_settings(), cache=get_cache())
 
 
 def get_context() -> Context:

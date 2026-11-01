@@ -119,3 +119,18 @@ class SourceInfo(BaseModel):
     name: str
     label: str
     configured: bool
+    # D'où viennent les clés : "settings" (réglages), "env" (.env), None si aucune.
+    origin: Literal["settings", "env"] | None = None
+
+
+class SourceKeys(BaseModel):
+    """Jamais renvoyé : ces valeurs sont testées, chiffrées, puis ne sortent plus."""
+
+    key_id: str = Field(min_length=1, max_length=300)
+    secret: str = Field(min_length=1, max_length=500)
+
+
+class SearchSettings(BaseModel):
+    refresh_minutes: int = Field(ge=5, le=1440)
+    # Le chiffrement des clés est possible : SECRET_KEY est présente et assez longue.
+    encryption: bool = True
