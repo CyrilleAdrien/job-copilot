@@ -23,3 +23,7 @@ data/
 .idea/
 .vscode/
 dump.rdb
+
+# Contrôles locaux
+scripts/relations/
+relations-shots/
