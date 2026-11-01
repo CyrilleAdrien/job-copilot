@@ -174,3 +174,32 @@ async def test_profile_preview_without_profile(client, upstream):
     response = await client.get("/profile-preview")
     assert response.status_code == 409
     assert "profil" in response.json()["detail"]
+
+
+async def test_erase_removes_pdfs_from_storage_and_rows(client, storage, monkeypatch):
+    monkeypatch.setattr("jobcopilot_documents.main.get_storage", lambda: storage)
+    monkeypatch.setattr("jobcopilot_documents.main.get_cache", lambda: client.cache)
+    generation = await generate(client)
+    document = generation["documents"][0]
+    keys = storage.client.list_objects_v2(Bucket="documents")["KeyCount"]
+    assert keys > 0
+
+    exported = (await client.get("/data/export")).json()
+    assert {row["id"] for row in exported["documents"]} >= {document["id"]}
+
+    assert (await client.delete("/data")).status_code == 204
+    assert storage.client.list_objects_v2(Bucket="documents")["KeyCount"] == 0
+    assert (await client.get(f"/documents/{document['id']}")).status_code == 404
+    assert await client.cache.xlen(pipeline.EVENTS_STREAM) == 0
+
+
+async def test_erase_keeps_rows_when_storage_fails(client, storage, monkeypatch):
+    def broken():
+        raise RuntimeError("S3 indisponible")
+
+    monkeypatch.setattr("jobcopilot_documents.main.get_storage", broken)
+    generation = await generate(client)
+    with pytest.raises(RuntimeError):
+        await client.delete("/data")
+    document = generation["documents"][0]
+    assert (await client.get(f"/documents/{document['id']}")).status_code == 200

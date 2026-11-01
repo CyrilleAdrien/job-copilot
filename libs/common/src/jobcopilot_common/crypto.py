@@ -1,11 +1,13 @@
-"""Chiffrement des mots de passe d'application IMAP, avec une clé maître lue dans .env."""
+"""Chiffrement des secrets stockés en base (Fernet), avec la clé maître SECRET_KEY de .env."""
 
 import base64
 import hashlib
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from jobcopilot_mail.settings import get_mail_settings
+from jobcopilot_common.config import get_settings
+
+MIN_KEY_LENGTH = 16
 
 
 class SecretKeyMissing(Exception):
@@ -13,10 +15,10 @@ class SecretKeyMissing(Exception):
 
 
 def fernet() -> Fernet:
-    secret = get_mail_settings().secret_key
-    if len(secret) < 16:
+    secret = get_settings().secret_key
+    if len(secret) < MIN_KEY_LENGTH:
         raise SecretKeyMissing(
-            "SECRET_KEY manque dans .env : lance `make secret`, puis redémarre le service mail."
+            "SECRET_KEY manque dans .env : lance `make secret`, puis redémarre les services."
         )
     # N'importe quelle chaîne longue convient : on en dérive une clé Fernet de 32 octets.
     return Fernet(base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest()))

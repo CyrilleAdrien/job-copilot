@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     llm_timeout: float = 600.0
     llm_context: int = 8192
     check_timeout: float = 2.0
+    secret_key: str = ""
 
 
 @lru_cache

@@ -5,8 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
 
+from jobcopilot_common.crypto import SecretKeyMissing, encrypt
 from jobcopilot_mail.classify import STATUS_FOR, Category
-from jobcopilot_mail.crypto import SecretKeyMissing, encrypt
 from jobcopilot_mail.deps import (
     DEMO_HOST,
     Cache,

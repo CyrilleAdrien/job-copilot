@@ -11,8 +11,8 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from jobcopilot_common.crypto import SecretKeyMissing
 from jobcopilot_mail.classify import STATUS_FOR, Classifier
-from jobcopilot_mail.crypto import SecretKeyMissing
 from jobcopilot_mail.mailbox import Mailbox, MailboxError
 from jobcopilot_mail.matching import Candidate, match
 from jobcopilot_mail.models import AccountRow, MessageRow

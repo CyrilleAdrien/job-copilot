@@ -10,8 +10,12 @@ choisies par l'utilisateur (`min_skills`).
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from jobcopilot_jobs.schemas import Criteria
+
+# Une offre est normalisée à chaque affichage de la liste : on garde le résultat en mémoire.
+NORMALIZE_CACHE = 8192
 
 STOP_WORDS = {"de", "des", "du", "la", "le", "les", "et", "en", "a", "h", "f", "hf", "fh"}
 # Mots trop généraux pour distinguer deux métiers : « Data Engineer » et « Platform Engineer »
@@ -39,6 +43,7 @@ FULL_REMOTE = ["full remote", "100 teletravail", "teletravail complet", "100 rem
 HYBRID = ["teletravail", "hybride", "remote"]
 
 
+@lru_cache(maxsize=NORMALIZE_CACHE)
 def normalize(text: str | None) -> str:
     """Minuscules, sans accents ni ponctuation : « C#/.NET » donne « c# net »."""
     if not text:

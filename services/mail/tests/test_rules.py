@@ -5,11 +5,9 @@ from types import SimpleNamespace
 import pytest
 
 from jobcopilot_common.llm import LLMError
-from jobcopilot_mail import crypto
 from jobcopilot_mail.classify import LLMClassifier, RuleClassifier
 from jobcopilot_mail.mailbox import Header, ImapMailbox, text_of
 from jobcopilot_mail.matching import Candidate, match
-from jobcopilot_mail.settings import get_mail_settings
 from jobcopilot_mail.sync import should_apply
 
 NOW = datetime(2026, 10, 30, tzinfo=UTC)
@@ -137,15 +135,6 @@ async def test_llm_failure_falls_back_to_rules():
 )
 def test_should_apply_only_moves_forward(current, target, expected):
     assert should_apply(current, target) is expected
-
-
-def test_password_is_encrypted_and_needs_the_secret_key(monkeypatch):
-    token = crypto.encrypt("abcd efgh ijkl mnop")
-    assert "abcd" not in token
-    assert crypto.decrypt(token) == "abcd efgh ijkl mnop"
-    monkeypatch.setattr(get_mail_settings(), "secret_key", "")
-    with pytest.raises(crypto.SecretKeyMissing):
-        crypto.encrypt("x")
 
 
 def test_imap_header_and_text_are_decoded():

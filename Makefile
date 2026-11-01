@@ -1,4 +1,4 @@
-.PHONY: setup secret up down logs ready models lint test test-db web
+.PHONY: setup secret up down logs ready models lint test test-db web e2e
 
 setup: ## Prépare le fichier .env et l'environnement Python de dev
 	test -f .env || cp .env.example .env
@@ -12,6 +12,7 @@ secret: ## Crée la clé de chiffrement SECRET_KEY dans .env si elle manque
 	  if grep -qs '^SECRET_KEY=' .env; then sed -i.bak "s/^SECRET_KEY=.*/SECRET_KEY=$$key/" .env && rm -f .env.bak; \
 	  else echo "SECRET_KEY=$$key" >> .env; fi; \
 	  echo "SECRET_KEY ajoutée à .env"; }
+	@chmod 600 .env
 
 NATIVE_OLLAMA := $(shell grep -qs '^OLLAMA_URL=.*host.docker.internal' .env && echo yes)
 
@@ -55,3 +56,12 @@ test: ## Nécessite `make test-db` une fois
 
 web: ## Lance le front en mode développement sur http://localhost:3000
 	cd web && npm run dev
+
+E2E_COMPOSE := docker compose -p job-copilot-e2e --env-file infra/e2e.env
+
+e2e: ## Parcours complet Playwright sur une stack jetable, séparée de tes données (ports 3100 et 8100)
+	SECRET_KEY=unused $(E2E_COMPOSE) down -v
+	SECRET_KEY=$$(openssl rand -hex 32) $(E2E_COMPOSE) up -d --build --wait --wait-timeout 300
+	cd web && npx playwright install chromium
+	(cd web && E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test); \
+	  status=$$?; SECRET_KEY=unused $(E2E_COMPOSE) down -v; exit $$status

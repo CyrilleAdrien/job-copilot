@@ -8,7 +8,6 @@ class CalendarSettings(BaseSettings):
 
     applications_url: str = "http://applications:8000"
     # Clé maître du chiffrement des mots de passe CalDAV (make secret l'ajoute à .env).
-    secret_key: str = ""
     # Calendrier de démonstration : un serveur CalDAV fictif, en mémoire.
     calendar_demo: bool = False
     calendar_http_timeout: float = 10.0

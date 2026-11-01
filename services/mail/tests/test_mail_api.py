@@ -310,3 +310,23 @@ async def test_demo_mailbox_sends_nothing_over_the_network(client, monkeypatch):
     message = (await synced_messages(client))["interview"]
     response = await client.post(f"/messages/{message['id']}/reply", json=reply_to())
     assert response.status_code == 201
+
+
+async def test_export_leaves_passwords_out_and_erase_removes_everything(client, cache, monkeypatch):
+    monkeypatch.setattr(mail_api.ImapMailbox, "check", lambda self: None)
+    monkeypatch.setattr("jobcopilot_mail.main.get_cache", lambda: cache)
+    payload = {"email": "moi@gmail.com", "host": "imap.gmail.com", "password": "abcd efgh"}
+    assert (await client.post("/accounts", json=payload)).status_code == 201
+    await cache.xadd(MAIL_CLASSIFIED, {"subject": "Entretien"})
+
+    export = await client.get("/data/export")
+    assert export.status_code == 200
+    assert export.json()["accounts"][0]["email"] == "moi@gmail.com"
+    assert "password" not in export.text
+    assert "gAAAA" not in export.text  # préfixe de tout jeton Fernet
+    assert set(export.json()) == {"accounts", "messages", "replies"}
+
+    assert (await client.delete("/data")).status_code == 204
+    assert (await client.get("/accounts")).json() == []
+    assert await cache.xlen(MAIL_CLASSIFIED) == 0
+    assert (await client.delete("/data")).status_code == 204

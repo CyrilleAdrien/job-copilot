@@ -7,7 +7,9 @@ from fastapi import FastAPI
 from jobcopilot_calendar.api import router
 from jobcopilot_calendar.deps import get_http
 from jobcopilot_calendar.migrate import upgrade
+from jobcopilot_calendar.models import Base
 from jobcopilot_common import create_service_app, get_settings
+from jobcopilot_common.data import data_router
 
 
 @asynccontextmanager
@@ -19,3 +21,4 @@ async def lifespan(_app: FastAPI):
 
 app = create_service_app("calendar", dependencies=["postgres", "redis"], lifespan=lifespan)
 app.include_router(router)
+app.include_router(data_router(Base))

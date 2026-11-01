@@ -7,10 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_calendar import ics
-from jobcopilot_calendar.crypto import SecretKeyMissing
 from jobcopilot_calendar.models import AccountRow, EventRow
 from jobcopilot_calendar.remote import RemoteError
 from jobcopilot_calendar.settings import get_calendar_settings
+from jobcopilot_common.crypto import SecretKeyMissing
 
 
 async def current_account(session: AsyncSession) -> AccountRow | None:

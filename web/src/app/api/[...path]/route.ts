@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 
+import { isLocalRequest } from "@/lib/local-request";
+
 /**
  * Relaie /api/* vers la gateway. Le navigateur ne parle qu'à l'interface,
  * la gateway reste sur le réseau interne de Docker.
@@ -7,6 +9,9 @@ import type { NextRequest } from "next/server";
 const API_URL = process.env.API_URL ?? "http://127.0.0.1:8000";
 
 async function forward(request: NextRequest) {
+  if (!isLocalRequest(request.method, request.headers.get("host"), request.headers.get("origin"))) {
+    return Response.json({ detail: "Requête refusée : origine non locale." }, { status: 403 });
+  }
   const target = `${API_URL}${request.nextUrl.pathname}${request.nextUrl.search}`;
   const headers = new Headers();
   for (const name of ["content-type", "accept"]) {

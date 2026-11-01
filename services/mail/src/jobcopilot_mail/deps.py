@@ -7,10 +7,10 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common import get_settings
+from jobcopilot_common.crypto import decrypt
 from jobcopilot_common.db import get_session
 from jobcopilot_common.llm import Ollama
 from jobcopilot_mail.classify import Classifier, LLMClassifier, RuleClassifier
-from jobcopilot_mail.crypto import decrypt
 from jobcopilot_mail.mailbox import DemoApplication, DemoMailbox, ImapMailbox, Mailbox
 from jobcopilot_mail.matching import Candidate
 from jobcopilot_mail.models import AccountRow

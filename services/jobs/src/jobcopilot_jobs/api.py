@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -8,7 +9,7 @@ from jobcopilot_common.db import get_session
 from jobcopilot_jobs import repository, service
 from jobcopilot_jobs.connectors import Connector
 from jobcopilot_jobs.deps import Cache, get_connectors, get_criteria
-from jobcopilot_jobs.matching import score_offer
+from jobcopilot_jobs.matching import Match, score_offer
 from jobcopilot_jobs.models import OfferRow
 from jobcopilot_jobs.schemas import (
     Criteria,
@@ -50,13 +51,14 @@ def to_offer(
     detail: bool = False,
     strict: bool = True,
     favorite: bool = False,
+    match: Match | None = None,
 ) -> OfferDetail | Offer | None:
     """L'offre notée pour ce profil de recherche, ou None si elle est écartée.
 
     `strict=False` n'écarte rien : une fiche ouverte depuis un lien, ou depuis un autre
     profil de recherche, reste lisible.
     """
-    match = score_offer(criteria, row.title, row.description, row.contract)
+    match = match or score_offer(criteria, row.title, row.description, row.contract)
     if strict and (
         match.excluded or not match.on_topic or not match.enough_skills or match.too_senior
     ):
@@ -78,6 +80,22 @@ def to_offer(
         "favorite": favorite,
     }
     return OfferDetail(**fields, description=row.description) if detail else Offer(**fields)
+
+
+def score_window(
+    rows: list[OfferRow], criteria: Criteria, starred: set[int]
+) -> tuple[list[Offer], int, int]:
+    """Note chaque offre une seule fois : les offres gardées et le nombre de celles écartées."""
+    offers: list[Offer] = []
+    below_threshold = above_level = 0
+    for row in rows:
+        match = score_offer(criteria, row.title, row.description, row.contract)
+        if offer := to_offer(row, criteria, favorite=row.id in starred, match=match):
+            offers.append(offer)
+        elif match.on_topic and not match.excluded:
+            below_threshold += not match.enough_skills
+            above_level += match.enough_skills and match.too_senior
+    return offers, below_threshold, above_level
 
 
 @router.get("/offers", response_model=OfferList)
@@ -105,17 +123,10 @@ async def list_offers(
         below_threshold = above_level = 0
     else:
         rows = await repository.offers_since(session, datetime.now(UTC) - timedelta(days=days))
-        offers = [
-            offer for row in rows if (offer := to_offer(row, criteria, favorite=row.id in starred))
-        ]
-        relevant = [
-            match
-            for row in rows
-            if (match := score_offer(criteria, row.title, row.description, row.contract)).on_topic
-            and not match.excluded
-        ]
-        below_threshold = sum(1 for match in relevant if not match.enough_skills)
-        above_level = sum(1 for match in relevant if match.enough_skills and match.too_senior)
+        # Long sur une grande fenêtre : le service continue de répondre pendant le calcul.
+        offers, below_threshold, above_level = await asyncio.to_thread(
+            score_window, rows, criteria, starred
+        )
     if sort == "date":
         offers.sort(key=lambda offer: (offer.published_at, offer.score), reverse=True)
     else:

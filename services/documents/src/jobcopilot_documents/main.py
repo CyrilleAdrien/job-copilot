@@ -2,12 +2,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common import create_service_app, get_settings
+from jobcopilot_common.data import clear_cache, data_router
 from jobcopilot_common.db import get_sessionmaker
 from jobcopilot_documents.api import router
+from jobcopilot_documents.deps import get_cache
 from jobcopilot_documents.migrate import upgrade
-from jobcopilot_documents.models import GenerationRow
+from jobcopilot_documents.models import Base, GenerationRow
+from jobcopilot_documents.pipeline import EVENTS_STREAM
+from jobcopilot_documents.storage import get_storage
 
 
 @asynccontextmanager
@@ -28,3 +33,14 @@ app = create_service_app(
     "documents", dependencies=["postgres", "redis", "s3", "ollama"], lifespan=lifespan
 )
 app.include_router(router)
+
+
+async def delete_files(_session: AsyncSession) -> None:
+    await get_storage().clear()
+
+
+async def clear_documents_cache() -> None:
+    await clear_cache(get_cache(), streams=[EVENTS_STREAM])
+
+
+app.include_router(data_router(Base, before_erase=delete_files, after_erase=clear_documents_cache))

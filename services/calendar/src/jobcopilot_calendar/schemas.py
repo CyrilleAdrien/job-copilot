@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlsplit
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Kind = Literal["interview", "technical_test", "follow_up", "other"]
 
@@ -28,6 +29,14 @@ class Credentials(BaseModel):
     url: str = Field(max_length=500)
     username: str = Field(min_length=1, max_length=320)
     password: str = Field("", max_length=500)
+
+    @field_validator("url")
+    @classmethod
+    def no_credentials_in_url(cls, url: str) -> str:
+        # L'URL est stockée et affichée en clair : seul le champ mot de passe est chiffré.
+        if "@" in urlsplit(url).netloc:
+            raise ValueError("L'identifiant et le mot de passe ont leurs propres champs.")
+        return url
 
 
 class RemoteCalendarOut(BaseModel):

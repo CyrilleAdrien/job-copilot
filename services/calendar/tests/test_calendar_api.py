@@ -8,6 +8,7 @@ from icalendar import Calendar
 from jobcopilot_calendar.deps import demo_remote, get_http
 from jobcopilot_calendar.main import app
 from jobcopilot_calendar.remote import DemoRemote
+from jobcopilot_calendar.schemas import Credentials
 
 APP_ID = "11111111-1111-1111-1111-111111111111"
 START = datetime.now(UTC).replace(microsecond=0) + timedelta(days=3)
@@ -209,3 +210,9 @@ async def test_discover_rejects_plain_http_and_bad_password(client, remote: Demo
     bad = {"provider": "demo", "url": "demo", "username": "m", "password": "x"}
     response = await client.post("/accounts/discover", json=bad)
     assert response.status_code == 502 and "refusé" in response.json()["detail"]
+
+
+def test_caldav_url_cannot_carry_credentials():
+    with pytest.raises(ValueError, match="propres champs"):
+        Credentials(provider="other", url="https://me:secret@dav.example", username="me")
+    assert Credentials(provider="other", url="https://dav.example", username="me@example.org")

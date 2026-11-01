@@ -6,16 +6,14 @@ from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
-SERVICES = ["profile", "jobs", "documents", "applications", "mail", "calendar"]
+from jobcopilot_gateway import data
+from jobcopilot_gateway.data import SERVICES, service_url
+from jobcopilot_gateway.guard import LocalOnly
+
 TIMEOUT = float(os.getenv("CHECK_TIMEOUT", "2.0")) + 2
 PROXY_TIMEOUT = 60.0
 FORWARDED_HEADERS = ("content-type", "accept")
 RETURNED_HEADERS = ("content-type", "content-disposition", "cache-control")
-
-
-def service_url(name: str) -> str:
-    """URL d'un service, surchargeable par variable d'environnement (ex. PROFILE_URL)."""
-    return os.getenv(f"{name.upper()}_URL", f"http://{name}:8000")
 
 
 async def fetch_ready(client: httpx.AsyncClient, name: str) -> dict:
@@ -27,6 +25,9 @@ async def fetch_ready(client: httpx.AsyncClient, name: str) -> dict:
 
 
 app = FastAPI(title="job-copilot API", version="0.1.0")
+app.add_middleware(LocalOnly)
+# Avant le relais générique, dont le motif /api/{service}/{path} couvrirait /api/data/export.
+app.include_router(data.router)
 
 
 @app.get("/health", tags=["health"])
