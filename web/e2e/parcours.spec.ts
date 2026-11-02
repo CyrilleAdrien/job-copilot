@@ -32,6 +32,13 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     expect(framed.headers()["content-security-policy"]).toContain("frame-ancestors 'self'");
   });
 
+  await test.step("l'onglet affiche le logo et le nom", async () => {
+    await page.goto("/");
+    await expect(page).toHaveTitle(/job-copilot/);
+    const icon = await page.locator('link[rel="icon"]').first().getAttribute("href");
+    expect((await request.get(icon ?? "")).ok()).toBeTruthy();
+  });
+
   await test.step("le profil s'importe et s'affiche sur tout le site", async () => {
     await page.goto("/bienvenue");
     await page.locator('input[type="file"]').first().setInputFiles(PROFILE_YAML);

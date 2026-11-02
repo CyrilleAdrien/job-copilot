@@ -54,7 +54,7 @@ test: ## Nécessite `make test-db` une fois
 	uv run pytest
 	cd web && npm test
 
-web: ## Lance le front en mode développement sur http://localhost:3000
+web: ## Lance le front en mode développement sur http://job-copilot.localhost:3000
 	cd web && npm run dev
 
 E2E_COMPOSE := docker compose -p job-copilot-e2e --env-file infra/e2e.env

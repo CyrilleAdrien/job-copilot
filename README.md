@@ -30,13 +30,13 @@ make ready    # état de chaque service et de ses dépendances
 make models   # télécharge le modèle LLM (environ 4,7 Go)
 ```
 
-L'application s'ouvre sur http://localhost:3000. Le catalogue des composants est sur http://localhost:3000/design.
+L'application s'ouvre sur http://job-copilot.localhost:3000 (Chrome, Edge et Firefox). Sur un navigateur qui ne reconnaît pas cette adresse, comme Safari, utilise http://localhost:3000. Le catalogue des composants est sur http://job-copilot.localhost:3000/design.
 
 **Sur Mac**, Docker n'a pas accès au GPU : dans un conteneur, un modèle 7B tourne sur le processeur et met plusieurs minutes par réponse. Installe plutôt [Ollama pour macOS](https://ollama.com/download), qui utilise le GPU Apple Silicon, puis, dans `.env`, supprime la ligne `COMPOSE_PROFILES=ollama` et ajoute `OLLAMA_URL=http://host.docker.internal:11434`. Relance ensuite `make up` puis `make models`. Le conteneur Ollama n'est plus démarré et les services joignent l'Ollama du Mac.
 
 ## Profil
 
-Au premier lancement, http://localhost:3000/bienvenue propose deux chemins : remplir le profil en cinq étapes (identité, recherches, expériences, compétences, parcours) ou importer un `profile.yaml`. Le formulaire couvre toutes les sections d'un CV : formation, certifications, projets, bénévolat, publications, langues, savoir-être et centres d'intérêt. Les langues, niveaux, technologies, postes et villes sont proposés pendant la saisie. Le fichier [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet ; un ancien fichier avec une seule section `search` reste accepté. L'écran Profil permet aussi de choisir une photo, affichée sur tout le site : elle ne figure ni sur les CV ni dans ce fichier.
+Au premier lancement, http://job-copilot.localhost:3000/bienvenue propose deux chemins : remplir le profil en cinq étapes (identité, recherches, expériences, compétences, parcours) ou importer un `profile.yaml`. Le formulaire couvre toutes les sections d'un CV : formation, certifications, projets, bénévolat, publications, langues, savoir-être et centres d'intérêt. Les langues, niveaux, technologies, postes et villes sont proposés pendant la saisie. Le fichier [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet ; un ancien fichier avec une seule section `search` reste accepté. L'écran Profil permet aussi de choisir une photo, affichée sur tout le site : elle ne figure ni sur les CV ni dans ce fichier.
 
 L'écran Profil affiche le profil mis en page comme un CV, en français ou en anglais, avec le même template que les CV générés. Il s'exporte en `profile.yaml` pour être sauvegardé ou modifié à la main.
 

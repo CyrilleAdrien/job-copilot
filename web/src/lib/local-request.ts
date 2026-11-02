@@ -1,4 +1,4 @@
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+const LOCAL_HOSTS = new Set(["localhost", "job-copilot.localhost", "127.0.0.1", "[::1]"]);
 const READ_ONLY = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function isLocal(url: string) {
