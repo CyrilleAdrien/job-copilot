@@ -4,7 +4,7 @@ import { CheckCircle2, CircleDot, Inbox, Pencil, Send, type LucideIcon } from "l
 
 import { ToneDot } from "@/components/mail/category-tag";
 import { Button } from "@/components/ui/button";
-import { categories, categoryOrder, type Category, type MailAccount, type MailFolder } from "@/lib/mail";
+import { categories, categoryOrder, type Category, type MailFolder } from "@/lib/mail";
 import { cn } from "@/lib/utils";
 
 const FOLDERS: { id: MailFolder; label: string; icon: LucideIcon }[] = [
@@ -14,14 +14,13 @@ const FOLDERS: { id: MailFolder; label: string; icon: LucideIcon }[] = [
   { id: "treated", label: "Traités", icon: CheckCircle2 },
 ];
 
-/** Colonne de gauche : nouveau message, dossiers, catégories présentes et état des boîtes. */
+/** Colonne de gauche : nouveau message, dossiers et catégories présentes. */
 export function MailFolders({
   folder,
   counts,
   alertSent,
   selected,
   categoryCounts,
-  accounts,
   onCompose,
   onFolder,
   onCategory,
@@ -31,7 +30,6 @@ export function MailFolders({
   alertSent: boolean;
   selected: Category[];
   categoryCounts: Record<Category, number>;
-  accounts: MailAccount[];
   onCompose: () => void;
   onFolder: (folder: MailFolder) => void;
   onCategory: (category: Category) => void;
@@ -86,26 +84,6 @@ export function MailFolders({
           ))}
         </div>
       )}
-
-      <div className="flex flex-col gap-2 border-t border-border px-3 pt-3">
-        {accounts.map((account) => (
-          <div key={account.id} className="flex min-w-0 flex-col gap-0.5 text-[12px]">
-            <div className="flex min-w-0 items-center gap-2">
-              <StatusLight failing={Boolean(account.last_error)} />
-              <span className="truncate text-text-secondary" title={account.email}>
-                {account.email}
-              </span>
-            </div>
-            {account.last_error && <p className="text-danger">{account.last_error}</p>}
-            {account.smtp_error && <p className="text-danger">Envoi impossible : {account.smtp_error}</p>}
-          </div>
-        ))}
-      </div>
     </aside>
   );
-}
-
-/** Vert : la dernière lecture a réussi. Rouge : elle a échoué, l'adresse n'est plus lue. */
-function StatusLight({ failing }: { failing: boolean }) {
-  return <span role="img" aria-label={failing ? "Erreur de lecture" : "Connectée"} className={cn("size-2 shrink-0 rounded-full", failing ? "bg-danger" : "bg-success")} />;
 }
