@@ -26,6 +26,7 @@ import {
   remoteLabels,
   seniorityLabels,
   type Profile,
+  isWebLink,
 } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
@@ -178,6 +179,7 @@ export function ProfileView({
                     {entry.school}
                     {entry.year ? ` · ${entry.year}` : ""}
                   </span>
+                  {entry.details && <span className="mt-1 text-text-secondary">{entry.details}</span>}
                 </div>
               ))}
             </Section>
@@ -198,22 +200,22 @@ export function ProfileView({
         <Entries
           icon={Award}
           title="Certifications"
-          items={profile.certifications.map((item) => ({ title: item.name, meta: [item.issuer, item.year] }))}
+          items={profile.certifications.map((item) => ({ title: item.name, meta: [item.issuer, item.year], url: item.url }))}
         />
         <Entries
           icon={FolderGit2}
           title="Projets"
-          items={profile.projects.map((item) => ({ title: item.name, meta: [item.technologies.join(", "), item.year] }))}
+          items={profile.projects.map((item) => ({ title: item.name, meta: [item.technologies.join(", "), item.year], description: item.description, url: item.url }))}
         />
         <Entries
           icon={HandHeart}
           title="Bénévolat"
-          items={profile.volunteering.map((item) => ({ title: item.role, meta: [item.organization, item.start && formatMonth(item.start)] }))}
+          items={profile.volunteering.map((item) => ({ title: item.role, meta: [item.organization, item.start && formatMonth(item.start)], description: item.description }))}
         />
         <Entries
           icon={BookOpen}
           title="Publications"
-          items={profile.publications.map((item) => ({ title: item.title, meta: [item.publisher, item.year] }))}
+          items={profile.publications.map((item) => ({ title: item.title, meta: [item.publisher, item.year], url: item.url }))}
         />
       </div>
     </div>
@@ -227,15 +229,24 @@ export function Entries({
 }: {
   icon: typeof Target;
   title: string;
-  items: { title: string; meta: (string | number | null | undefined)[] }[];
+  items: { title: string; meta: (string | number | null | undefined)[]; description?: string | null; url?: string | null }[];
 }) {
   if (!items.length) return null;
   return (
     <Section icon={icon} title={title}>
       {items.map((item, index) => (
         <div key={index} className="flex flex-col text-sm">
-          <span className="font-medium">{item.title}</span>
+          <span className="font-medium">
+            {item.url && isWebLink(item.url) ? (
+              <a href={item.url} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline">
+                {item.title}
+              </a>
+            ) : (
+              item.title
+            )}
+          </span>
           {item.meta.some(Boolean) && <span className="text-text-secondary">{item.meta.filter(Boolean).join(" · ")}</span>}
+          {item.description && <p className="mt-1 text-text-secondary">{item.description}</p>}
         </div>
       ))}
     </Section>

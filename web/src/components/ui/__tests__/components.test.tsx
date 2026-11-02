@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StepProgress } from "@/components/ui/step-progress";
-import { TagInput } from "@/components/ui/tag-input";
+import { splitTags, TagInput } from "@/components/ui/tag-input";
 import { isActive } from "@/lib/navigation";
 
 describe("Button", () => {
@@ -83,6 +83,12 @@ describe("isActive", () => {
   });
 });
 
+describe("splitTags", () => {
+  it("does not split on a comma inside parentheses", () => {
+    expect(splitTags("Python (pandas, PySpark, FastAPI), SQL, ")).toEqual(["Python (pandas, PySpark, FastAPI)", "SQL"]);
+  });
+});
+
 describe("TagInput", () => {
   function Demo() {
     const [value, setValue] = useState<string[]>([]);
@@ -96,5 +102,12 @@ describe("TagInput", () => {
     expect(screen.getByRole("option", { name: "Anglais" })).toBeInTheDocument();
     await user.keyboard("{ArrowDown}{Enter}");
     expect(screen.getByRole("button", { name: "Retirer Anglais" })).toBeInTheDocument();
+  });
+
+  it("keeps typing a comma inside parentheses", async () => {
+    const user = userEvent.setup();
+    render(<Demo />);
+    await user.type(screen.getByRole("combobox", { name: "Langues" }), "Python (pandas, SQL),");
+    expect(screen.getByRole("button", { name: "Retirer Python (pandas, SQL)" })).toBeInTheDocument();
   });
 });

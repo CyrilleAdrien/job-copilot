@@ -30,6 +30,7 @@ import {
   type SearchProfile,
   type Seniority,
   type StepErrors,
+  joinBullets,
 } from "@/lib/profile";
 import * as suggestions from "@/lib/suggestions";
 import { cn } from "@/lib/utils";
@@ -492,8 +493,11 @@ export function ExperiencesStep({ profile, update, errors }: StepProps) {
                   </div>
                   <Textarea
                     aria-label="Réalisations"
-                    placeholder="Une réalisation par ligne, idéalement chiffrée."
+                    placeholder="Une réalisation par ligne, idéalement chiffrée. Un texte collé d'un PDF est remis en phrases entières."
                     value={group.bullets.join("\n")}
+                    onBlur={() =>
+                      update((draft) => void (draft.experiences[index].groups[groupIndex].bullets = joinBullets(draft.experiences[index].groups[groupIndex].bullets)))
+                    }
                     onChange={(event) =>
                       update(
                         (draft) => void (draft.experiences[index].groups[groupIndex].bullets = event.target.value.split("\n")),
@@ -602,7 +606,8 @@ export function BackgroundStep({ profile, update, errors }: StepProps) {
     <div className="flex flex-col gap-8">
       <Group title="Formation">
         {profile.education.map((entry, index) => (
-          <Row key={index} columns="md:grid-cols-[1fr_1fr_96px_auto]">
+          <div key={index} className="flex flex-col gap-2">
+          <Row columns="md:grid-cols-[1fr_1fr_96px_auto]">
             <Input aria-label="Diplôme" placeholder="Diplôme" value={entry.degree} onChange={(event) => update((draft) => void (draft.education[index].degree = event.target.value))} />
             <Input aria-label="École" placeholder="École" value={entry.school} onChange={(event) => update((draft) => void (draft.education[index].school = event.target.value))} />
             <Input
@@ -614,6 +619,14 @@ export function BackgroundStep({ profile, update, errors }: StepProps) {
             />
             <RemoveButton label="Retirer la formation" onClick={() => update((draft) => void draft.education.splice(index, 1))} />
           </Row>
+          <Input
+            aria-label="Détails de la formation"
+            placeholder="Lieu, dates, enseignements clés"
+            maxLength={300}
+            value={entry.details ?? ""}
+            onChange={(event) => update((draft) => void (draft.education[index].details = event.target.value))}
+          />
+          </div>
         ))}
         <AddButton onClick={() => update((draft) => void draft.education.push({ degree: "", school: "", year: null }))}>Ajouter une formation</AddButton>
       </Group>

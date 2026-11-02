@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanBullet, previewGroups, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
+import { cleanBullet, joinBullets, previewGroups, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
 
 const now = new Date(2026, 10, 2);
 const job = (start: string, end: string | null = null, technologies: string[] = []) => ({ start, end, technologies }) as Experience;
@@ -66,5 +66,30 @@ describe("previewGroups", () => {
   it("hides nothing when everything fits", () => {
     expect(previewGroups(groups, 5).hidden).toBe(0);
     expect(previewGroups([]).groups).toEqual([]);
+  });
+});
+
+describe("joinBullets", () => {
+  it("joins lines wrapped by a PDF under their bullet", () => {
+    expect(joinBullets(["• Centralized flows with pipelines that", "extract data from Oracle.", "•Displayed 10,000 flows", "in under 1 s."])).toEqual([
+      "Centralized flows with pipelines that extract data from Oracle.",
+      "Displayed 10,000 flows in under 1 s.",
+    ]);
+  });
+
+  it("keeps a word split on its hyphen whole", () => {
+    expect(joinBullets(["- Server pagination (Oracle LIMIT-", "OFFSET)"])).toEqual(["Server pagination (Oracle LIMIT-OFFSET)"]);
+  });
+
+  it("keeps one achievement per line when no bullet is present", () => {
+    expect(joinBullets(["Reduced costs", "Shipped the API", "", "Led the team"])).toEqual(["Reduced costs", "Shipped the API", "Led the team"]);
+  });
+
+  it("joins a lowercase line that follows an unfinished sentence, even without bullets", () => {
+    expect(joinBullets(["Built pipelines that", "extract data.", "shipped later"])).toEqual(["Built pipelines that extract data.", "shipped later"]);
+  });
+
+  it("does not join across a blank line", () => {
+    expect(joinBullets(["• First", "", "second"])).toEqual(["First", "second"]);
   });
 });

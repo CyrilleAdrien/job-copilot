@@ -18,11 +18,11 @@ const profile = {
     { id: "b", name: "Ancienne", archived: true, roles: ["Serveur"], seniority: "mid", contract_types: ["cdi"], locations: [], remote: "any" },
   ],
   experiences: [{ title: "Ingénieur", company: "Nimbus", start: "2024-11", end: "2026-10", technologies: ["Python"], context: "Plateforme de paiement", groups: [{ title: "Pipelines", bullets: ["• Migré les flux"] }, { bullets: ["Réduit les coûts"] }] }],
-  education: [{ degree: "Master", school: "ESEO", year: 2024 }],
+  education: [{ degree: "Master", school: "ESEO", year: 2024, details: "Enseignements clés : Machine Learning" }],
   skills: [],
   certifications: [],
-  projects: [],
-  volunteering: [],
+  projects: [{ name: "Copilote", description: "Suit les candidatures.", technologies: [], url: "https://example.org/copilote" }],
+  volunteering: [{ role: "Mentor", organization: "Asso", description: "Accompagne des étudiants." }],
   publications: [],
   languages: [{ name: "Anglais", level: "C1" }],
   soft_skills: ["Rigueur"],
@@ -83,5 +83,15 @@ describe("profile overview", () => {
     render(<ProfileOverview profile={{ ...profile, interests: [], languages: [] }} />);
     expect(screen.queryByRole("heading", { name: "Centres d'intérêt" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Langues" })).not.toBeInTheDocument();
+  });
+});
+
+describe("profile overview sections", () => {
+  it("shows education details, descriptions and links", () => {
+    render(<ProfileOverview profile={profile} />);
+    expect(screen.getByText("Enseignements clés : Machine Learning")).toBeInTheDocument();
+    expect(screen.getByText("Suit les candidatures.")).toBeInTheDocument();
+    expect(screen.getByText("Accompagne des étudiants.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Copilote" })).toHaveAttribute("href", "https://example.org/copilote");
   });
 });
