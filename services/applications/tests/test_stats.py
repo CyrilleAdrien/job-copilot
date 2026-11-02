@@ -68,19 +68,47 @@ def test_counts_rates_and_delays():
     assert {item.status for item in result.follow_ups} == {"sent", "followed_up"}
 
 
-def test_weekly_counts_cover_twelve_weeks_ending_this_week():
+def test_period_keeps_sent_and_new_applications_of_that_time_only():
     rows = [
-        application("sent", 0),
-        application("sent", 1),
-        application("sent", 7),
-        application("sent", 200),
+        application("sent", 2),
+        application("interview", 40, ("interview", 1)),
     ]
-    weekly = stats.compute_stats(rows, NOW).weekly
-    assert len(weekly) == stats.WEEKS
-    assert weekly[-1].week.isoformat() == "2026-10-26"  # lundi de la semaine courante
-    assert weekly[-1].sent == 2
-    assert weekly[-2].sent == 1
-    assert sum(week.sent for week in weekly) == 3  # l'envoi d'il y a 200 jours sort de la fenêtre
+    draft = application("draft", None)
+    draft.created_at = NOW - timedelta(days=3)
+    rows.append(draft)
+    result = stats.compute_stats(rows, NOW, NOW - timedelta(days=7), NOW)
+    assert result.all_total == 3
+    assert result.total == 2
+    assert result.sent == 1
+    assert result.by_status["draft"] == 1
+    assert result.by_status["interview"] == 0
+    assert result.sent_dates == [NOW - timedelta(days=2)]
+
+
+def test_period_end_is_excluded():
+    row = application("sent", 2)
+    assert stats.compute_stats([row], NOW, None, row.applied_at).total == 0
+    assert stats.compute_stats([row], NOW, row.applied_at, None).total == 1
+
+
+def test_status_narrows_figures_but_keeps_all_status_counts():
+    rows = [
+        application("sent", 2),
+        application("interview", 3, ("interview", 1), search="data"),
+    ]
+    result = stats.compute_stats(rows, NOW, status="interview")
+    assert result.total == 2
+    assert result.by_status["sent"] == 1
+    assert result.sent == 1
+    assert result.responded == 1
+    assert [outcome.search_id for outcome in result.by_search] == ["data"]
+
+
+def test_follow_ups_stay_listed_whatever_the_filters():
+    rows = [application("sent", 30)]
+    result = stats.compute_stats(rows, NOW, NOW - timedelta(days=1), NOW, "offer")
+    assert result.sent == 0
+    assert len(result.follow_ups) == 1
 
 
 def test_no_application_gives_empty_stats():
@@ -100,7 +128,7 @@ async def test_stats_endpoint_is_cached_and_refreshed_after_each_change(client, 
     await client.patch(f"/applications/{created['id']}", json={"status": "sent"})
     body = (await client.get("/stats")).json()
     assert body["sent"] == 1
-    assert body["weekly"][-1]["sent"] == 1
+    assert len(body["sent_dates"]) == 1
     await client.delete(f"/applications/{created['id']}")
     assert (await client.get("/stats")).json()["total"] == 0
 
@@ -160,6 +188,17 @@ def test_outcomes_by_search_rank_the_profile_that_gets_the_most_tests_and_interv
 def test_no_best_search_without_enough_progress():
     rows = [application("rejected", 30, ("rejected", 20), search="data") for _ in range(3)]
     assert stats.compute_stats(rows, NOW).best_search is None
+
+
+async def test_filtered_stats_skip_the_cache_and_refuse_a_reversed_period(client, cache):
+    await client.post("/applications", json={"title": "Poste"})
+    assert (await client.get("/stats", params={"status": "offer"})).json()["sent"] == 0
+    assert await cache.get(stats.CACHE_KEY) is None
+    reversed_period = {"date_from": "2026-10-02T00:00:00Z", "date_to": "2026-10-01T00:00:00Z"}
+    assert (await client.get("/stats", params=reversed_period)).status_code == 422
+    assert (
+        await client.get("/stats", params={"date_from": "2026-10-01T00:00:00"})
+    ).status_code == 422
 
 
 async def test_unreadable_cache_is_ignored(client, cache):

@@ -3,6 +3,9 @@
 - Réponse : passage à Test technique, Entretien, Offre ou Refus après l'envoi (toute source).
 - Délai de réponse : de la date d'envoi à la première réponse.
 - Relance à faire : candidature Envoyée ou Relancée sans changement depuis FOLLOW_UP_DAYS jours.
+  Ces relances restent à faire quels que soient les filtres.
+- Période : une candidature y entre par sa date d'envoi ou, sans envoi, sa date de création.
+- Statut : limite les chiffres à ce statut ; `by_status` garde toute la période, pour comparer.
 - Par recherche : retours obtenus (test technique, entretien, offre, refus) d'après l'historique,
   pour voir quel profil visé fonctionne le mieux. Une recherche n'est classée qu'à partir de
   MIN_SAMPLE candidatures envoyées.
@@ -11,7 +14,7 @@
 import json
 import logging
 from collections import Counter
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from redis.asyncio import Redis
 
@@ -21,7 +24,7 @@ from jobcopilot_applications.schemas import (
     FollowUp,
     SearchOutcome,
     Stats,
-    WeekCount,
+    Status,
 )
 
 RESPONSES = {"technical_test", "interview", "offer", "rejected"}
@@ -29,17 +32,11 @@ PROGRESS = {"technical_test", "interview", "offer"}
 MIN_SAMPLE = 3
 WAITING = {"sent", "followed_up"}
 FOLLOW_UP_DAYS = 7
-WEEKS = 12
 # Version du format dans la clé : un nouveau champ ne relit jamais un ancien cache.
-CACHE_KEY = "applications:stats:v2"
+CACHE_KEY = "applications:stats:v3"
 CACHE_TTL = 15 * 60
 
 log = logging.getLogger(__name__)
-
-
-def week_start(moment: datetime) -> datetime:
-    day = moment.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    return day - timedelta(days=day.weekday())
 
 
 def rate(part: int, whole: int) -> float | None:
@@ -79,10 +76,23 @@ def best(by_search: list[SearchOutcome]) -> str | None:
     return ranked[0].search_id if ranked and ranked[0].progress_rate else None
 
 
-def compute_stats(rows: list[ApplicationRow], now: datetime | None = None) -> Stats:
+def in_period(row: ApplicationRow, start: datetime | None, end: datetime | None) -> bool:
+    moment = row.applied_at or row.created_at
+    return (start is None or moment >= start) and (end is None or moment < end)
+
+
+def compute_stats(
+    rows: list[ApplicationRow],
+    now: datetime | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    status: Status | None = None,
+) -> Stats:
     now = now or datetime.now(UTC)
-    by_status = Counter(row.status for row in rows)
-    sent = [row for row in rows if row.applied_at is not None]
+    period = [row for row in rows if in_period(row, date_from, date_to)]
+    by_status = Counter(row.status for row in period)
+    focused = [row for row in period if status is None or row.status == status]
+    sent = [row for row in focused if row.applied_at is not None]
 
     delays: list[float] = []
     responded = 0
@@ -95,11 +105,6 @@ def compute_stats(rows: list[ApplicationRow], now: datetime | None = None) -> St
             continue
         responded += 1
         delays.append(max((first - row.applied_at).total_seconds(), 0) / 86400)
-
-    current = week_start(now)
-    starts = [current - timedelta(weeks=WEEKS - 1 - index) for index in range(WEEKS)]
-    per_week = Counter(week_start(row.applied_at) for row in sent)
-    weekly = [WeekCount(week=start.date(), sent=per_week.get(start, 0)) for start in starts]
 
     follow_ups = []
     for row in rows:
@@ -121,15 +126,16 @@ def compute_stats(rows: list[ApplicationRow], now: datetime | None = None) -> St
             )
     follow_ups.sort(key=lambda item: item.since)
 
-    by_search = outcomes(rows)
+    by_search = outcomes(focused)
     return Stats(
-        total=len(rows),
+        all_total=len(rows),
+        total=len(period),
         sent=len(sent),
         by_status={status: by_status.get(status, 0) for status in STATUSES},
         responded=responded,
         response_rate=round(responded / len(sent), 3) if sent else None,
         average_response_days=round(sum(delays) / len(delays), 1) if delays else None,
-        weekly=weekly,
+        sent_dates=sorted(row.applied_at for row in sent),
         follow_ups=follow_ups,
         follow_up_days=FOLLOW_UP_DAYS,
         by_search=by_search,

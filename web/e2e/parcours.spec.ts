@@ -184,6 +184,29 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await expect(page.locator("main")).toContainText(eventTitle);
     const stats = await read(request, "/api/applications/stats");
     expect(stats.sent).toBe(1);
+
+    // La valeur seule : le détail de la tuile (« 0 à envoyer ») contient aussi des chiffres.
+    const sentCount = page.locator("main").getByText("Candidatures envoyées", { exact: true }).locator("..").locator("span").nth(1);
+    await page.getByRole("radio", { name: "Jour" }).click();
+    await expect(sentCount).toHaveText("1");
+    await page.getByRole("button", { name: "Période précédente" }).click();
+    await expect(sentCount).toHaveText("0");
+    await expect(page.getByRole("button", { name: /^Aller au/ })).toHaveCount(7);
+    await page.getByRole("radio", { name: "Courbe" }).click();
+    await page.reload();
+    await expect(page.getByRole("radio", { name: "Courbe" })).toBeChecked();
+    await page.getByRole("radio", { name: "Bandes" }).click();
+    await page.getByRole("radio", { name: "Mois" }).click();
+    await expect(page.getByRole("button", { name: /^Semaine \d, du/ })).toHaveCount(4);
+    await page.getByRole("radio", { name: "Tout" }).click();
+    await expect(sentCount).toHaveText("1");
+    // Aucune candidature n'a ce statut ici : le filtre fait tomber le compte à zéro.
+    const withdrawn = page.getByRole("button", { name: /^Abandonnée/ });
+    await withdrawn.click();
+    await expect(withdrawn).toHaveAttribute("aria-pressed", "true");
+    await expect(sentCount).toHaveText("0");
+    await withdrawn.click();
+    await expect(sentCount).toHaveText("1");
   });
 
   await test.step("un mot de passe enregistré n'est jamais rendu ni exporté", async () => {
