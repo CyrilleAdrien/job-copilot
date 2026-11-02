@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanBullet, joinBullets, previewGroups, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
+import { cleanBullet, joinBullets, paragraphs, previewGroups, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
 
 const now = new Date(2026, 10, 2);
 const job = (start: string, end: string | null = null, technologies: string[] = []) => ({ start, end, technologies }) as Experience;
@@ -91,5 +91,20 @@ describe("joinBullets", () => {
 
   it("does not join across a blank line", () => {
     expect(joinBullets(["• First", "", "second"])).toEqual(["First", "second"]);
+  });
+});
+
+describe("paragraphs", () => {
+  it("keeps one paragraph per finished sentence on its own line", () => {
+    expect(paragraphs("Ingénieur diplômé.\nPassionné par la production.")).toEqual(["Ingénieur diplômé.", "Passionné par la production."]);
+  });
+
+  it("rejoins a line cut in the middle of a sentence", () => {
+    expect(paragraphs("Plateforme critique et\nmigration des flux.")).toEqual(["Plateforme critique et migration des flux."]);
+  });
+
+  it("treats a blank line as a break and leaves a single block alone", () => {
+    expect(paragraphs("Un bloc sans point\n\nUn autre.")).toEqual(["Un bloc sans point", "Un autre."]);
+    expect(paragraphs("Un seul paragraphe. Deux phrases.")).toEqual(["Un seul paragraphe. Deux phrases."]);
   });
 });

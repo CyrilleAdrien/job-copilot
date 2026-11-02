@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiError, deletePhoto, uploadPhoto } from "@/lib/api";
 import { prepareAvatar } from "@/lib/avatar";
-import { isWebLink, type Profile } from "@/lib/profile";
+import { paragraphs, isWebLink, type Profile } from "@/lib/profile";
 
 function Contact({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
@@ -124,7 +124,13 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
         {identity.summary && (
           <section className="flex flex-col gap-1.5 rounded-[14px] bg-background-subtle p-4">
             <h3 className="text-sm font-medium">À propos</h3>
-            <p className="max-w-4xl text-sm leading-relaxed text-text-secondary">{identity.summary}</p>
+            <div className="flex max-w-4xl flex-col gap-2 text-sm leading-relaxed text-text-secondary">
+              {paragraphs(identity.summary).map((paragraph, index) => (
+                <p key={index} className="text-pretty">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
           </section>
         )}
         {error && <ErrorBanner error={error} />}

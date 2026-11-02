@@ -342,6 +342,23 @@ export function cleanBullet(text: string) {
   return text.replace(/^[\s•·▪*–—-]+/, "");
 }
 
+/** Découpe un texte en paragraphes : une ligne coupée au milieu d'une phrase rejoint la précédente. */
+export function paragraphs(text: string) {
+  const result: string[] = [];
+  let open = false;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) {
+      open = false;
+      continue;
+    }
+    if (open && !/[.!?:;]$/.test(result[result.length - 1])) result[result.length - 1] += ` ${line}`;
+    else result.push(line);
+    open = true;
+  }
+  return result;
+}
+
 const BULLET_MARKER = /^\s*(?:[•·▪]\s*|[*–—-]\s+)/;
 
 /**

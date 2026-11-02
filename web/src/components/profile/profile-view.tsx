@@ -27,6 +27,7 @@ import {
   seniorityLabels,
   type Profile,
   isWebLink,
+  paragraphs,
 } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +70,15 @@ export function ProfileView({
             {identity.phone && <span>{identity.phone}</span>}
             {identity.availability && <span>{identity.availability}</span>}
           </div>
-          {identity.summary && <p className="text-sm leading-relaxed">{identity.summary}</p>}
+          {identity.summary && (
+            <div className="flex flex-col gap-2 text-sm leading-relaxed">
+              {paragraphs(identity.summary).map((paragraph, index) => (
+                <p key={index} className="text-pretty">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Entries, formatMonth, Section } from "@/components/profile/profile-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type Profile } from "@/lib/profile";
+import { paragraphs, cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type Profile } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 const Chip = ({ children }: { children: string }) => (
@@ -34,7 +34,7 @@ function JobDetails({ experience }: { experience: Experience }) {
 
   return (
     <>
-      {experience.context && <p className={cn("text-sm leading-relaxed text-text-secondary", !open && "line-clamp-2")}>{experience.context}</p>}
+      {experience.context && <p className={cn("text-sm leading-relaxed text-text-secondary", !open && "line-clamp-2")}>{paragraphs(experience.context).join(" ")}</p>}
       {groups.map((group, groupIndex) => (
         <div key={groupIndex} className="flex flex-col gap-1 pt-1.5">
           {group.title && (
