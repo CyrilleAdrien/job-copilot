@@ -10,6 +10,10 @@ PROFILE = {
         "headline": "Ingénieur DevOps / SRE",
         "email": "alex@example.com",
         "location": "Paris",
+        "address": "1 rue de la Paix",
+        "birth_date": "1998-03-14",
+        "nationality": "Française",
+        "driving_licence": "B",
         "links": [{"label": "GitHub", "url": "https://github.com/alex"}],
     },
     "searches": [
@@ -48,6 +52,10 @@ PROFILE = {
     "projects": [{"name": "job-copilot", "technologies": ["FastAPI"], "url": "https://x.dev"}],
     "volunteering": [{"role": "Mentor", "organization": "Asso", "start": "2023-01"}],
     "publications": [{"title": "Observabilité en pratique", "year": 2024}],
+    "awards": [{"title": "Prix de l'innovation", "issuer": "BPCE", "year": 2025}],
+    "courses": [{"name": "Kubernetes avancé", "institution": "Linux Foundation", "year": 2025}],
+    "referees": [{"name": "Sam Durand", "role": "Responsable", "email": "sam@example.com"}],
+    "custom_sections": [{"title": "Conférences", "items": ["DevOps Days 2025"]}],
     "languages": [{"name": "Anglais", "level": "B2"}],
 }
 
@@ -260,3 +268,36 @@ async def test_removing_the_photo_keeps_the_profile(client):
     assert (await client.delete("/photo")).status_code == 204
     assert (await client.get("/photo")).status_code == 404
     assert (await client.get("/")).status_code == 200
+
+
+async def test_cv_details_round_trip(client):
+    await client.put("/", json=PROFILE)
+    profile = (await client.get("/")).json()
+    assert profile["identity"]["driving_licence"] == "B"
+    assert profile["identity"]["birth_date"] == "1998-03-14"
+    assert profile["awards"][0]["title"] == "Prix de l'innovation"
+    assert profile["courses"][0]["institution"] == "Linux Foundation"
+    assert profile["referees"][0]["name"] == "Sam Durand"
+    assert profile["custom_sections"][0]["items"] == ["DevOps Days 2025"]
+
+
+async def test_education_keeps_place_and_dates(client):
+    education = [
+        {
+            "degree": "Master",
+            "school": "ESEO",
+            "location": "Paris",
+            "start": "2024-09",
+            "end": "2026-08",
+        }
+    ]
+    response = await client.put("/", json={**PROFILE, "education": education})
+    assert response.status_code == 200
+    assert response.json()["education"][0]["location"] == "Paris"
+    assert response.json()["education"][0]["end"] == "2026-08"
+
+
+async def test_invalid_birth_date_is_refused(client):
+    identity = {**PROFILE["identity"], "birth_date": "14/03/1998"}
+    response = await client.put("/", json={**PROFILE, "identity": identity})
+    assert response.status_code == 422

@@ -1,17 +1,18 @@
 "use client";
 
-import { Camera, ExternalLink, Mail, MapPin, Phone, Trash2, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { Cake, Camera, Car, Flag, Mail, MapPin, Phone, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from "react";
 
+import { linkIcon } from "@/components/profile/brand-icons";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { ProfileAvatar, useProfileIdentity } from "@/components/profile/profile-identity";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiError, deletePhoto, uploadPhoto } from "@/lib/api";
 import { prepareAvatar } from "@/lib/avatar";
-import { paragraphs, isWebLink, type Profile } from "@/lib/profile";
+import { formatBirthDate, paragraphs, isWebLink, type Profile } from "@/lib/profile";
 
-function Contact({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+function Contact({ icon: Icon, children }: { icon: ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>; children: ReactNode }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-2 text-sm text-text-secondary [&_a]:truncate [&_a]:underline-offset-4 hover:[&_a]:text-text hover:[&_a]:underline">
       <Icon className="size-4 shrink-0 text-text-tertiary" strokeWidth={1.5} aria-hidden />
@@ -99,7 +100,7 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
               </span>
             )}
             <div className="flex flex-wrap gap-x-6 gap-y-2">
-              {identity.location && <Contact icon={MapPin}>{identity.location}</Contact>}
+              {(identity.address || identity.location) && <Contact icon={MapPin}>{[identity.address, identity.location].filter(Boolean).join(", ")}</Contact>}
               {identity.email && (
                 <Contact icon={Mail}>
                   <a href={`mailto:${identity.email}`}>{identity.email}</a>
@@ -111,12 +112,15 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
                 </Contact>
               )}
               {identity.links.filter((link) => isWebLink(link.url)).map((link) => (
-                <Contact key={link.url} icon={ExternalLink}>
+                <Contact key={link.url} icon={linkIcon(link.url)}>
                   <a href={link.url} target="_blank" rel="noreferrer">
                     {link.label}
                   </a>
                 </Contact>
               ))}
+              {identity.driving_licence && <Contact icon={Car}>Permis {identity.driving_licence}</Contact>}
+              {identity.birth_date && <Contact icon={Cake}>{formatBirthDate(identity.birth_date)}</Contact>}
+              {identity.nationality && <Contact icon={Flag}>{identity.nationality}</Contact>}
             </div>
           </div>
         </div>
@@ -124,7 +128,7 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
         {identity.summary && (
           <section className="flex flex-col gap-1.5 rounded-[14px] bg-background-subtle p-4">
             <h3 className="text-sm font-medium">À propos</h3>
-            <div className="flex max-w-4xl flex-col gap-2 text-sm leading-relaxed text-text-secondary">
+            <div className="flex flex-col gap-2 text-sm leading-relaxed text-text-secondary">
               {paragraphs(identity.summary).map((paragraph, index) => (
                 <p key={index} className="text-pretty">
                   {paragraph}

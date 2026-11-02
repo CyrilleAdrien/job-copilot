@@ -49,7 +49,7 @@ const steps: Step[] = [
   { id: "search", label: "Recherches", title: "Ce que tu recherches", description: "Une ou plusieurs recherches : les offres sont filtrées et classées avec leurs critères.", Component: SearchStep, validate: validateSearch },
   { id: "experiences", label: "Expériences", title: "Tes expériences", description: "L'IA choisit et reformule parmi elles, sans jamais rien inventer.", Component: ExperiencesStep, validate: validateExperiences },
   { id: "skills", label: "Compétences", title: "Compétences et langues", description: "Les compétences par catégorie, les langues, le savoir-être.", Component: SkillsStep },
-  { id: "background", label: "Parcours", title: "Formation et parcours", description: "Formation, certifications, projets, bénévolat et publications. Tout est facultatif.", Component: BackgroundStep, validate: validateBackground },
+  { id: "background", label: "Parcours", title: "Formation et parcours", description: "Formation, certifications, projets, bénévolat, publications, récompenses, références et sections libres. Tout est facultatif.", Component: BackgroundStep, validate: validateBackground },
   { id: "review", label: "Récapitulatif", title: "Tout est prêt", description: "Vérifie ton profil avant de l'enregistrer." },
 ];
 

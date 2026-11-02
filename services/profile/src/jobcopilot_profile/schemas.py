@@ -31,6 +31,14 @@ class Identity(Schema):
     email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     phone: str | None = Field(default=None, max_length=40)
     location: str | None = Field(default=None, max_length=120)
+    address: str | None = Field(default=None, max_length=200)
+    birth_date: str | None = Field(
+        default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$"
+    )
+    nationality: str | None = Field(default=None, max_length=60)
+    driving_licence: str | None = Field(
+        default=None, max_length=40, description="Catégories, ex. B"
+    )
     availability: str | None = Field(default=None, max_length=120)
     summary: str | None = Field(default=None, max_length=2000)
     links: list[Link] = []
@@ -65,6 +73,9 @@ class Education(Schema):
     degree: str = Field(min_length=1, max_length=200)
     school: str = Field(min_length=1, max_length=160)
     year: int | None = Field(default=None, ge=1950, le=2100)
+    location: str | None = Field(default=None, max_length=120)
+    start: str | None = OptionalYearMonth
+    end: str | None = OptionalYearMonth
     details: str | None = Field(default=None, max_length=300)
 
 
@@ -106,6 +117,34 @@ class Publication(Schema):
     publisher: str | None = Field(default=None, max_length=160)
     year: int | None = Field(default=None, ge=1950, le=2100)
     url: str | None = Field(default=None, max_length=300)
+
+
+class Award(Schema):
+    title: str = Field(min_length=1, max_length=200)
+    issuer: str | None = Field(default=None, max_length=160)
+    year: int | None = Field(default=None, ge=1950, le=2100)
+    description: str | None = Field(default=None, max_length=1000)
+
+
+class Course(Schema):
+    name: str = Field(min_length=1, max_length=200)
+    institution: str | None = Field(default=None, max_length=160)
+    year: int | None = Field(default=None, ge=1950, le=2100)
+
+
+class Referee(Schema):
+    name: str = Field(min_length=1, max_length=120)
+    role: str | None = Field(default=None, max_length=160)
+    company: str | None = Field(default=None, max_length=160)
+    email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    phone: str | None = Field(default=None, max_length=40)
+
+
+class CustomSection(Schema):
+    """Une section libre du CV, pour ce qu'aucune autre ne couvre."""
+
+    title: str = Field(min_length=1, max_length=80)
+    items: list[str] = Field(default=[], max_length=30)
 
 
 def slugify(text: str) -> str:
@@ -150,6 +189,10 @@ class Profile(Schema):
     projects: list[Project] = []
     volunteering: list[Volunteering] = []
     publications: list[Publication] = []
+    awards: list[Award] = []
+    courses: list[Course] = []
+    referees: list[Referee] = []
+    custom_sections: list[CustomSection] = []
     languages: list[Language] = []
     soft_skills: list[str] = []
     interests: list[str] = []

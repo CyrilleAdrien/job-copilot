@@ -8,7 +8,19 @@ from jobcopilot_profile.schemas import Profile
 
 PROFILE_ID = 1
 
-IDENTITY_FIELDS = ("full_name", "headline", "email", "phone", "location", "availability", "summary")
+IDENTITY_FIELDS = (
+    "full_name",
+    "headline",
+    "email",
+    "phone",
+    "location",
+    "address",
+    "birth_date",
+    "nationality",
+    "driving_licence",
+    "availability",
+    "summary",
+)
 LIST_FIELDS = (
     "searches",
     "education",
@@ -17,6 +29,10 @@ LIST_FIELDS = (
     "projects",
     "volunteering",
     "publications",
+    "awards",
+    "courses",
+    "referees",
+    "custom_sections",
     "languages",
     "soft_skills",
     "interests",

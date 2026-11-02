@@ -94,6 +94,27 @@ volunteering:
 
 publications: []
 
+awards:
+  - title: Prix de l'innovation interne
+    issuer: Nimbus Data
+    year: 2025
+
+courses:
+  - name: Kubernetes avancé
+    institution: Linux Foundation
+    year: 2025
+
+referees:
+  - name: Sam Durand
+    role: Responsable de la production
+    company: Nimbus Data
+    email: sam.durand@example.com
+
+custom_sections:
+  - title: Conférences
+    items:
+      - DevOps Days Paris 2025
+
 languages:
   - name: Français
     level: Natif

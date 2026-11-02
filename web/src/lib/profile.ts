@@ -19,7 +19,19 @@ export type Experience = {
   groups: ExperienceGroup[];
   technologies: string[];
 };
-export type Education = { degree: string; school: string; year?: number | null; details?: string | null };
+export type Education = {
+  degree: string;
+  school: string;
+  year?: number | null;
+  location?: string | null;
+  start?: string | null;
+  end?: string | null;
+  details?: string | null;
+};
+export type Award = { title: string; issuer?: string | null; year?: number | null; description?: string | null };
+export type Course = { name: string; institution?: string | null; year?: number | null };
+export type Referee = { name: string; role?: string | null; company?: string | null; email?: string | null; phone?: string | null };
+export type CustomSection = { title: string; items: string[] };
 export type SkillCategory = { name: string; items: string[] };
 export type Language = { name: string; level: string };
 export type Certification = { name: string; issuer?: string | null; year?: number | null; url?: string | null };
@@ -67,6 +79,10 @@ export type Profile = {
     email?: string | null;
     phone?: string | null;
     location?: string | null;
+    address?: string | null;
+    birth_date?: string | null;
+    nationality?: string | null;
+    driving_licence?: string | null;
     availability?: string | null;
     summary?: string | null;
     links: Link[];
@@ -79,6 +95,10 @@ export type Profile = {
   projects: Project[];
   volunteering: Volunteering[];
   publications: Publication[];
+  awards: Award[];
+  courses: Course[];
+  referees: Referee[];
+  custom_sections: CustomSection[];
   languages: Language[];
   soft_skills: string[];
   interests: string[];
@@ -121,7 +141,7 @@ export const maxAgeLabels: Record<MaxAgeDays, string> = {
 
 export function emptyProfile(): Profile {
   return {
-    identity: { full_name: "", headline: "", email: "", phone: "", location: "", availability: "", summary: "", links: [] },
+    identity: { full_name: "", headline: "", email: "", phone: "", location: "", address: "", birth_date: "", nationality: "", driving_licence: "", availability: "", summary: "", links: [] },
     searches: [emptySearch("Principal")],
     experiences: [],
     education: [],
@@ -130,6 +150,10 @@ export function emptyProfile(): Profile {
     projects: [],
     volunteering: [],
     publications: [],
+    awards: [],
+    courses: [],
+    referees: [],
+    custom_sections: [],
     languages: [],
     soft_skills: [],
     interests: [],
@@ -194,6 +218,10 @@ export function toPayload(profile: Profile): Profile {
       email: blank(identity.email),
       phone: blank(identity.phone),
       location: blank(identity.location),
+      address: blank(identity.address),
+      birth_date: blank(identity.birth_date),
+      nationality: blank(identity.nationality),
+      driving_licence: blank(identity.driving_licence),
       availability: blank(identity.availability),
       summary: blank(identity.summary),
       links: identity.links.filter((link) => link.label.trim() && link.url.trim()),
@@ -215,7 +243,7 @@ export function toPayload(profile: Profile): Profile {
     })),
     education: profile.education
       .filter((entry) => entry.degree.trim() && entry.school.trim())
-      .map((entry) => ({ ...entry, details: blank(entry.details) })),
+      .map((entry) => ({ ...entry, location: blank(entry.location), start: blank(entry.start), end: blank(entry.end), details: blank(entry.details) })),
     certifications: profile.certifications
       .filter((item) => item.name.trim())
       .map((item) => ({ ...item, issuer: blank(item.issuer), url: blank(item.url) })),
@@ -228,6 +256,18 @@ export function toPayload(profile: Profile): Profile {
     publications: profile.publications
       .filter((item) => item.title.trim())
       .map((item) => ({ ...item, publisher: blank(item.publisher), url: blank(item.url) })),
+    awards: profile.awards
+      .filter((item) => item.title.trim())
+      .map((item) => ({ ...item, issuer: blank(item.issuer), description: blank(item.description) })),
+    courses: profile.courses
+      .filter((item) => item.name.trim())
+      .map((item) => ({ ...item, institution: blank(item.institution) })),
+    referees: profile.referees
+      .filter((item) => item.name.trim())
+      .map((item) => ({ ...item, role: blank(item.role), company: blank(item.company), email: blank(item.email), phone: blank(item.phone) })),
+    custom_sections: profile.custom_sections
+      .map((section) => ({ title: section.title.trim(), items: section.items.map((item) => item.trim()).filter(Boolean) }))
+      .filter((section) => section.title),
     skills: profile.skills.filter((category) => category.name.trim() && category.items.length),
     languages: profile.languages.filter((language) => language.name.trim() && language.level.trim()),
   };
@@ -263,11 +303,18 @@ export function validateSearch(profile: Profile): StepErrors {
 
 export function validateBackground(profile: Profile): StepErrors {
   const errors: StepErrors = {};
-  profile.volunteering.forEach((item, index) => {
-    for (const field of ["start", "end"] as const) {
-      const value = item[field]?.trim();
-      if (value && !yearMonth.test(value)) errors[`volunteering.${index}.${field}`] = "Format AAAA-MM.";
-    }
+  const checkDates = (section: "volunteering" | "education") =>
+    profile[section].forEach((item, index) => {
+      for (const field of ["start", "end"] as const) {
+        const value = item[field]?.trim();
+        if (value && !yearMonth.test(value)) errors[`${section}.${index}.${field}`] = "Format AAAA-MM.";
+      }
+    });
+  checkDates("volunteering");
+  checkDates("education");
+  profile.referees.forEach((item, index) => {
+    const value = item.email?.trim();
+    if (value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) errors[`referees.${index}.email`] = "Adresse e-mail invalide.";
   });
   return errors;
 }
@@ -340,6 +387,12 @@ export function isWebLink(url: string) {
 /** Un texte collé d'un CV garde parfois sa puce : la liste affiche déjà la sienne. */
 export function cleanBullet(text: string) {
   return text.replace(/^[\s•·▪*–—-]+/, "");
+}
+
+/** « 1998-03-14 » devient « 14 mars 1998 », sans décalage de fuseau horaire. */
+export function formatBirthDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(Date.UTC(year, month - 1, day));
 }
 
 /** Découpe un texte en paragraphes : une ligne coupée au milieu d'une phrase rejoint la précédente. */

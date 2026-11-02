@@ -12,7 +12,7 @@ vi.mock("@/components/profile/profile-identity", () => ({
 }));
 
 const profile = {
-  identity: { full_name: "Alex Martin", headline: "Data Engineer", email: "alex@b.fr", phone: "06 00", location: "Paris", availability: "Immédiate", summary: "Construit des pipelines.", links: [{ label: "GitHub", url: "https://github.com/alex" }, { label: "Piège", url: "javascript:alert(1)" }] },
+  identity: { full_name: "Alex Martin", headline: "Data Engineer", email: "alex@b.fr", phone: "06 00", location: "Paris", availability: "Immédiate", summary: "Construit des pipelines.", driving_licence: "B", birth_date: "1998-03-14", nationality: "Française", links: [{ label: "GitHub", url: "https://github.com/alex" }, { label: "Piège", url: "javascript:alert(1)" }] },
   searches: [
     { id: "a", name: "Principal", archived: false, roles: ["Data Engineer"], seniority: "mid", contract_types: ["cdi"], locations: ["Paris"], remote: "any" },
     { id: "b", name: "Ancienne", archived: true, roles: ["Serveur"], seniority: "mid", contract_types: ["cdi"], locations: [], remote: "any" },
@@ -24,6 +24,10 @@ const profile = {
   projects: [{ name: "Copilote", description: "Suit les candidatures.", technologies: [], url: "https://example.org/copilote" }],
   volunteering: [{ role: "Mentor", organization: "Asso", description: "Accompagne des étudiants." }],
   publications: [],
+  awards: [{ title: "Prix de l'innovation", issuer: "BPCE", year: 2025 }],
+  courses: [{ name: "Kubernetes avancé" }],
+  referees: [{ name: "Sam Durand", role: "Responsable" }],
+  custom_sections: [{ title: "Conférences", items: ["DevOps Days"] }],
   languages: [{ name: "Anglais", level: "C1" }],
   soft_skills: ["Rigueur"],
   interests: ["Lecture"],
@@ -93,5 +97,23 @@ describe("profile overview sections", () => {
     expect(screen.getByText("Suit les candidatures.")).toBeInTheDocument();
     expect(screen.getByText("Accompagne des étudiants.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Copilote" })).toHaveAttribute("href", "https://example.org/copilote");
+  });
+});
+
+describe("CV details", () => {
+  it("shows the licence, birth date and nationality in the header", () => {
+    render(<ProfilePhotoCard profile={profile} />);
+    expect(screen.getByText("Permis B")).toBeInTheDocument();
+    expect(screen.getByText("14 mars 1998")).toBeInTheDocument();
+    expect(screen.getByText("Française")).toBeInTheDocument();
+  });
+
+  it("shows the extra sections", () => {
+    render(<ProfileOverview profile={profile} />);
+    expect(screen.getByText("Prix de l'innovation")).toBeInTheDocument();
+    expect(screen.getByText("Kubernetes avancé")).toBeInTheDocument();
+    expect(screen.getByText("Sam Durand")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Conférences" })).toBeInTheDocument();
+    expect(screen.getByText("DevOps Days")).toBeInTheDocument();
   });
 });

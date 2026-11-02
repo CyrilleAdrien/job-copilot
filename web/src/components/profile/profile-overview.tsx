@@ -3,7 +3,7 @@
 import { Award, BookOpen, Briefcase, ChevronDown, FolderGit2, GraduationCap, HandHeart, Heart, Languages, Sparkles, Target, Wrench } from "lucide-react";
 import { useState } from "react";
 
-import { Entries, formatMonth, Section } from "@/components/profile/profile-view";
+import { educationPeriod, Entries, ExtraSections, formatMonth, Section } from "@/components/profile/profile-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { paragraphs, cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type Profile } from "@/lib/profile";
@@ -120,8 +120,9 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
                     <span>
                       <span className="font-medium">{entry.degree}</span> <span className="text-text-secondary">· {entry.school}</span>
                     </span>
-                    {entry.year && <span className="text-xs tabular-nums text-text-tertiary">{entry.year}</span>}
+                    {educationPeriod(entry) && <span className="text-xs tabular-nums text-text-tertiary">{educationPeriod(entry)}</span>}
                   </div>
+                  {entry.location && <p className="text-xs text-text-tertiary">{entry.location}</p>}
                   {entry.details && <p className="text-text-secondary">{entry.details}</p>}
                 </div>
               ))}
@@ -132,6 +133,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
           <Entries icon={Award} title="Certifications" items={profile.certifications.map((item) => ({ title: item.name, meta: [item.issuer, item.year], url: item.url }))} />
           <Entries icon={HandHeart} title="Bénévolat" items={profile.volunteering.map((item) => ({ title: item.role, meta: [item.organization, item.start && formatMonth(item.start)], description: item.description }))} />
           <Entries icon={BookOpen} title="Publications" items={profile.publications.map((item) => ({ title: item.title, meta: [item.publisher, item.year], url: item.url }))} />
+          <ExtraSections profile={profile} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">

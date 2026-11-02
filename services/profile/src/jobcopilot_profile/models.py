@@ -24,6 +24,10 @@ class ProfileRow(Base):
     email: Mapped[str | None] = mapped_column(String(254))
     phone: Mapped[str | None] = mapped_column(String(40))
     location: Mapped[str | None] = mapped_column(String(120))
+    address: Mapped[str | None] = mapped_column(String(200))
+    birth_date: Mapped[str | None] = mapped_column(String(10))
+    nationality: Mapped[str | None] = mapped_column(String(60))
+    driving_licence: Mapped[str | None] = mapped_column(String(40))
     availability: Mapped[str | None] = mapped_column(String(120))
     summary: Mapped[str | None] = mapped_column(Text)
     links: Mapped[list] = mapped_column(Json, default=list)
@@ -36,6 +40,10 @@ class ProfileRow(Base):
     projects: Mapped[list] = mapped_column(Json, default=list)
     volunteering: Mapped[list] = mapped_column(Json, default=list)
     publications: Mapped[list] = mapped_column(Json, default=list)
+    awards: Mapped[list] = mapped_column(Json, default=list)
+    courses: Mapped[list] = mapped_column(Json, default=list)
+    referees: Mapped[list] = mapped_column(Json, default=list)
+    custom_sections: Mapped[list] = mapped_column(Json, default=list)
     # Profils de recherche, dans l'ordre choisi : lus et écrits toujours ensemble.
     searches: Mapped[list] = mapped_column(Json, default=list)
     updated_at: Mapped[datetime] = mapped_column(
