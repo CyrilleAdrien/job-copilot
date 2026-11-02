@@ -204,7 +204,8 @@ function KanbanCard({
       layoutId={`application-${item.id}`}
       transition={spring.smooth}
       className={cn(
-        "lift group relative rounded-[12px] border border-border bg-surface p-4 shadow-card",
+        // Au-dessus des cartes suivantes : le survol crée un contexte d'empilement, où le menu resterait sinon enfermé.
+        "lift group relative rounded-[12px] border border-border bg-surface p-4 shadow-card hover:z-20 focus-within:z-20",
         dragging && "opacity-40",
       )}
     >
