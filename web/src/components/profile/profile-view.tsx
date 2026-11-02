@@ -1,6 +1,7 @@
 import {
   ArchiveRestore,
   Award,
+  BookMarked,
   BookOpen,
   Copy,
   Briefcase,
@@ -8,13 +9,17 @@ import {
   GraduationCap,
   HandHeart,
   Languages,
+  ListPlus,
   MapPin,
   Plus,
   Target,
+  Trophy,
+  UserCheck,
   Wrench,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { linkIcon } from "@/components/profile/brand-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +31,9 @@ import {
   remoteLabels,
   seniorityLabels,
   type Profile,
+  formatBirthDate,
   isWebLink,
+  type Education,
   paragraphs,
 } from "@/lib/profile";
 import { cn } from "@/lib/utils";
@@ -68,7 +75,20 @@ export function ProfileView({
             )}
             {identity.email && <span>{identity.email}</span>}
             {identity.phone && <span>{identity.phone}</span>}
+            {identity.address && <span>{identity.address}</span>}
             {identity.availability && <span>{identity.availability}</span>}
+            {identity.driving_licence && <span>Permis {identity.driving_licence}</span>}
+            {identity.birth_date && <span>Né(e) le {formatBirthDate(identity.birth_date)}</span>}
+            {identity.nationality && <span>{identity.nationality}</span>}
+            {identity.links.filter((link) => isWebLink(link.url)).map((link) => {
+              const Icon = linkIcon(link.url);
+              return (
+                <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-text hover:underline">
+                  <Icon className="size-3.5" aria-hidden />
+                  {link.label}
+                </a>
+              );
+            })}
           </div>
           {identity.summary && (
             <div className="flex flex-col gap-2 text-sm leading-relaxed">
@@ -186,7 +206,8 @@ export function ProfileView({
                   <span className="font-medium">{entry.degree}</span>
                   <span className="text-text-secondary">
                     {entry.school}
-                    {entry.year ? ` · ${entry.year}` : ""}
+                    {educationPeriod(entry) ? ` · ${educationPeriod(entry)}` : ""}
+                    {entry.location ? ` · ${entry.location}` : ""}
                   </span>
                   {entry.details && <span className="mt-1 text-text-secondary">{entry.details}</span>}
                 </div>
@@ -226,8 +247,35 @@ export function ProfileView({
           title="Publications"
           items={profile.publications.map((item) => ({ title: item.title, meta: [item.publisher, item.year], url: item.url }))}
         />
+        <ExtraSections profile={profile} />
       </div>
     </div>
+  );
+}
+
+/** Les dates d'une formation quand elles existent, son année sinon. */
+export function educationPeriod(entry: Education) {
+  if (entry.start || entry.end) return [entry.start && formatMonth(entry.start), entry.end && formatMonth(entry.end)].filter(Boolean).join(" – ");
+  return entry.year ? String(entry.year) : null;
+}
+
+/** Récompenses, formations suivies, références et sections libres : communes aux deux vues du profil. */
+export function ExtraSections({ profile }: { profile: Profile }) {
+  return (
+    <>
+      <Entries icon={Trophy} title="Récompenses" items={profile.awards.map((item) => ({ title: item.title, meta: [item.issuer, item.year], description: item.description }))} />
+      <Entries icon={BookMarked} title="Formations suivies" items={profile.courses.map((item) => ({ title: item.name, meta: [item.institution, item.year] }))} />
+      <Entries icon={UserCheck} title="Références" items={profile.referees.map((item) => ({ title: item.name, meta: [item.role, item.company, item.email, item.phone] }))} />
+      {profile.custom_sections.map((section, index) => (
+        <Section key={index} icon={ListPlus} title={section.title}>
+          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-text-secondary">
+            {section.items.map((item, itemIndex) => (
+              <li key={itemIndex}>{item}</li>
+            ))}
+          </ul>
+        </Section>
+      ))}
+    </>
   );
 }
 

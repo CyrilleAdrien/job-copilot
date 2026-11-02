@@ -73,6 +73,10 @@ export function IdentityStep({ profile, update, errors }: StepProps) {
         placeholder="Paris / Île-de-France"
       />
       <Input label="Disponibilité" value={identity.availability ?? ""} onChange={set("availability")} placeholder="Disponible immédiatement" />
+      <Input label="Adresse" value={identity.address ?? ""} onChange={set("address")} autoComplete="street-address" placeholder="Facultatif" />
+      <Input label="Permis de conduire" value={identity.driving_licence ?? ""} onChange={set("driving_licence")} placeholder="B (vide si aucun)" />
+      <Input label="Date de naissance" type="date" value={identity.birth_date ?? ""} onChange={set("birth_date")} autoComplete="bday" />
+      <Input label="Nationalité" value={identity.nationality ?? ""} onChange={set("nationality")} placeholder="Facultatif" />
       <div className="md:col-span-2">
         <Textarea
           label="Résumé du profil"
@@ -621,11 +625,16 @@ export function BackgroundStep({ profile, update, errors }: StepProps) {
           </Row>
           <Input
             aria-label="Détails de la formation"
-            placeholder="Lieu, dates, enseignements clés"
+            placeholder="Enseignements clés, mention"
             maxLength={300}
             value={entry.details ?? ""}
             onChange={(event) => update((draft) => void (draft.education[index].details = event.target.value))}
           />
+          <div className="grid gap-2 md:grid-cols-[1fr_110px_110px]">
+            <Input aria-label="Lieu de la formation" placeholder="Lieu" value={entry.location ?? ""} onChange={(event) => update((draft) => void (draft.education[index].location = event.target.value))} />
+            <Input aria-label="Début de la formation" placeholder="2024-09" value={entry.start ?? ""} error={errors[`education.${index}.start`]} onChange={(event) => update((draft) => void (draft.education[index].start = event.target.value))} />
+            <Input aria-label="Fin de la formation" placeholder="2026-08" value={entry.end ?? ""} error={errors[`education.${index}.end`]} onChange={(event) => update((draft) => void (draft.education[index].end = event.target.value))} />
+          </div>
           </div>
         ))}
         <AddButton onClick={() => update((draft) => void draft.education.push({ degree: "", school: "", year: null }))}>Ajouter une formation</AddButton>
@@ -736,6 +745,57 @@ export function BackgroundStep({ profile, update, errors }: StepProps) {
           </Row>
         ))}
         <AddButton onClick={() => update((draft) => void draft.publications.push({ title: "", publisher: "", year: null }))}>Ajouter une publication</AddButton>
+      </Group>
+
+      <Group title="Récompenses">
+        {profile.awards.map((entry, index) => (
+          <Card key={index} onRemove={() => update((draft) => void draft.awards.splice(index, 1))} label="Retirer la récompense">
+            <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_96px]">
+              <Input aria-label="Récompense" placeholder="Récompense" value={entry.title} onChange={(event) => update((draft) => void (draft.awards[index].title = event.target.value))} />
+              <Input aria-label="Décernée par" placeholder="Décernée par" value={entry.issuer ?? ""} onChange={(event) => update((draft) => void (draft.awards[index].issuer = event.target.value))} />
+              <Input aria-label="Année" placeholder="Année" inputMode="numeric" value={entry.year ?? ""} onChange={(event) => update((draft) => void (draft.awards[index].year = yearValue(event.target.value)))} />
+            </div>
+            <Textarea aria-label="Description de la récompense" className="min-h-16" placeholder="Pourquoi tu l'as reçue." value={entry.description ?? ""} onChange={(event) => update((draft) => void (draft.awards[index].description = event.target.value))} />
+          </Card>
+        ))}
+        <AddButton onClick={() => update((draft) => void draft.awards.push({ title: "", issuer: "", year: null, description: "" }))}>Ajouter une récompense</AddButton>
+      </Group>
+
+      <Group title="Formations suivies">
+        {profile.courses.map((entry, index) => (
+          <Row key={index} columns="md:grid-cols-[1.4fr_1fr_96px_auto]">
+            <Input aria-label="Formation suivie" placeholder="Kubernetes avancé" value={entry.name} onChange={(event) => update((draft) => void (draft.courses[index].name = event.target.value))} />
+            <Input aria-label="Organisme de formation" placeholder="Organisme" value={entry.institution ?? ""} onChange={(event) => update((draft) => void (draft.courses[index].institution = event.target.value))} />
+            <Input aria-label="Année" placeholder="Année" inputMode="numeric" value={entry.year ?? ""} onChange={(event) => update((draft) => void (draft.courses[index].year = yearValue(event.target.value)))} />
+            <RemoveButton label="Retirer la formation suivie" onClick={() => update((draft) => void draft.courses.splice(index, 1))} />
+          </Row>
+        ))}
+        <AddButton onClick={() => update((draft) => void draft.courses.push({ name: "", institution: "", year: null }))}>Ajouter une formation suivie</AddButton>
+      </Group>
+
+      <Group title="Références">
+        {profile.referees.map((entry, index) => (
+          <Card key={index} onRemove={() => update((draft) => void draft.referees.splice(index, 1))} label="Retirer la référence">
+            <div className="grid gap-3 md:grid-cols-3">
+              <Input aria-label="Nom de la référence" placeholder="Nom" value={entry.name} onChange={(event) => update((draft) => void (draft.referees[index].name = event.target.value))} />
+              <Input aria-label="Fonction de la référence" placeholder="Fonction" value={entry.role ?? ""} onChange={(event) => update((draft) => void (draft.referees[index].role = event.target.value))} />
+              <Input aria-label="Entreprise de la référence" placeholder="Entreprise" value={entry.company ?? ""} onChange={(event) => update((draft) => void (draft.referees[index].company = event.target.value))} />
+              <Input aria-label="E-mail de la référence" placeholder="E-mail" value={entry.email ?? ""} error={errors[`referees.${index}.email`]} onChange={(event) => update((draft) => void (draft.referees[index].email = event.target.value))} />
+              <Input aria-label="Téléphone de la référence" placeholder="Téléphone" value={entry.phone ?? ""} onChange={(event) => update((draft) => void (draft.referees[index].phone = event.target.value))} />
+            </div>
+          </Card>
+        ))}
+        <AddButton onClick={() => update((draft) => void draft.referees.push({ name: "", role: "", company: "", email: "", phone: "" }))}>Ajouter une référence</AddButton>
+      </Group>
+
+      <Group title="Sections libres">
+        {profile.custom_sections.map((entry, index) => (
+          <Card key={index} onRemove={() => update((draft) => void draft.custom_sections.splice(index, 1))} label="Retirer la section">
+            <Input aria-label="Titre de la section" placeholder="Conférences, associations..." value={entry.title} onChange={(event) => update((draft) => void (draft.custom_sections[index].title = event.target.value))} />
+            <Textarea aria-label="Contenu de la section" className="min-h-16" placeholder="Un élément par ligne." value={entry.items.join("\n")} onChange={(event) => update((draft) => void (draft.custom_sections[index].items = event.target.value.split("\n")))} />
+          </Card>
+        ))}
+        <AddButton onClick={() => update((draft) => void draft.custom_sections.push({ title: "", items: [] }))}>Ajouter une section</AddButton>
       </Group>
     </div>
   );

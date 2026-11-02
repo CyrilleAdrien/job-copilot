@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanBullet, joinBullets, paragraphs, previewGroups, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
+import { linkIcon, GitHubIcon, LinkedInIcon } from "@/components/profile/brand-icons";
+import { cleanBullet, formatBirthDate, joinBullets, paragraphs, previewGroups, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
 
 const now = new Date(2026, 10, 2);
 const job = (start: string, end: string | null = null, technologies: string[] = []) => ({ start, end, technologies }) as Experience;
@@ -106,5 +107,20 @@ describe("paragraphs", () => {
   it("treats a blank line as a break and leaves a single block alone", () => {
     expect(paragraphs("Un bloc sans point\n\nUn autre.")).toEqual(["Un bloc sans point", "Un autre."]);
     expect(paragraphs("Un seul paragraphe. Deux phrases.")).toEqual(["Un seul paragraphe. Deux phrases."]);
+  });
+});
+
+describe("linkIcon", () => {
+  it("recognizes the site from the address, not from a lookalike", () => {
+    expect(linkIcon("https://github.com/alex")).toBe(GitHubIcon);
+    expect(linkIcon("https://www.linkedin.com/in/alex")).toBe(LinkedInIcon);
+    expect(linkIcon("https://github.com.evil.io/x")).not.toBe(GitHubIcon);
+    expect(linkIcon("pas une adresse")).not.toBe(GitHubIcon);
+  });
+});
+
+describe("formatBirthDate", () => {
+  it("writes the date in French without a time zone shift", () => {
+    expect(formatBirthDate("1998-03-01")).toBe("1 mars 1998");
   });
 });
