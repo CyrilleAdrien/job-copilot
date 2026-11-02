@@ -38,6 +38,7 @@ import {
   type MailReply,
 } from "@/lib/mail";
 import { fadeUp, spring } from "@/lib/motion";
+import { useOpenFromMenu } from "@/lib/use-open-from-menu";
 
 /** Une confirmation s'efface seule. Un problème à traiter reste jusqu'à ce qu'on le ferme. */
 const NOTICE_MS = 6000;
@@ -56,6 +57,8 @@ export function InboxScreen() {
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+
+  useOpenFromMenu(() => setComposing(true));
 
   const load = useCallback(async () => {
     try {

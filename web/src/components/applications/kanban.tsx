@@ -204,7 +204,7 @@ function KanbanCard({
       layoutId={`application-${item.id}`}
       transition={spring.smooth}
       className={cn(
-        "group relative rounded-[12px] border border-border bg-surface p-4 shadow-card transition-opacity",
+        "lift group relative rounded-[12px] border border-border bg-surface p-4 shadow-card",
         dragging && "opacity-40",
       )}
     >

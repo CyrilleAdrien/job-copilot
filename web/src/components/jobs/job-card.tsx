@@ -62,7 +62,7 @@ export function JobCard({
     <motion.article
       layout="position"
       transition={spring.smooth}
-      className="overflow-hidden rounded-card border border-border bg-surface shadow-card transition-colors hover:border-border-strong"
+      className="lift overflow-hidden rounded-card border border-border bg-surface shadow-card"
     >
       <div className="flex w-full items-start gap-4 p-5">
       <button

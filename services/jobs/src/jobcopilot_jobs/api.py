@@ -1,4 +1,5 @@
 import asyncio
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
@@ -102,6 +103,20 @@ def score_window(
     return offers, below_threshold, above_level
 
 
+def folded(text: str) -> str:
+    """Minuscules et sans accents, pour comparer ce qui est tapé au texte d'une offre."""
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def matches_text(offer: Offer, query: str) -> bool:
+    """Tous les mots cherchés se trouvent dans le poste, l'entreprise, le lieu ou le résumé."""
+    haystack = folded(
+        " ".join(filter(None, (offer.title, offer.company, offer.location, offer.snippet)))
+    )
+    return all(word in haystack for word in folded(query).split())
+
+
 @router.get("/offers", response_model=OfferList)
 async def list_offers(
     session: Session,
@@ -110,12 +125,14 @@ async def list_offers(
     max_age_days: Window,
     sort: Sort = "date",
     favorites: bool = False,
+    q: Annotated[str, Query(max_length=200)] = "",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> OfferList:
     """Offres de la fenêtre choisie (celle du profil par défaut), les plus récentes d'abord.
 
     `favorites=true` renvoie les favoris de la recherche, sans filtre de date ni de seuil.
+    `q` garde les offres qui contiennent tous ses mots, sans tenir compte des accents.
     """
     days = max_age_days or criteria.max_age_days
     starred = await repository.favorite_ids(session, criteria.id)
@@ -131,6 +148,7 @@ async def list_offers(
         offers, below_threshold, above_level = await asyncio.to_thread(
             score_window, rows, criteria, starred
         )
+    offers = [offer for offer in offers if matches_text(offer, q)]
     if sort == "date":
         offers.sort(key=lambda offer: (offer.published_at, offer.score), reverse=True)
     else:

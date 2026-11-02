@@ -62,7 +62,7 @@ export function MonthView({
               key={key}
               role="gridcell"
               aria-label={`${date.getDate()} ${items.length ? `, ${items.length} événement${items.length > 1 ? "s" : ""}` : ""}`}
-              className={cn("group flex min-h-28 flex-col gap-1 bg-surface p-1.5", outside && "bg-background-subtle")}
+              className={cn("group flex min-h-28 flex-col gap-1 bg-surface p-1.5 transition-colors duration-150 hover:bg-accent-soft", outside && "bg-background-subtle")}
             >
               <button
                 type="button"

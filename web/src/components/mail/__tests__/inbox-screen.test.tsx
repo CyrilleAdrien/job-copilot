@@ -41,6 +41,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/boite-de-reception" }));
+vi.mock("@/lib/use-open-from-menu", () => ({ useOpenFromMenu: vi.fn() }));
+
 describe("InboxScreen", () => {
   it("lists a mail on one line, without its actions, then opens it", async () => {
     backend();

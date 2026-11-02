@@ -38,7 +38,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(segment.value)}
             className={cn(
               "relative h-9 whitespace-nowrap rounded-[12px] px-3.5 text-sm transition-colors duration-150",
-              selected ? "font-medium text-background" : "text-text-secondary hover:text-text",
+              selected ? "font-medium text-background" : "text-text-secondary hover:bg-surface-hover hover:text-text",
             )}
           >
             {selected && (

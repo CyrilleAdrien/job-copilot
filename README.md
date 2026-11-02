@@ -68,6 +68,8 @@ Les deux sources sont gratuites. Renseigne leurs clés dans `.env`, puis relance
 | France Travail | [francetravail.io](https://francetravail.io), application avec l'API « Offres d'emploi v2 » | `FRANCE_TRAVAIL_CLIENT_ID`, `FRANCE_TRAVAIL_CLIENT_SECRET` |
 | Adzuna | [developer.adzuna.com](https://developer.adzuna.com) | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` |
 
+La barre du haut cherche dans les offres de la période affichée, par poste, entreprise, lieu ou résumé, sans tenir compte des accents. Le bouton **Créer** ouvre une nouvelle candidature, un message, un événement ou une recherche.
+
 Sans clé, `JOBS_DEMO=true` active des offres fictives pour essayer l'outil. Une collecte reste en cache 15 minutes dans Redis, un délai réglable dans Réglages. Le bouton Actualiser force une nouvelle collecte. Aucune recherche ne tourne en tâche de fond : elle part quand tu ouvres les offres.
 
 | Méthode | Chemin | Rôle |
@@ -124,6 +126,8 @@ L'onglet Réglages réunit toute la configuration, dans l'ordre où chaque étap
 
 Les clés saisies ici sont testées auprès de la source, chiffrées avec `SECRET_KEY` et absentes de l'export. Elles priment sur celles de `.env`. `SECRET_KEY`, la base et les ports restent dans `.env`, car les services en ont besoin pour démarrer. L'intervalle de lecture des boîtes (`MAIL_SYNC_MINUTES`) y reste aussi pour l'instant.
 
+L'écran présente les étapes à gauche et le contenu de celle choisie à droite. Une étape qui demande une action s'ouvre seule.
+
 ## Écrire et répondre aux mails
 
 La boîte de réception se lit comme une messagerie : une ligne par mail, en gras s'il reste à vérifier, et les dossiers À vérifier, Envoyés et Traités. Les actions (statut, rattachement, catégorie, réponse) apparaissent à l'ouverture du mail. « Nouveau message » écrit à n'importe quelle adresse.
@@ -162,7 +166,7 @@ examples/          profil d'exemple au format YAML
 
 ## Design
 
-Interface inspirée de Kaggle : police Google Sans Flex, boutons noirs, crème et jaune d'or, violet réservé à ce qui vient de l'IA, mode sombre natif. Icônes Lucide, police Inter, animations Motion qui respectent `prefers-reduced-motion`. Les tokens sont dans `web/src/app/globals.css`.
+Style graphique inspiré de Kaggle : police Google Sans Flex, boutons noirs, crème et jaune d'or, illustrations propres au projet, violet réservé à ce qui vient de l'IA, mode sombre natif. Icônes Lucide, police Inter, animations Motion qui respectent `prefers-reduced-motion`. Les tokens sont dans `web/src/app/globals.css`.
 
 ## Licence
 

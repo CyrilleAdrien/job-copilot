@@ -141,6 +141,79 @@
   }
 }
 
+/* Survol : ce qui s'ouvre se soulève, une ligne reçoit un liseré d'or. */
+.lift {
+  transition:
+    transform 180ms ease-out,
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 18px rgb(31 31 31 / 0.08);
+}
+.row-glow {
+  position: relative;
+  transition: background-color 150ms ease-out;
+}
+.row-glow::before {
+  content: "";
+  position: absolute;
+  inset-block: 6px;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 180ms ease-out;
+}
+.row-glow:hover {
+  background: var(--background-subtle);
+}
+.row-glow:hover::before,
+.row-glow:focus-visible::before {
+  transform: scaleY(1);
+}
+
+/* Bandeau de titre : le tracé du parcours avance et les objets s'élèvent au survol. */
+.hero-trail {
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+}
+.hero:hover .hero-trail {
+  animation: hero-walk 1.2s linear infinite;
+}
+.hero-part {
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.hero:hover .hero-part {
+  transform: translateY(-4px);
+}
+.hero:hover .hero-part-b {
+  transform: translateY(-7px);
+  transition-delay: 50ms;
+}
+.hero:hover .hero-part-c {
+  transform: translateY(-10px);
+  transition-delay: 100ms;
+}
+@keyframes hero-walk {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift:hover,
+  .hero:hover .hero-part {
+    transform: none;
+  }
+  .hero:hover .hero-trail {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -36,15 +36,15 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.goto("/bienvenue");
     await page.locator('input[type="file"]').first().setInputFiles(PROFILE_YAML);
     await expect(page).toHaveURL(/\/profil$/);
-    const sidebar = page.getByRole("link", { name: "Mon profil" });
-    await expect(sidebar).toContainText("Alex Martin");
+    const avatar = page.getByRole("link", { name: "Mon profil" });
+    await expect(avatar).toHaveAttribute("title", "Alex Martin");
 
     await page.getByLabel("Choisir une photo de profil").setInputFiles({
       name: "photo.png",
       mimeType: "image/png",
       buffer: PIXEL,
     });
-    await expect(sidebar.getByRole("img", { name: "Photo de profil" })).toBeVisible();
+    await expect(avatar.getByRole("img", { name: "Photo de profil" })).toBeVisible();
   });
 
   await test.step("les offres se collectent", async () => {
@@ -54,6 +54,24 @@ test("parcours complet, du profil à la suppression des données", async ({ page
 
   const offers = await read(request, "/api/jobs/offers");
   const offer = offers.items[0];
+
+  await test.step("la barre du haut cherche dans les offres", async () => {
+    const box = page.getByRole("searchbox", { name: "Rechercher une offre" });
+    await box.fill(offer.title);
+    await box.press("Enter");
+    await expect(page).toHaveURL(/\/offres\?q=/);
+    await expect(page.getByRole("heading", { name: offer.title }).first()).toBeVisible();
+    await box.fill("aucune offre ne contient cette phrase");
+    await box.press("Enter");
+    await expect(page.getByText(/^Aucune offre pour/)).toBeVisible();
+  });
+
+  await test.step("le menu Créer ouvre le bon formulaire", async () => {
+    await page.getByRole("button", { name: "Créer" }).click();
+    await page.getByRole("menuitem", { name: "Nouvel événement" }).click();
+    await expect(page.getByRole("dialog", { name: "Nouvel événement" })).toBeVisible();
+    await page.keyboard.press("Escape");
+  });
 
   await test.step("un CV se génère pour une offre", async () => {
     await page.goto(`/offres/${offer.id}`);
@@ -218,7 +236,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.getByRole("button", { name: "Tout supprimer", exact: true }).click();
     await dialog.getByRole("button", { name: "Tout supprimer", exact: true }).click();
     await expect(page).toHaveURL(/\/bienvenue$/);
-    await expect(page.getByRole("link", { name: "Mon profil" })).not.toContainText("Alex Martin");
+    await expect(page.getByRole("link", { name: "Mon profil" })).toHaveAttribute("title", "Mon profil");
     await expect(page.getByRole("link", { name: "Mon profil" }).getByRole("img")).toHaveCount(0);
     expect(await page.evaluate(() => window.localStorage.length)).toBe(0);
 

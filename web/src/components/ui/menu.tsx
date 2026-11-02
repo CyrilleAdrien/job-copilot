@@ -85,7 +85,7 @@ export function Menu({
           >
             {items.map((item) => {
               const className = cn(
-                "flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left text-sm transition-colors hover:bg-surface-hover [&_svg]:size-4",
+                "flex w-full items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left text-sm transition-colors hover:bg-surface-hover [&_svg]:size-4",
                 item.tone === "danger" ? "text-danger [&_svg]:text-danger" : "text-text [&_svg]:text-text-tertiary",
               );
               const content = (

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
@@ -20,8 +20,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <div className="flex min-h-dvh">
             <Sidebar />
             <main className="min-w-0 flex-1 px-6 pb-12 lg:px-12">
-              <TopBar />
-              <div className="w-full">{children}</div>
+              <Suspense>
+                <TopBar />
+                <div className="w-full">{children}</div>
+              </Suspense>
             </main>
           </div>
         </Providers>

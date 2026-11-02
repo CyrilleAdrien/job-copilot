@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Filter, KeyRound, RefreshCw, SearchX, Star, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, KeyRound, RefreshCw, Search, SearchX, Star, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -36,7 +36,7 @@ import { seniorityLabels, type SearchProfile } from "@/lib/profile";
 import { pickSearch, storeSearch, storedSearch } from "@/lib/search-choice";
 import { cn } from "@/lib/utils";
 
-export function OffersScreen() {
+export function OffersScreen({ query = "" }: { query?: string }) {
   const [searches, setSearches] = useState<SearchProfile[]>([]);
   const [search, setSearch] = useState<string | undefined>(undefined);
   const [days, setDays] = useState<Window | null>(null);
@@ -51,6 +51,12 @@ export function OffersScreen() {
   const [view, setView] = useState<"all" | "favorites">("all");
   const [now, setNow] = useState(() => new Date());
   const latest = useRef(0);
+
+  const fetchList = useCallback(
+    (order: SortOrder, window?: Window, searchId?: string, favorites = false, listPage = 0) =>
+      fetchOffers(order, window, searchId, favorites, listPage, query),
+    [query],
+  );
 
   const fail = useCallback((e: ApiError) => {
     if (e.status === 409 && e.message.includes("profil")) setNoProfile(true);
@@ -73,7 +79,7 @@ export function OffersScreen() {
         }
       }
       try {
-        const offers = await fetchOffers(order, window, searchId);
+        const offers = await fetchList(order, window, searchId);
         if (call === latest.current) setList(offers);
       } catch (e) {
         fail(e as ApiError);
@@ -84,20 +90,20 @@ export function OffersScreen() {
         }
       }
     },
-    [fail],
+    [fail, fetchList],
   );
 
   /** Liste d'un profil de recherche, dans sa fenêtre de publication par défaut, puis collecte. */
   const open = useCallback(
     (searchId: string | undefined, order: SortOrder) =>
-      fetchOffers(order, undefined, searchId)
+      fetchList(order, undefined, searchId)
         .then((offers) => {
           setList(offers);
           setDays(offers.max_age_days);
           return sync(offers.max_age_days, order, searchId);
         })
         .catch(fail),
-    [sync, fail],
+    [sync, fail, fetchList],
   );
 
   // Statut de candidature de chaque offre, affiché sur sa carte.
@@ -149,23 +155,23 @@ export function OffersScreen() {
   function changeSort(order: SortOrder) {
     setSort(order);
     setPage(0);
-    if (view === "favorites") fetchOffers(order, undefined, search, true).then(setList).catch(fail);
-    else if (days) fetchOffers(order, days, search).then(setList).catch(fail);
+    if (view === "favorites") fetchList(order, undefined, search, true).then(setList).catch(fail);
+    else if (days) fetchList(order, days, search).then(setList).catch(fail);
   }
 
   function changeView(next: "all" | "favorites") {
     setView(next);
     setPage(0);
     setList(null);
-    if (next === "favorites") fetchOffers(sort, undefined, search, true).then(setList).catch(fail);
-    else if (days) fetchOffers(sort, days, search).then(setList).catch(fail);
+    if (next === "favorites") fetchList(sort, undefined, search, true).then(setList).catch(fail);
+    else if (days) fetchList(sort, days, search).then(setList).catch(fail);
   }
 
   function goToPage(next: number) {
     setPage(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
     const favorites = view === "favorites";
-    fetchOffers(sort, favorites ? undefined : (days ?? undefined), search, favorites, next)
+    fetchList(sort, favorites ? undefined : (days ?? undefined), search, favorites, next)
       .then(setList)
       .catch(fail);
   }
@@ -195,7 +201,7 @@ export function OffersScreen() {
   function changeWindow(window: Window) {
     setDays(window);
     setPage(0);
-    fetchOffers(sort, window, search).then(setList).catch(fail);
+    fetchList(sort, window, search).then(setList).catch(fail);
     sync(window, sort, search);
   }
 
@@ -238,6 +244,21 @@ export function OffersScreen() {
           </Button>
         }
       />
+
+      {query && (
+        <div className="flex flex-wrap items-center gap-2 pb-3 text-sm text-text-secondary">
+          <Search className="size-4 shrink-0" aria-hidden />
+          <span>
+            Résultats pour <strong className="font-medium text-text">« {query} »</strong> sur la période choisie.
+          </span>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/offres">
+              <X aria-hidden />
+              Effacer
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {searches.length > 1 && (
         <div className="flex flex-wrap items-center gap-2 pb-3">
@@ -365,7 +386,7 @@ export function OffersScreen() {
         ) : (
           <EmptyState
             icon={SearchX}
-            title="Aucune offre sur cette période"
+            title={query ? `Aucune offre pour « ${query} »` : "Aucune offre sur cette période"}
             description="Élargis la fenêtre de publication ou ajuste tes critères dans ton profil."
             action={
               days !== 30 ? (

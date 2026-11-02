@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { categories, listDate, type MailMessage, type MailReply } from "@/lib/mail";
 import { cn } from "@/lib/utils";
 
-const ROW = "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-4 py-2.5 text-left text-sm transition-colors duration-150 hover:bg-background-subtle md:grid-cols-[180px_minmax(0,1fr)_auto]";
+const ROW = "row-glow grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-4 py-2.5 text-left text-sm md:grid-cols-[180px_minmax(0,1fr)_auto]";
 
 /** Une ligne, comme dans une messagerie : expéditeur, objet, début du texte, date. En gras : à vérifier. */
 export function MessageRow({

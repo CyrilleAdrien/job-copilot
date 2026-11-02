@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { CreateMenu } from "@/components/layout/create-menu";
 import { spring } from "@/lib/motion";
 import { isActive, mainNav, secondaryNav, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -30,11 +31,11 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "sticky top-0 flex h-dvh shrink-0 flex-col border-r border-border bg-sidebar px-3 py-2.5 transition-[width] duration-200",
+        "sticky top-0 z-40 flex h-dvh shrink-0 flex-col border-r border-border bg-sidebar px-3 py-2.5 transition-[width] duration-200",
         collapsed ? "w-[73px]" : "w-[257px]",
       )}
     >
-      <div className="mb-5 flex h-11 items-center gap-1.5">
+      <div className="mb-2 flex h-11 items-center gap-1.5">
         <button
           type="button"
           onClick={toggle}
@@ -50,6 +51,10 @@ export function Sidebar() {
             <span className="text-[22px] font-normal leading-none">job-copilot</span>
           </Link>
         )}
+      </div>
+
+      <div className="mb-4">
+        <CreateMenu collapsed={collapsed} />
       </div>
 
       <nav aria-label="Navigation principale" className="flex flex-1 flex-col gap-3">
@@ -75,14 +80,14 @@ function NavGroup({ items, pathname, collapsed }: { items: NavItem[]; pathname: 
             aria-label={collapsed ? item.label : undefined}
             title={collapsed ? item.label : undefined}
             className={cn(
-              "relative flex h-11 items-center gap-4 rounded-[12px] px-2.5 text-sm transition-colors duration-150",
+              "group relative flex h-11 items-center gap-4 rounded-[12px] px-2.5 text-sm transition-colors duration-150",
               active ? "text-text" : "text-text-secondary hover:bg-surface-hover hover:text-text",
             )}
           >
             {active && (
               <motion.span layoutId="sidebar-active" className="absolute inset-0 rounded-[12px] bg-accent-soft" transition={spring.snappy} />
             )}
-            <Icon className="relative size-6 shrink-0" strokeWidth={1.25} aria-hidden />
+            <Icon className="relative size-6 shrink-0 transition-transform duration-150 group-hover:scale-110" strokeWidth={1.25} aria-hidden />
             {!collapsed && <span className="relative whitespace-nowrap">{item.label}</span>}
           </Link>
         );
