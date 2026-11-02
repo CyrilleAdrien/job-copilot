@@ -3,9 +3,9 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
-import { ticks, weekLabel, type WeekCount } from "@/lib/dashboard";
+import { ticks, type ChartBar } from "@/lib/dashboard";
 
-const HEIGHT = 300;
+const HEIGHT = 420;
 const PAD = { top: 20, right: 8, bottom: 28, left: 28 };
 const RADIUS = 4;
 
@@ -16,8 +16,8 @@ function barPath(x: number, y: number, width: number, height: number) {
   return `M${x},${y + height}V${y + r}Q${x},${y} ${x + r},${y}H${x + width - r}Q${x + width},${y} ${x + width},${y + r}V${y + height}Z`;
 }
 
-/** Candidatures envoyées par semaine : une série, survol et clavier pour lire chaque semaine. */
-export function WeeklyChart({ weeks }: { weeks: WeekCount[] }) {
+/** Candidatures envoyées dans le temps : une série, survol et clavier pour lire chaque barre. */
+export function SentChart({ bars }: { bars: ChartBar[] }) {
   const root = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [active, setActive] = useState<number | null>(null);
@@ -31,22 +31,24 @@ export function WeeklyChart({ weeks }: { weeks: WeekCount[] }) {
     return () => observer.disconnect();
   }, []);
 
-  const max = Math.max(...weeks.map((week) => week.sent), 0);
+  const max = Math.max(...bars.map((bar) => bar.value), 0);
   const scale = ticks(max);
   const top = scale[scale.length - 1];
   const plotWidth = width - PAD.left - PAD.right;
   const plotHeight = HEIGHT - PAD.top - PAD.bottom;
-  const slot = plotWidth / weeks.length;
-  const barWidth = Math.min(28, slot - 6);
+  const slot = plotWidth / bars.length;
+  const barWidth = Math.max(2, Math.min(28, slot - 4));
+  // Pas plus de 8 dates sur l'axe : au-delà, elles se chevauchent.
+  const labelEvery = Math.max(1, Math.ceil(bars.length / 8));
   const y = (value: number) => PAD.top + plotHeight - (value / top) * plotHeight;
-  const peak = weeks.findIndex((week) => week.sent === max && max > 0);
-  const last = weeks.length - 1;
-  const labelled = new Set([peak, last].filter((index) => index >= 0 && weeks[index].sent > 0));
+  const peak = bars.findIndex((bar) => bar.value === max && max > 0);
+  const last = bars.length - 1;
+  const labelled = new Set([peak, last].filter((index) => index >= 0 && bars[index].value > 0));
   const shown = active ?? null;
 
   return (
     <div ref={root} className="relative w-full">
-      <svg width={width} height={HEIGHT} role="img" aria-label="Candidatures envoyées par semaine" className="block">
+      <svg width={width} height={HEIGHT} role="img" aria-label="Candidatures envoyées dans le temps" className="block">
         {scale.map((tick) => (
           <g key={tick}>
             <line
@@ -62,13 +64,13 @@ export function WeeklyChart({ weeks }: { weeks: WeekCount[] }) {
             </text>
           </g>
         ))}
-        {weeks.map((week, index) => {
+        {bars.map((bar, index) => {
           const x = PAD.left + slot * index + (slot - barWidth) / 2;
-          const barTop = y(week.sent);
+          const barTop = y(bar.value);
           const height = PAD.top + plotHeight - barTop;
           const isActive = shown === index;
           return (
-            <g key={week.week}>
+            <g key={bar.key}>
               <motion.path
                 d={barPath(x, barTop, barWidth, height)}
                 initial={reduceMotion ? false : { opacity: 0, scaleY: 0 }}
@@ -84,12 +86,12 @@ export function WeeklyChart({ weeks }: { weeks: WeekCount[] }) {
                   textAnchor="middle"
                   className="fill-text-secondary text-[11px] font-medium tabular-nums"
                 >
-                  {week.sent}
+                  {bar.value}
                 </text>
               )}
-              {(index % 2 === last % 2 || weeks.length <= 6) && (
+              {index % labelEvery === last % labelEvery && (
                 <text x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle" className="fill-text-tertiary text-[11px]">
-                  {weekLabel(week.week)}
+                  {bar.label}
                 </text>
               )}
               {/* Zone de survol plus large que la barre, focusable au clavier. */}
@@ -101,7 +103,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekCount[] }) {
                 fill="transparent"
                 tabIndex={0}
                 role="button"
-                aria-label={`Semaine du ${weekLabel(week.week)} : ${week.sent} envoyée${week.sent > 1 ? "s" : ""}`}
+                aria-label={`${bar.detail} : ${bar.value} envoyée${bar.value > 1 ? "s" : ""}`}
                 onPointerEnter={() => setActive(index)}
                 onPointerLeave={() => setActive(null)}
                 onFocus={() => setActive(index)}
@@ -118,20 +120,20 @@ export function WeeklyChart({ weeks }: { weeks: WeekCount[] }) {
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-[8px] border border-border bg-surface px-2.5 py-1.5 text-[12px] shadow-[0_8px_24px_-12px_rgb(0_0_0/0.3)]"
           style={{
             left: PAD.left + slot * shown + slot / 2,
-            top: y(weeks[shown].sent) - 10,
+            top: y(bars[shown].value) - 10,
           }}
         >
-          <span className="text-text-secondary">Semaine du {weekLabel(weeks[shown].week)}</span>
-          <span className="ml-2 font-medium tabular-nums text-text">{weeks[shown].sent}</span>
+          <span className="text-text-secondary">{bars[shown].detail}</span>
+          <span className="ml-2 font-medium tabular-nums text-text">{bars[shown].value}</span>
         </div>
       )}
       <table className="sr-only">
-        <caption>Candidatures envoyées par semaine</caption>
+        <caption>Candidatures envoyées dans le temps</caption>
         <tbody>
-          {weeks.map((week) => (
-            <tr key={week.week}>
-              <th scope="row">Semaine du {weekLabel(week.week)}</th>
-              <td>{week.sent}</td>
+          {bars.map((bar) => (
+            <tr key={bar.key}>
+              <th scope="row">{bar.detail}</th>
+              <td>{bar.value}</td>
             </tr>
           ))}
         </tbody>

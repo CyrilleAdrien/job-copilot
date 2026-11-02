@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowUpRight, BellRing, Check, Mail, Plus, Repeat } from "lucide-react";
+import { ArrowUpRight, BellRing, Check, ChevronLeft, ChevronRight, Mail, Plus, Repeat, X } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { EventItem } from "@/components/calendar/event-item";
-import { WeeklyChart } from "@/components/dashboard/weekly-chart";
+import { Donut } from "@/components/dashboard/donut";
+import { SentChart } from "@/components/dashboard/sent-chart";
 import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { AnimatedNumber } from "@/components/ui/animated-number";
@@ -14,19 +15,41 @@ import { toneBar, toneText } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchProfile } from "@/lib/api";
 import { ApiError, followUpApplication, mailtoUrl, statusOrder } from "@/lib/applications";
 import { SearchOutcomes } from "@/components/dashboard/search-outcomes";
 import { fetchEvents, type CalendarEvent } from "@/lib/calendar";
-import { fetchStats, percent, type FollowUp, type Stats } from "@/lib/dashboard";
+import {
+  chartTitles,
+  fetchStats,
+  focusedCount,
+  percent,
+  periodBounds,
+  periodLabel,
+  sentBars,
+  shiftPeriod,
+  STATUS_GROUPS,
+  type FollowUp,
+  type Granularity,
+  type Stats,
+} from "@/lib/dashboard";
 import { fadeUp, spring } from "@/lib/motion";
-import { applicationStatuses } from "@/lib/statuses";
+import { applicationStatuses, type ApplicationStatus } from "@/lib/statuses";
 import { cn } from "@/lib/utils";
 
 const decimal = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
 /** Relances affichées avant « Voir tout » : les plus anciennes d'abord. */
 const FOLLOW_UP_PREVIEW = 5;
+const GRANULARITIES: { value: Granularity; label: string }[] = [
+  { value: "all", label: "Tout" },
+  { value: "year", label: "Année" },
+  { value: "month", label: "Mois" },
+  { value: "week", label: "Semaine" },
+  { value: "day", label: "Jour" },
+];
+const PROGRESSED: ApplicationStatus[] = ["technical_test", "interview", "offer"];
 
 export function DashboardScreen() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -36,14 +59,27 @@ export function DashboardScreen() {
   const [allFollowUps, setAllFollowUps] = useState(false);
   const [meetings, setMeetings] = useState<CalendarEvent[]>([]);
 
+  const [granularity, setGranularity] = useState<Granularity>("all");
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [focus, setFocus] = useState<ApplicationStatus | null>(null);
+  const latest = useRef(0);
+
   const load = useCallback(() => {
-    fetchStats()
-      .then(setStats)
+    const call = ++latest.current;
+    const bounds = periodBounds(granularity, anchor);
+    fetchStats({ from: bounds?.from, to: bounds?.to, status: focus })
+      .then((loaded) => {
+        // Une réponse lente ne remplace pas celle d'un filtre choisi après elle.
+        if (call === latest.current) setStats(loaded);
+      })
       .catch((e: ApiError) => setError(e));
-  }, []);
+  }, [granularity, anchor, focus]);
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  useEffect(() => {
     // Facultatif : le tableau de bord reste utilisable si le service calendar ne répond pas.
     fetchEvents({ from: new Date().toISOString(), limit: 4 })
       .then(setMeetings)
@@ -54,7 +90,16 @@ export function DashboardScreen() {
         setSearchNames(Object.fromEntries((profile?.searches ?? []).map((search) => [search.id, search.name])));
       })
       .catch(() => undefined);
-  }, [load]);
+  }, []);
+
+  function chooseGranularity(next: Granularity) {
+    setGranularity(next);
+    setAnchor(new Date());
+  }
+
+  const nextAnchor = shiftPeriod(granularity, anchor, 1);
+  const nextStart = periodBounds(granularity, nextAnchor)?.from;
+  const canGoForward = nextStart !== undefined && nextStart <= new Date();
 
   /** La relance enregistrée change le statut : la candidature quitte la liste et les chiffres se recalculent. */
   async function markFollowedUp(item: FollowUp) {
@@ -81,7 +126,7 @@ export function DashboardScreen() {
           </div>
           <Skeleton className="h-[300px] rounded-card" />
         </div>
-      ) : stats.total === 0 ? (
+      ) : stats.all_total === 0 ? (
         <EmptyState
           icon={BellRing}
           title="Rien à suivre pour l'instant"
@@ -102,8 +147,31 @@ export function DashboardScreen() {
         />
       ) : (
         <motion.div {...fadeUp} transition={spring.smooth} className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <SegmentedControl label="Période" segments={GRANULARITIES} value={granularity} onChange={chooseGranularity} />
+            {granularity !== "all" && (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="size-9" aria-label="Période précédente" onClick={() => setAnchor(shiftPeriod(granularity, anchor, -1))}>
+                  <ChevronLeft aria-hidden />
+                </Button>
+                <span role="status" className="min-w-36 text-center text-sm first-letter:uppercase">
+                  {periodLabel(granularity, anchor)}
+                </span>
+                <Button variant="ghost" size="icon" className="size-9" aria-label="Période suivante" disabled={!canGoForward} onClick={() => setAnchor(nextAnchor)}>
+                  <ChevronRight aria-hidden />
+                </Button>
+              </div>
+            )}
+            {focus && (
+              <Button variant="secondary" size="sm" className="ml-auto" onClick={() => setFocus(null)}>
+                Statut : {applicationStatuses[focus].label}
+                <X aria-hidden />
+              </Button>
+            )}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Tile label="Candidatures envoyées" value={<AnimatedNumber value={stats.sent} />} detail={`${stats.by_status.draft} à envoyer`} />
+            <Tile label="Candidatures envoyées" value={<AnimatedNumber value={stats.sent} />} detail={`${focusedCount(stats.by_status, ["draft"], focus)} à envoyer`} />
             <Tile
               label="Taux de réponse"
               value={stats.response_rate === null ? "–" : <AnimatedNumber value={percent(stats.response_rate) ?? 0} suffix=" %" />}
@@ -123,53 +191,103 @@ export function DashboardScreen() {
             <Tile
               label="Tests, entretiens et offres"
               value={
-                <AnimatedNumber
-                  value={stats.by_status.technical_test + stats.by_status.interview + stats.by_status.offer}
-                />
+                <AnimatedNumber value={focusedCount(stats.by_status, PROGRESSED, focus)} />
               }
-              detail={`${stats.by_status.offer} offre${stats.by_status.offer > 1 ? "s" : ""} reçue${stats.by_status.offer > 1 ? "s" : ""}`}
+              detail={`${focusedCount(stats.by_status, ["offer"], focus)} offre${focusedCount(stats.by_status, ["offer"], focus) > 1 ? "s" : ""} reçue${focusedCount(stats.by_status, ["offer"], focus) > 1 ? "s" : ""}`}
             />
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <Card>
               <CardHeader>
-                <CardTitle>Envois par semaine</CardTitle>
-                <CardDescription>Les 12 dernières semaines, d&apos;après la date d&apos;envoi.</CardDescription>
+                <CardTitle>{chartTitles[granularity].title}</CardTitle>
+                <CardDescription>{chartTitles[granularity].description}</CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
-                <WeeklyChart weeks={stats.weekly} />
+                <SentChart bars={sentBars(granularity, anchor, stats.sent_dates)} />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>Par statut</CardTitle>
-                <CardDescription>{stats.total} candidatures au total.</CardDescription>
+                <CardDescription>
+                  {stats.total} candidature{stats.total > 1 ? "s" : ""} sur la période. Clique sur un statut pour filtrer.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3.5 pt-5">
+              <CardContent className="flex flex-col gap-1 pt-4">
                 {statusOrder.map((status) => {
                   const { label, icon: Icon, tone } = applicationStatuses[status];
                   const count = stats.by_status[status];
                   const share = stats.total ? count / stats.total : 0;
                   return (
-                    <div key={status} className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2 text-[13px]">
-                        <Icon className={cn("size-4", toneText[tone])} strokeWidth={1.75} aria-hidden />
+                    <button
+                      key={status}
+                      type="button"
+                      aria-pressed={focus === status}
+                      onClick={() => setFocus(focus === status ? null : status)}
+                      className={cn(
+                        "group flex flex-col gap-1.5 rounded-[12px] px-2.5 py-2 text-left transition-[background-color,opacity] duration-150",
+                        focus === status ? "bg-accent-soft" : "hover:bg-surface-hover",
+                        focus && focus !== status && "opacity-55 hover:opacity-100",
+                      )}
+                    >
+                      <span className="flex items-center gap-2 text-[13px]">
+                        <Icon className={cn("size-4 transition-transform duration-150 group-hover:scale-110", toneText[tone])} strokeWidth={1.75} aria-hidden />
                         <span className="text-text">{label}</span>
                         <span className="ml-auto font-medium tabular-nums text-text">{count}</span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-background-subtle">
-                        <motion.div
-                          className={cn("h-full rounded-full", toneBar[tone])}
+                      </span>
+                      <span className="block h-1.5 overflow-hidden rounded-full bg-background-subtle">
+                        <motion.span
+                          className={cn("block h-full rounded-full", toneBar[tone])}
                           initial={{ width: 0 }}
                           animate={{ width: `${share * 100}%` }}
                           transition={spring.smooth}
                         />
-                      </div>
-                    </div>
+                      </span>
+                    </button>
                   );
                 })}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Où en sont tes candidatures</CardTitle>
+                <CardDescription>Sur la période choisie, tous statuts confondus.</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <Donut
+                  ariaLabel="Répartition des candidatures par étape"
+                  center={stats.total}
+                  centerLabel={stats.total > 1 ? "candidatures" : "candidature"}
+                  segments={STATUS_GROUPS.map((group) => ({
+                    id: group.id,
+                    label: group.label,
+                    value: group.statuses.reduce((sum, status) => sum + stats.by_status[status], 0),
+                    color: group.color,
+                    dimmed: focus !== null && !group.statuses.includes(focus),
+                  }))}
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Réponses reçues</CardTitle>
+                <CardDescription>Parmi les candidatures envoyées.</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <Donut
+                  ariaLabel="Part des candidatures envoyées qui ont reçu une réponse"
+                  center={stats.response_rate === null ? "–" : `${percent(stats.response_rate)} %`}
+                  centerLabel="de réponses"
+                  segments={[
+                    { id: "responded", label: "Avec réponse", value: stats.responded, color: "var(--accent)" },
+                    { id: "waiting", label: "Sans réponse", value: stats.sent - stats.responded, color: "var(--text)" },
+                  ]}
+                />
               </CardContent>
             </Card>
           </div>

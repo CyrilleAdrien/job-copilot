@@ -3,6 +3,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from pydantic import AwareDatetime
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -46,13 +47,26 @@ def change_status(row: ApplicationRow, new: Status, source: EventSource) -> bool
 
 
 @router.get("/stats", response_model=Stats)
-async def get_stats(session: Session, cache: Cache) -> Stats:
-    """Chiffres du tableau de bord, en cache 15 min et recalculés après chaque modification."""
-    if (hit := await stats.cached(cache)) is not None:
+async def get_stats(
+    session: Session,
+    cache: Cache,
+    date_from: AwareDatetime | None = None,
+    date_to: AwareDatetime | None = None,
+    status_filter: Annotated[Status | None, Query(alias="status")] = None,
+) -> Stats:
+    """Chiffres du tableau de bord, filtrés au besoin par période (fin exclue) et par statut.
+
+    Sans filtre, ils restent en cache 15 min et sont recalculés après chaque modification.
+    """
+    if date_from and date_to and date_to <= date_from:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "La fin doit suivre le début.")
+    filtered = bool(date_from or date_to or status_filter)
+    if not filtered and (hit := await stats.cached(cache)) is not None:
         return hit
     rows = list((await session.scalars(select(ApplicationRow))).all())
-    result = stats.compute_stats(rows)
-    await stats.store(cache, result)
+    result = stats.compute_stats(rows, None, date_from, date_to, status_filter)
+    if not filtered:
+        await stats.store(cache, result)
     return result
 
 

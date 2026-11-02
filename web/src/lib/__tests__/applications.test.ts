@@ -141,12 +141,11 @@ describe("isToFinalize", () => {
 
 describe("dashboard helpers", () => {
   it("rounds axis ticks and formats weeks", async () => {
-    const { percent, ticks, weekLabel } = await import("@/lib/dashboard");
+    const { percent, ticks } = await import("@/lib/dashboard");
     expect(ticks(0)).toEqual([0, 1]);
     expect(ticks(3)).toEqual([0, 1, 2, 3]);
     expect(ticks(7)).toEqual([0, 2, 4, 6, 8]);
     expect(ticks(37)).toEqual([0, 10, 20, 30, 40]);
-    expect(weekLabel("2026-10-26")).toBe("26 oct");
     expect(percent(0.5)).toBe(50);
     expect(percent(null)).toBeNull();
   });

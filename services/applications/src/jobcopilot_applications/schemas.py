@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -83,11 +83,6 @@ class Application(ApplicationSummary):
     events: list[StatusEvent]
 
 
-class WeekCount(BaseModel):
-    week: date = Field(description="Lundi de la semaine")
-    sent: int
-
-
 class FollowUp(BaseModel):
     id: UUID
     title: str
@@ -115,13 +110,14 @@ class SearchOutcome(BaseModel):
 
 
 class Stats(BaseModel):
-    total: int
+    all_total: int = Field(description="Toutes les candidatures, quels que soient les filtres")
+    total: int = Field(description="Candidatures de la période")
     sent: int = Field(description="Candidatures envoyées (date d'envoi renseignée)")
     by_status: dict[Status, int]
     responded: int
     response_rate: float | None = Field(description="Réponses / envoyées, entre 0 et 1")
     average_response_days: float | None
-    weekly: list[WeekCount]
+    sent_dates: list[datetime] = Field(description="Dates d'envoi, regroupées par le navigateur")
     follow_ups: list[FollowUp]
     follow_up_days: int
     by_search: list[SearchOutcome]
