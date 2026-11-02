@@ -205,7 +205,7 @@ export function toPayload(profile: Profile): Profile {
       end: blank(experience.end),
       context: blank(experience.context),
       groups: experience.groups
-        .map((group) => ({ title: blank(group.title), bullets: group.bullets.map((b) => b.trim()).filter(Boolean) }))
+        .map((group) => ({ title: blank(group.title), bullets: joinBullets(group.bullets) }))
         .filter((group) => group.title || group.bullets.length),
     })),
     searches: profile.searches.map((search) => ({
@@ -213,7 +213,9 @@ export function toPayload(profile: Profile): Profile {
       name: search.name.trim() || "Recherche",
       min_skills: Math.max(1, Math.min(search.min_skills, 10)),
     })),
-    education: profile.education.filter((entry) => entry.degree.trim() && entry.school.trim()),
+    education: profile.education
+      .filter((entry) => entry.degree.trim() && entry.school.trim())
+      .map((entry) => ({ ...entry, details: blank(entry.details) })),
     certifications: profile.certifications
       .filter((item) => item.name.trim())
       .map((item) => ({ ...item, issuer: blank(item.issuer), url: blank(item.url) })),
@@ -338,6 +340,49 @@ export function isWebLink(url: string) {
 /** Un texte collé d'un CV garde parfois sa puce : la liste affiche déjà la sienne. */
 export function cleanBullet(text: string) {
   return text.replace(/^[\s•·▪*–—-]+/, "");
+}
+
+/** Découpe un texte en paragraphes : une ligne coupée au milieu d'une phrase rejoint la précédente. */
+export function paragraphs(text: string) {
+  const result: string[] = [];
+  let open = false;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) {
+      open = false;
+      continue;
+    }
+    if (open && !/[.!?:;]$/.test(result[result.length - 1])) result[result.length - 1] += ` ${line}`;
+    else result.push(line);
+    open = true;
+  }
+  return result;
+}
+
+const BULLET_MARKER = /^\s*(?:[•·▪]\s*|[*–—-]\s+)/;
+
+/**
+ * Remet en une réalisation par élément un texte collé d'un PDF, où chaque ligne visuelle est coupée.
+ * Dès qu'une puce est présente, une ligne sans puce prolonge la précédente. Sans aucune puce,
+ * seule une ligne en minuscule qui suit une phrase inachevée la prolonge.
+ */
+export function joinBullets(lines: string[]) {
+  const marked = lines.some((line) => BULLET_MARKER.test(line));
+  const bullets: string[] = [];
+  let open = false;
+  for (const line of lines) {
+    const text = line.replace(BULLET_MARKER, "").trim();
+    if (!text) {
+      open = false;
+      continue;
+    }
+    const previous = bullets[bullets.length - 1] ?? "";
+    const continues = open && !BULLET_MARKER.test(line) && (marked || (/^\p{Ll}/u.test(text) && !/[.!?:;]$/.test(previous)));
+    if (continues) bullets[bullets.length - 1] = /\p{L}-$/u.test(previous) ? previous + text : `${previous} ${text}`;
+    else bullets.push(text);
+    open = true;
+  }
+  return bullets;
 }
 
 /** Le début des réalisations d'un poste : les groupes tronqués, et le nombre de puces restantes. */

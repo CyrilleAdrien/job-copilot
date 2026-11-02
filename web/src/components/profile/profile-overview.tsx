@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Entries, formatMonth, Section } from "@/components/profile/profile-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type Profile } from "@/lib/profile";
+import { paragraphs, cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type Profile } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 const Chip = ({ children }: { children: string }) => (
@@ -34,7 +34,7 @@ function JobDetails({ experience }: { experience: Experience }) {
 
   return (
     <>
-      {experience.context && <p className={cn("text-sm leading-relaxed text-text-secondary", !open && "line-clamp-2")}>{experience.context}</p>}
+      {experience.context && <p className={cn("text-sm leading-relaxed text-text-secondary", !open && "line-clamp-2")}>{paragraphs(experience.context).join(" ")}</p>}
       {groups.map((group, groupIndex) => (
         <div key={groupIndex} className="flex flex-col gap-1 pt-1.5">
           {group.title && (
@@ -115,20 +115,23 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
           {profile.education.length > 0 && (
             <Section icon={GraduationCap} title="Formation">
               {profile.education.map((entry) => (
-                <div key={`${entry.degree}-${entry.school}`} className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-                  <span>
-                    <span className="font-medium">{entry.degree}</span> <span className="text-text-secondary">· {entry.school}</span>
-                  </span>
-                  {entry.year && <span className="text-xs tabular-nums text-text-tertiary">{entry.year}</span>}
+                <div key={`${entry.degree}-${entry.school}`} className="flex flex-col gap-1 text-sm">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                    <span>
+                      <span className="font-medium">{entry.degree}</span> <span className="text-text-secondary">· {entry.school}</span>
+                    </span>
+                    {entry.year && <span className="text-xs tabular-nums text-text-tertiary">{entry.year}</span>}
+                  </div>
+                  {entry.details && <p className="text-text-secondary">{entry.details}</p>}
                 </div>
               ))}
             </Section>
           )}
 
-          <Entries icon={FolderGit2} title="Projets" items={profile.projects.map((item) => ({ title: item.name, meta: [item.technologies.join(", "), item.year] }))} />
-          <Entries icon={Award} title="Certifications" items={profile.certifications.map((item) => ({ title: item.name, meta: [item.issuer, item.year] }))} />
-          <Entries icon={HandHeart} title="Bénévolat" items={profile.volunteering.map((item) => ({ title: item.role, meta: [item.organization, item.start && formatMonth(item.start)] }))} />
-          <Entries icon={BookOpen} title="Publications" items={profile.publications.map((item) => ({ title: item.title, meta: [item.publisher, item.year] }))} />
+          <Entries icon={FolderGit2} title="Projets" items={profile.projects.map((item) => ({ title: item.name, meta: [item.technologies.join(", "), item.year], description: item.description, url: item.url }))} />
+          <Entries icon={Award} title="Certifications" items={profile.certifications.map((item) => ({ title: item.name, meta: [item.issuer, item.year], url: item.url }))} />
+          <Entries icon={HandHeart} title="Bénévolat" items={profile.volunteering.map((item) => ({ title: item.role, meta: [item.organization, item.start && formatMonth(item.start)], description: item.description }))} />
+          <Entries icon={BookOpen} title="Publications" items={profile.publications.map((item) => ({ title: item.title, meta: [item.publisher, item.year], url: item.url }))} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">

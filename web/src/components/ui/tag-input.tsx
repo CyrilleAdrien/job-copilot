@@ -9,6 +9,26 @@ import { spring } from "@/lib/motion";
 import { filterSuggestions } from "@/lib/suggestions";
 import { cn } from "@/lib/utils";
 
+/** Une virgule entre parenthèses ne sépare pas : « Python (pandas, PySpark) » reste une étiquette. */
+export function splitTags(raw: string) {
+  const items: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const char of raw) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth = Math.max(0, depth - 1);
+    if (char === "," && depth === 0) {
+      items.push(current);
+      current = "";
+    } else current += char;
+  }
+  return [...items, current].map((item) => item.trim()).filter(Boolean);
+}
+
+function insideParentheses(text: string) {
+  return text.lastIndexOf("(") > text.lastIndexOf(")");
+}
+
 /**
  * Saisie de mots-clés : Entrée ou virgule ajoute une étiquette, Retour arrière retire la dernière.
  * Avec `suggestions`, une liste filtrée s'ouvre pendant la saisie.
@@ -41,10 +61,7 @@ export function TagInput({
   const items = suggestions.length ? filterSuggestions(suggestions, draft, value) : [];
 
   const add = (raw: string) => {
-    const items = raw
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item && !value.some((existing) => existing.toLowerCase() === item.toLowerCase()));
+    const items = splitTags(raw).filter((item) => !value.some((existing) => existing.toLowerCase() === item.toLowerCase()));
     if (items.length) onChange([...value, ...items]);
     setDraft("");
     setActive(-1);
@@ -54,6 +71,7 @@ export function TagInput({
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (suggestionKeys(event)) return;
+    if (event.key === "," && insideParentheses(draft)) return;
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
       add(draft);
