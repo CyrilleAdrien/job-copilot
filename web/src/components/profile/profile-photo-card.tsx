@@ -58,7 +58,7 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
       <CardContent className="flex flex-col gap-5 p-6">
         <div className="flex flex-wrap items-start gap-6">
           <div className="flex flex-col items-center gap-2">
-            <ProfileAvatar size={112} />
+            <ProfileAvatar size={112} className="ring-[3px] ring-accent ring-offset-[3px] ring-offset-surface" />
             <input
               ref={input}
               type="file"
@@ -94,9 +94,8 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
               <p className="text-base text-text-secondary">{identity.headline}</p>
             </div>
             {identity.availability && (
-              <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-border bg-background-subtle px-2.5 py-1 text-[13px]">
-                <span aria-hidden className="size-2 rounded-full bg-accent" />
-                {identity.availability}
+              <span className="inline-flex w-fit items-center rounded-lg bg-accent px-2.5 py-1 text-[13px] text-[#1f1f1f]">
+                Disponibilité : {identity.availability}
               </span>
             )}
             <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -123,7 +122,7 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
         </div>
 
         {identity.summary && (
-          <section className="flex flex-col gap-1.5 border-t border-border pt-4">
+          <section className="flex flex-col gap-1.5 rounded-[14px] bg-background-subtle p-4">
             <h3 className="text-sm font-medium">À propos</h3>
             <p className="max-w-4xl text-sm leading-relaxed text-text-secondary">{identity.summary}</p>
           </section>

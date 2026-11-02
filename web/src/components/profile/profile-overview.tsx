@@ -10,19 +10,21 @@ import { cleanBullet, contractLabels, experienceDuration, previewGroups, remoteL
 import { cn } from "@/lib/utils";
 
 const Chip = ({ children }: { children: string }) => (
-  <span className="inline-flex h-7 items-center rounded-lg border border-border bg-background-subtle px-2.5 text-[13px] text-text-secondary transition-colors duration-150 hover:border-border-strong hover:text-text">{children}</span>
+  <span className="inline-flex h-7 items-center rounded-lg border border-border bg-surface px-2.5 text-[13px] text-text-secondary transition-colors duration-150 hover:border-accent hover:bg-accent/15 hover:text-text">{children}</span>
 );
 
-function Figure({ label, value }: { label: string; value: string | number }) {
+function Figure({ label, value, highlight = false }: { label: string; value: string | number; highlight?: boolean }) {
   return (
-    <Card>
+    <Card className={highlight ? "border-transparent bg-accent text-[#1f1f1f] hover:border-transparent" : "bg-background-subtle"}>
       <CardContent className="flex flex-col gap-1">
-        <span className="text-[13px] text-text-secondary">{label}</span>
+        <span className={cn("text-[13px]", !highlight && "text-text-secondary")}>{label}</span>
         <span className="text-2xl font-normal tabular-nums">{value}</span>
       </CardContent>
     </Card>
   );
 }
+
+const SIDE_CARD = "bg-background-subtle";
 
 /** Le contexte et le début des réalisations d'un poste ; le reste s'ouvre à la demande. */
 function JobDetails({ experience }: { experience: Experience }) {
@@ -35,8 +37,13 @@ function JobDetails({ experience }: { experience: Experience }) {
       {experience.context && <p className={cn("text-sm leading-relaxed text-text-secondary", !open && "line-clamp-2")}>{experience.context}</p>}
       {groups.map((group, groupIndex) => (
         <div key={groupIndex} className="flex flex-col gap-1 pt-1.5">
-          {group.title && <h5 className="text-[13px] font-medium">{group.title}</h5>}
-          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm leading-relaxed text-text-secondary marker:text-border-strong">
+          {group.title && (
+            <h5 className="flex items-center gap-2 text-[13px] font-medium">
+              <span aria-hidden className="h-3.5 w-1 rounded-full bg-accent" />
+              {group.title}
+            </h5>
+          )}
+          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm leading-relaxed text-text-secondary marker:text-accent">
             {group.bullets.map((bullet, bulletIndex) => (
               <li key={bulletIndex}>{cleanBullet(bullet)}</li>
             ))}
@@ -62,7 +69,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Figure label="Expérience" value={totalExperience(profile.experiences, now) ?? "À renseigner"} />
+        <Figure highlight label="Expérience" value={totalExperience(profile.experiences, now) ?? "À renseigner"} />
         <Figure label="Compétences" value={skillCount} />
         <Figure label="Recherches actives" value={active.length} />
         <Figure label="Langues" value={profile.languages.length} />
@@ -76,7 +83,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
                 {profile.experiences.map((experience, index) => (
                   <li key={`${experience.company}-${experience.start}`} className="group relative flex gap-4 pb-5 last:pb-0">
                     {index < profile.experiences.length - 1 && <span aria-hidden className="absolute bottom-0 left-[5px] top-4 w-px bg-border" />}
-                    <span aria-hidden className={cn("relative mt-1.5 size-[11px] shrink-0 rounded-full border border-border-strong transition-transform duration-150 group-hover:scale-125", experience.end ? "bg-surface" : "border-accent bg-accent")} />
+                    <span aria-hidden className={cn("relative mt-1.5 size-[11px] shrink-0 rounded-full border-2 transition-transform duration-150 group-hover:scale-125", experience.end ? "border-accent bg-surface" : "border-accent bg-accent")} />
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <h4 className="text-sm font-medium">
@@ -126,7 +133,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
 
         <div className="flex min-w-0 flex-col gap-4">
           {active.length > 0 && (
-            <Section icon={Target} title="Ce que je recherche">
+            <Section className={SIDE_CARD} icon={Target} title="Ce que je recherche">
               <div className="flex flex-col divide-y divide-border">
                 {active.map((search) => (
                   <div key={search.id || search.name} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
@@ -142,7 +149,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
           )}
 
           {skills.length > 0 && (
-            <Section icon={Wrench} title="Compétences">
+            <Section className={SIDE_CARD} icon={Wrench} title="Compétences">
               {skills.map((group) => (
                 <div key={group.name} className="flex flex-col gap-1.5">
                   <span className="text-[13px] text-text-secondary">{group.name}</span>
@@ -157,7 +164,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
           )}
 
           {profile.languages.length > 0 && (
-            <Section icon={Languages} title="Langues">
+            <Section className={SIDE_CARD} icon={Languages} title="Langues">
               {profile.languages.map((language) => (
                 <div key={language.name} className="flex items-baseline justify-between gap-3 text-sm">
                   <span>{language.name}</span>
@@ -168,7 +175,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
           )}
 
           {profile.soft_skills.length > 0 && (
-            <Section icon={Sparkles} title="Qualités">
+            <Section className={SIDE_CARD} icon={Sparkles} title="Qualités">
               <div className="flex flex-wrap gap-1.5">
                 {profile.soft_skills.map((item) => (
                   <Chip key={item}>{item}</Chip>
@@ -178,7 +185,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
           )}
 
           {profile.interests.length > 0 && (
-            <Section icon={Heart} title="Centres d'intérêt">
+            <Section className={SIDE_CARD} icon={Heart} title="Centres d'intérêt">
               <div className="flex flex-wrap gap-1.5">
                 {profile.interests.map((item) => (
                   <Chip key={item}>{item}</Chip>

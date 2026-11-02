@@ -246,18 +246,22 @@ export function Section({
   icon: Icon,
   title,
   action,
+  className,
   children,
 }: {
   icon: typeof Target;
   title: string;
   action?: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <Card>
+    <Card className={className}>
       <CardContent className="flex flex-col gap-3">
-        <h3 className="flex items-center gap-2 text-[15px] font-medium">
-          <Icon className="size-4 text-text-tertiary" strokeWidth={1.75} aria-hidden />
+        <h3 className="flex items-center gap-2.5 text-[15px] font-medium">
+          <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-accent/25">
+            <Icon className="size-4" strokeWidth={1.75} />
+          </span>
           {title}
           {action && <span className="ml-auto font-normal">{action}</span>}
         </h3>
