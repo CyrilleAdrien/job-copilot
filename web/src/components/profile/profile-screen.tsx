@@ -10,7 +10,7 @@ import { CvPreview } from "@/components/profile/cv-preview";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { ImportButton } from "@/components/profile/import-button";
 import { ProfilePhotoCard } from "@/components/profile/profile-photo-card";
-import { ProfileView } from "@/components/profile/profile-view";
+import { ProfileOverview } from "@/components/profile/profile-overview";
 import { SearchManager } from "@/components/profile/search-manager";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Menu } from "@/components/ui/menu";
@@ -21,17 +21,17 @@ import { ApiError, fetchProfile, profileExportUrl } from "@/lib/api";
 import { fadeUp, spring } from "@/lib/motion";
 import type { Profile } from "@/lib/profile";
 
-type View = "cv" | "searches" | "details";
+type View = "overview" | "searches" | "cv";
 const views: { value: View; label: string }[] = [
-  { value: "cv", label: "CV" },
+  { value: "overview", label: "Aperçu" },
   { value: "searches", label: "Recherches" },
-  { value: "details", label: "Détails" },
+  { value: "cv", label: "CV" },
 ];
 
 export function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [error, setError] = useState<ApiError | null>(null);
-  const [view, setView] = useState<View>("cv");
+  const [view, setView] = useState<View>("overview");
   const [stamp, setStamp] = useState(() => Date.now());
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export function ProfileScreen() {
               ) : view === "searches" ? (
                 <SearchManager profile={profile} onChange={setProfile} onError={setError} />
               ) : (
-                <ProfileView profile={profile} />
+                <ProfileOverview profile={profile} />
               )}
             </motion.div>
           </AnimatePresence>

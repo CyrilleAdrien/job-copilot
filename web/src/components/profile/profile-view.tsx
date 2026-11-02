@@ -220,7 +220,7 @@ export function ProfileView({
   );
 }
 
-function Entries({
+export function Entries({
   icon,
   title,
   items,
@@ -242,7 +242,7 @@ function Entries({
   );
 }
 
-function Section({
+export function Section({
   icon: Icon,
   title,
   action,

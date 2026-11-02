@@ -283,3 +283,54 @@ export function validateExperiences(profile: Profile): StepErrors {
   });
   return errors;
 }
+
+function monthIndex(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return year * 12 + (month - 1);
+}
+
+function currentMonth(now: Date) {
+  return now.getFullYear() * 12 + now.getMonth();
+}
+
+function monthsLabel(months: number) {
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  const parts = [years > 0 && `${years} an${years > 1 ? "s" : ""}`, rest > 0 && `${rest} mois`].filter(Boolean);
+  return parts.length ? parts.join(" ") : "Moins d'un mois";
+}
+
+/** Durée d'un poste, le mois de début et le mois de fin compris. */
+export function experienceDuration(experience: Pick<Experience, "start" | "end">, now: Date = new Date()) {
+  const end = experience.end ? monthIndex(experience.end) : currentMonth(now);
+  return monthsLabel(Math.max(0, end - monthIndex(experience.start) + 1));
+}
+
+/** Expérience totale : deux postes menés en même temps ne comptent qu'une fois. */
+export function totalExperience(experiences: Pick<Experience, "start" | "end">[], now: Date = new Date()) {
+  const periods = experiences
+    .map((item) => [monthIndex(item.start), item.end ? monthIndex(item.end) : currentMonth(now)] as const)
+    .sort((a, b) => a[0] - b[0]);
+  let months = 0;
+  let covered = -Infinity;
+  for (const [start, end] of periods) {
+    const from = Math.max(start, covered + 1);
+    if (end >= from) {
+      months += end - from + 1;
+      covered = end;
+    }
+  }
+  return months === 0 ? null : monthsLabel(months);
+}
+
+/** Compétences à montrer : celles du profil ; à défaut, les technologies citées dans les expériences. */
+export function skillGroups(profile: Pick<Profile, "skills" | "experiences">) {
+  if (profile.skills.length > 0) return profile.skills;
+  const items = [...new Set(profile.experiences.flatMap((experience) => experience.technologies))];
+  return items.length ? [{ name: "Technologies", items }] : [];
+}
+
+/** Un lien du profil ne s'ouvre que s'il mène vers le web. */
+export function isWebLink(url: string) {
+  return /^https?:\/\//i.test(url);
+}
