@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
+import { FloatingLayer, useFloating } from "@/components/ui/floating";
 import { spring } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -36,13 +37,20 @@ export function Menu({
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  const [used, setUsed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  useFloating(open, root, panel, align);
 
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent ? event.key === "Escape" : !root.current?.contains(event.target as Node))
-        setOpen(false);
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") setOpen(false);
+        return;
+      }
+      const target = event.target as Node;
+      if (!root.current?.contains(target) && !panel.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
@@ -61,7 +69,10 @@ export function Menu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setUsed(true);
+          setOpen((value) => !value);
+        }}
         className={
           triggerClassName ??
           "flex size-8 items-center justify-center rounded-full border border-border bg-background-subtle text-text-secondary transition-colors hover:text-text"
@@ -69,9 +80,11 @@ export function Menu({
       >
         {trigger}
       </button>
+      <FloatingLayer ready={used}>
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={panel}
             id={id}
             role="menu"
             initial={{ opacity: 0, y: -4, scale: 0.97 }}
@@ -79,8 +92,8 @@ export function Menu({
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={spring.snappy}
             className={cn(
-              "absolute top-full z-30 mt-1.5 max-h-80 min-w-60 overflow-y-auto rounded-[12px] border border-border bg-surface p-1 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.25)]",
-              align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left",
+              "fixed z-[60] max-h-80 min-w-60 overflow-y-auto rounded-[12px] border border-border bg-surface p-1 shadow-[0_12px_32px_-12px_rgb(0_0_0/0.25)]",
+              align === "end" ? "origin-top-right" : "origin-top-left",
             )}
           >
             {items.map((item) => {
@@ -120,6 +133,7 @@ export function Menu({
           </motion.div>
         )}
       </AnimatePresence>
+      </FloatingLayer>
     </div>
   );
 }

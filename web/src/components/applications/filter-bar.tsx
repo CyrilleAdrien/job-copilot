@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { tones, toneBar } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FloatingLayer, useFloating } from "@/components/ui/floating";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -184,13 +185,20 @@ function Popover({
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  const [used, setUsed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  useFloating(open, root, panel);
 
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent ? event.key === "Escape" : !root.current?.contains(event.target as Node))
-        setOpen(false);
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") setOpen(false);
+        return;
+      }
+      const target = event.target as Node;
+      if (!root.current?.contains(target) && !panel.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
@@ -206,7 +214,10 @@ function Popover({
         type="button"
         aria-expanded={open}
         aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setUsed(true);
+          setOpen((value) => !value);
+        }}
         className={cn(
           "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
           highlighted || open
@@ -216,9 +227,11 @@ function Popover({
       >
         {trigger}
       </button>
+      <FloatingLayer ready={used}>
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={panel}
             id={id}
             role="dialog"
             aria-label={label}
@@ -226,12 +239,13 @@ function Popover({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={spring.snappy}
-            className="absolute left-0 top-full z-30 mt-2 flex w-[min(28rem,calc(100vw-2rem))] origin-top-left flex-col gap-5 rounded-[14px] border border-border bg-surface p-5 shadow-[0_16px_40px_-16px_rgb(0_0_0/0.3)]"
+            className="fixed z-[60] flex w-[min(28rem,calc(100vw-2rem))] origin-top-left flex-col gap-5 overflow-y-auto rounded-[14px] border border-border bg-surface p-5 shadow-[0_16px_40px_-16px_rgb(0_0_0/0.3)]"
           >
             {children}
           </motion.div>
         )}
       </AnimatePresence>
+      </FloatingLayer>
     </div>
   );
 }
