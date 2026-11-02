@@ -251,6 +251,70 @@ export function filterMessages(messages: MailMessage[], view: InboxView, categor
     .sort((a, b) => b.received_at.localeCompare(a.received_at));
 }
 
+export type MailFilters = {
+  text: string;
+  period: "all" | "7" | "30" | "90";
+  categories: Category[];
+  statuses: ApplicationStatus[];
+  linked: "all" | "linked" | "unlinked";
+  account: string;
+  delivery: "all" | MailReply["status"];
+};
+
+export const emptyMailFilters: MailFilters = { text: "", period: "all", categories: [], statuses: [], linked: "all", account: "all", delivery: "all" };
+
+/** Minuscules et sans accents : « entretien » trouve « Entretien », « recu » trouve « reçu ». */
+function folded(text: string) {
+  return text.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+function matchesText(fields: (string | null)[], text: string) {
+  const haystack = folded(fields.filter(Boolean).join(" "));
+  return folded(text).split(/\s+/).filter(Boolean).every((word) => haystack.includes(word));
+}
+
+function withinPeriod(date: string, period: MailFilters["period"], now: Date) {
+  return period === "all" || now.getTime() - new Date(date).getTime() <= Number(period) * 86_400_000;
+}
+
+/** Mails reçus qui passent les filtres. `statusOf` donne le statut de la candidature liée. */
+export function applyMailFilters(
+  messages: MailMessage[],
+  filters: MailFilters,
+  statusOf: (message: MailMessage) => ApplicationStatus | undefined,
+  now: Date = new Date(),
+) {
+  return messages.filter((message) => {
+    const status = statusOf(message);
+    return (
+      withinPeriod(message.received_at, filters.period, now) &&
+      (filters.account === "all" || message.account_id === filters.account) &&
+      (filters.linked === "all" || (filters.linked === "linked") === Boolean(message.application_id)) &&
+      (filters.categories.length === 0 || filters.categories.includes(message.category)) &&
+      (filters.statuses.length === 0 || (status !== undefined && filters.statuses.includes(status))) &&
+      matchesText([message.from_name, message.from_address, message.subject, message.snippet], filters.text)
+    );
+  });
+}
+
+/** Mails envoyés qui passent les filtres. */
+export function applySentFilters(replies: MailReply[], filters: MailFilters, now: Date = new Date()) {
+  return replies.filter(
+    (reply) =>
+      withinPeriod(reply.sent_at, filters.period, now) &&
+      (filters.account === "all" || reply.account_id === filters.account) &&
+      (filters.delivery === "all" || reply.status === filters.delivery) &&
+      matchesText([reply.to_address, reply.subject, reply.body], filters.text),
+  );
+}
+
+/** Nombre de filtres qui agissent sur le dossier affiché. */
+export function activeMailFilters(filters: MailFilters, sentFolder: boolean) {
+  const shared = [filters.text.trim() !== "", filters.period !== "all", filters.account !== "all"];
+  const own = sentFolder ? [filters.delivery !== "all"] : [filters.categories.length > 0, filters.statuses.length > 0, filters.linked !== "all"];
+  return [...shared, ...own].filter(Boolean).length;
+}
+
 const timeOnly = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
 const dayMonth = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
 const fullDate = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });

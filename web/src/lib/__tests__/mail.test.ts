@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addressTypo, canApply, canSendReply, replyRecipient, countByCategory, filterMessages, listDate, replySubject, senderInitial, syncSummary, type MailMessage } from "@/lib/mail";
+import { activeMailFilters, applyMailFilters, applySentFilters, emptyMailFilters, type MailFilters, addressTypo, canApply, canSendReply, replyRecipient, countByCategory, filterMessages, listDate, replySubject, senderInitial, syncSummary, type MailMessage, type MailReply } from "@/lib/mail";
 
 const message = (overrides: Partial<MailMessage>): MailMessage => ({
   id: "m",
@@ -134,5 +134,45 @@ describe("replyRecipient", () => {
   it("prefers the address requested by the mail", () => {
     expect(replyRecipient({ reply_to: "jobs@ats.io", from_address: "no-reply@a.fr" })).toBe("jobs@ats.io");
     expect(replyRecipient({ reply_to: null, from_address: "rh@a.fr" })).toBe("rh@a.fr");
+  });
+});
+
+describe("filtres de la boîte", () => {
+  const now = new Date("2026-11-02T12:00:00Z");
+  const base = { from_name: null, from_address: "rh@nimbus.io", subject: "", snippet: "", account_id: "a", application_id: null } as unknown as MailMessage;
+  const mails = [
+    { ...base, id: "recent", category: "interview", received_at: "2026-11-01T12:00:00Z", subject: "Reçu pour l'entretien", application_id: "c1" },
+    { ...base, id: "old", category: "offer", received_at: "2026-09-01T12:00:00Z", from_name: "Brume", account_id: "b" },
+  ] as MailMessage[];
+  const statusOf = (mail: MailMessage) => (mail.application_id ? ("interview" as const) : undefined);
+  const ids = (changes: Partial<MailFilters>) => applyMailFilters(mails, { ...emptyMailFilters, ...changes }, statusOf, now).map((mail) => mail.id);
+
+  it("keeps everything without a filter", () => {
+    expect(ids({})).toEqual(["recent", "old"]);
+  });
+
+  it("filters by period, text without accents, status, link and mailbox", () => {
+    expect(ids({ period: "7" })).toEqual(["recent"]);
+    expect(ids({ categories: ["offer"] })).toEqual(["old"]);
+    expect(ids({ categories: ["offer", "interview"] })).toEqual(["recent", "old"]);
+    expect(ids({ text: "RECU entretien" })).toEqual(["recent"]);
+    expect(ids({ text: "brume" })).toEqual(["old"]);
+    expect(ids({ statuses: ["interview"] })).toEqual(["recent"]);
+    expect(ids({ statuses: ["rejected"] })).toEqual([]);
+    expect(ids({ linked: "unlinked" })).toEqual(["old"]);
+    expect(ids({ account: "b" })).toEqual(["old"]);
+  });
+
+  it("filters sent mails by delivery, and counts only what applies to the folder", () => {
+    const replies = [
+      { id: "ok", status: "sent", to_address: "a@b.fr", subject: "", body: "", sent_at: "2026-11-01T12:00:00Z", account_id: "a" },
+      { id: "ko", status: "bounced", to_address: "c@d.fr", subject: "", body: "", sent_at: "2026-11-01T12:00:00Z", account_id: "a" },
+    ] as MailReply[];
+    expect(applySentFilters(replies, { ...emptyMailFilters, delivery: "bounced" }, now).map((reply) => reply.id)).toEqual(["ko"]);
+    expect(applySentFilters(replies, { ...emptyMailFilters, text: "a@b" }, now).map((reply) => reply.id)).toEqual(["ok"]);
+    const filters = { ...emptyMailFilters, delivery: "bounced", statuses: ["interview"] } as MailFilters;
+    expect(activeMailFilters(filters, true)).toBe(1);
+    expect(activeMailFilters(filters, false)).toBe(1);
+    expect(activeMailFilters(emptyMailFilters, false)).toBe(0);
   });
 });

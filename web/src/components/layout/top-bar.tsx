@@ -24,21 +24,22 @@ export function TopBar() {
   }
 
   return (
-    <div className="flex h-[76px] items-center gap-4">
-      <form role="search" onSubmit={submit} className="min-w-0 flex-1">
-        <label className="flex h-12 items-center gap-3 rounded-full border border-border bg-surface px-5 transition-[border-color,box-shadow] duration-150 focus-within:border-text hover:border-border-strong hover:shadow-[0_2px_10px_rgb(31_31_31/0.06)]">
-          <Search className="size-5 shrink-0" strokeWidth={1.5} aria-hidden />
+    <div className="grid h-[76px] grid-cols-[1fr_minmax(0,440px)_1fr] items-center gap-4">
+      <form role="search" onSubmit={submit} className="col-start-2 min-w-0">
+        <label className="flex h-10 items-center gap-2.5 rounded-full border border-border bg-surface px-4 transition-[border-color,box-shadow] duration-150 focus-within:border-text hover:border-border-strong hover:shadow-[0_2px_10px_rgb(31_31_31/0.06)]">
+          <Search className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
           <span className="sr-only">Rechercher une offre</span>
           <input
             type="search"
             value={text}
             maxLength={200}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Rechercher une offre : poste, entreprise, ville"
+            placeholder="Rechercher une offre"
             className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-text-tertiary focus:outline-none"
           />
         </label>
       </form>
+      <div className="flex items-center justify-end gap-3">
       <ThemeToggle />
       <Link
         href="/profil"
@@ -48,6 +49,7 @@ export function TopBar() {
       >
         <ProfileAvatar size={36} />
       </Link>
+      </div>
     </div>
   );
 }

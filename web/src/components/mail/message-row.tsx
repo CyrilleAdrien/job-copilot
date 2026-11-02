@@ -2,12 +2,12 @@
 
 import { Check, Undo2 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { CategoryTag } from "@/components/mail/category-tag";
 import { Button } from "@/components/ui/button";
 import { categories, listDate, type MailMessage, type MailReply } from "@/lib/mail";
 import { cn } from "@/lib/utils";
 
-const ROW = "row-glow grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-4 py-2.5 text-left text-sm md:grid-cols-[180px_minmax(0,1fr)_auto]";
+const ROW = "row-glow grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 px-4 py-3 text-left text-sm md:grid-cols-[180px_minmax(0,1fr)_auto]";
 
 /** Une ligne, comme dans une messagerie : expéditeur, objet, début du texte, date. En gras : à vérifier. */
 export function MessageRow({
@@ -28,14 +28,17 @@ export function MessageRow({
   return (
     <li className="group relative">
       <button type="button" onClick={onOpen} className={ROW}>
-        <span className={cn("truncate", unread ? "font-medium" : "text-text-secondary")}>{message.from_name || message.from_address}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", unread ? "bg-accent" : "bg-transparent")} />
+          <span className={cn("truncate", unread ? "font-medium" : "text-text-secondary")}>{message.from_name || message.from_address}</span>
+        </span>
         <time className={cn("col-start-2 row-start-1 text-[12px] tabular-nums md:col-start-3", unread ? "font-medium" : "text-text-tertiary")} dateTime={message.received_at}>
           {listDate(message.received_at)}
         </time>
         <span className="col-span-2 flex min-w-0 items-center gap-2 md:col-span-1 md:col-start-2 md:row-start-1">
-          {showLabel && <Badge tone={tone}>{label}</Badge>}
+          {showLabel && <CategoryTag label={label} tone={tone} />}
           <span className="min-w-0 truncate">
-            <span className={cn(unread && "font-medium")}>{subject}</span>
+            <span className={unread ? "font-medium" : "text-text-secondary"}>{subject}</span>
             {message.snippet && <span className="text-text-tertiary"> – {message.snippet}</span>}
           </span>
         </span>
@@ -66,8 +69,8 @@ export function SentRow({ reply, onOpen }: { reply: MailReply; onOpen: () => voi
           {listDate(reply.sent_at)}
         </time>
         <span className="col-span-2 flex min-w-0 items-center gap-2 md:col-span-1 md:col-start-2 md:row-start-1">
-          {reply.status === "bounced" && <Badge tone="danger">Non distribué</Badge>}
-          {reply.status === "uncertain" && <Badge tone="warning">Incertain</Badge>}
+          {reply.status === "bounced" && <CategoryTag label="Non distribué" tone="danger" />}
+          {reply.status === "uncertain" && <CategoryTag label="Incertain" tone="warning" />}
           <span className="min-w-0 truncate">
             {reply.subject}
             <span className="text-text-tertiary"> – {reply.body}</span>

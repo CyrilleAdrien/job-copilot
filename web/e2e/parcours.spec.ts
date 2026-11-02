@@ -118,6 +118,9 @@ test("parcours complet, du profil à la suppression des données", async ({ page
       .toBeGreaterThan(2);
 
     await page.reload();
+    await page.getByRole("searchbox", { name: "Chercher dans les mails" }).fill("aucun mail ne contient cette phrase");
+    await expect(page.getByText("Aucun mail avec ces filtres")).toBeVisible();
+    await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
     await page.getByRole("list", { name: "Mails" }).getByRole("button").first().click();
     await page.getByRole("button", { name: "Répondre" }).click();
     const composer = page.getByRole("form", { name: "Répondre à ce mail" });

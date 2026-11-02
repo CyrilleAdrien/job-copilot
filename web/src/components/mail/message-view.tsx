@@ -4,8 +4,8 @@ import { ArrowLeft, ArrowUpRight, CalendarPlus, Check, Link2, Reply, Tag, Undo2 
 import Link from "next/link";
 import { useState } from "react";
 
+import { CategoryTag } from "@/components/mail/category-tag";
 import { DeliveryNotice, ReplyComposer, ReplyList } from "@/components/mail/reply-composer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu } from "@/components/ui/menu";
 import type { ApplicationSummary } from "@/lib/applications";
@@ -53,7 +53,7 @@ export function MessageView({
   onReplied: (updated: MailMessage) => void;
 }) {
   const [replying, setReplying] = useState(false);
-  const { label, tone, icon: Icon } = categories[message.category];
+  const { label, tone } = categories[message.category];
   const suggested = message.suggested_status ? applicationStatuses[message.suggested_status].label : null;
 
   return (
@@ -110,11 +110,8 @@ export function MessageView({
 
       <div className="flex flex-col gap-4 p-5">
         <header className="flex flex-wrap items-center gap-3">
-          <h2 className="min-w-0 text-xl font-medium">{message.subject || "(sans objet)"}</h2>
-          <Badge tone={tone}>
-            <Icon aria-hidden strokeWidth={2} />
-            {label}
-          </Badge>
+          <h2 className="min-w-0 text-xl font-normal">{message.subject || "(sans objet)"}</h2>
+          <CategoryTag label={label} tone={tone} />
         </header>
 
         <div className="flex items-start gap-3">

@@ -130,6 +130,8 @@ L'écran présente les étapes à gauche et le contenu de celle choisie à droit
 
 ## Écrire et répondre aux mails
 
+La boîte de réception se filtre par texte, période, statut de la réponse, statut de la candidature, rattachement et boîte. Le dossier Envoyés se filtre aussi par état de distribution.
+
 La boîte de réception se lit comme une messagerie : une ligne par mail, en gras s'il reste à vérifier, et les dossiers À vérifier, Envoyés et Traités. Les actions (statut, rattachement, catégorie, réponse) apparaissent à l'ouverture du mail. « Nouveau message » écrit à n'importe quelle adresse.
 
 Chaque mail part d'une boîte connectée, en SMTP chiffré, avec le même mot de passe d'application que la lecture, et porte le nom de ton profil.
