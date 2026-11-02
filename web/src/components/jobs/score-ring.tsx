@@ -31,7 +31,7 @@ export function ScoreRing({ score }: { score: number }) {
           transition={spring.gentle}
         />
       </svg>
-      <span className="text-[11px] font-semibold tabular-nums">{score}</span>
+      <span className="text-[11px] font-medium tabular-nums">{score}</span>
     </span>
   );
 }

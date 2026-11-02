@@ -43,7 +43,7 @@ export function DraftsPanel({
         className="flex w-full items-center gap-3 px-5 py-4 text-left"
       >
         <CircleDashed className="size-4 text-text-tertiary" aria-hidden />
-        <span className="text-[15px] font-semibold">À finaliser</span>
+        <span className="text-[15px] font-medium">À finaliser</span>
         <span className="rounded-full bg-surface-hover px-2 text-[12px] font-medium leading-5 tabular-nums text-text-secondary">
           {drafts.length}
         </span>

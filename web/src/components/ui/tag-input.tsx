@@ -71,9 +71,9 @@ export function TagInput({
       )}
       <div
         className={cn(
-          "flex min-h-10 flex-wrap items-center gap-1.5 rounded-[10px] border border-border-strong bg-surface px-2 py-1.5",
+          "flex min-h-10 flex-wrap items-center gap-1.5 rounded-[12px] border border-border-strong bg-surface px-2 py-1.5",
           "transition-[border-color,box-shadow] duration-150",
-          "focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--accent-soft)]",
+          "focus-within:border-text focus-within:shadow-[0_0_0_3px_var(--accent-soft)]",
           error && "border-danger",
         )}
       >

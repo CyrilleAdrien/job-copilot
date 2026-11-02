@@ -122,7 +122,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekCount[] }) {
           }}
         >
           <span className="text-text-secondary">Semaine du {weekLabel(weeks[shown].week)}</span>
-          <span className="ml-2 font-semibold tabular-nums text-text">{weeks[shown].sent}</span>
+          <span className="ml-2 font-medium tabular-nums text-text">{weeks[shown].sent}</span>
         </div>
       )}
       <table className="sr-only">

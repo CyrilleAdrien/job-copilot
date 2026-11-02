@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { waitFor, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -48,8 +48,11 @@ describe("SettingsScreen", () => {
     backend();
     render(<SettingsScreen />);
     expect(await screen.findByRole("button", { name: /1\. Système.*Prêt/s })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: /4\. Sources d'offres.*À faire/s })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Pas de clé.")).toBeInTheDocument();
+    // L'étape à faire s'ouvre une fois toutes les réponses reçues.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /4\. Sources d'offres.*À faire/s })).toHaveAttribute("aria-expanded", "true"),
+    );
+    expect(await screen.findByText("Pas de clé.")).toBeInTheDocument();
   });
 
   it("locks the sources without a profile, and never opens them", async () => {

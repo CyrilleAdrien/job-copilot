@@ -162,7 +162,7 @@ examples/          profil d'exemple au format YAML
 
 ## Design
 
-Interface sobre inspirée d'Apple : fond blanc, bleu pour les actions, violet réservé à ce qui vient de l'IA, mode sombre natif. Icônes Lucide, police Inter, animations Motion qui respectent `prefers-reduced-motion`. Les tokens sont dans `web/src/app/globals.css`.
+Interface inspirée de Kaggle : police Google Sans Flex, boutons noirs, crème et jaune d'or, violet réservé à ce qui vient de l'IA, mode sombre natif. Icônes Lucide, police Inter, animations Motion qui respectent `prefers-reduced-motion`. Les tokens sont dans `web/src/app/globals.css`.
 
 ## Licence
 

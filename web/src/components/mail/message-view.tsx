@@ -110,7 +110,7 @@ export function MessageView({
 
       <div className="flex flex-col gap-4 p-5">
         <header className="flex flex-wrap items-center gap-3">
-          <h2 className="min-w-0 text-xl font-semibold tracking-tight">{message.subject || "(sans objet)"}</h2>
+          <h2 className="min-w-0 text-xl font-medium">{message.subject || "(sans objet)"}</h2>
           <Badge tone={tone}>
             <Icon aria-hidden strokeWidth={2} />
             {label}
@@ -132,7 +132,7 @@ export function MessageView({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] bg-background-subtle px-3 py-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-background-subtle px-3 py-2 text-[13px]">
           {application ? <ApplicationLink application={application} /> : <span className="text-text-tertiary">Aucune candidature liée</span>}
           {application && message.match_reason?.endsWith("à confirmer") && (
             <span className="text-warning" title="Plusieurs candidatures en cours chez cette entreprise">
@@ -183,7 +183,7 @@ export function SentView({ reply, original, onBack, onOpenOriginal }: { reply: M
         <BackButton onBack={onBack} />
       </div>
       <div className="flex flex-col gap-4 p-5">
-        <h2 className="text-xl font-semibold tracking-tight">{reply.subject}</h2>
+        <h2 className="text-xl font-medium">{reply.subject}</h2>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 text-sm">
           <p className="min-w-0 truncate">À {reply.to_address}</p>
           <time className="text-[12px] tabular-nums text-text-tertiary" dateTime={reply.sent_at}>

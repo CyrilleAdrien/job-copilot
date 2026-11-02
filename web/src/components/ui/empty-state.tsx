@@ -18,7 +18,7 @@ export function EmptyState({
         <Icon className="size-5" strokeWidth={1.75} aria-hidden />
       </span>
       <div className="flex max-w-sm flex-col gap-1">
-        <h3 className="text-[15px] font-semibold">{title}</h3>
+        <h3 className="text-[15px] font-medium">{title}</h3>
         <p className="text-sm text-text-secondary">{description}</p>
       </div>
       {action}

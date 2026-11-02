@@ -86,7 +86,7 @@ export function DocumentViewer({
           <motion.div
             {...fadeUp}
             transition={spring.smooth}
-            className="flex gap-3 rounded-[10px] bg-warning-soft p-3 text-[13px]"
+            className="flex gap-3 rounded-[12px] bg-warning-soft p-3 text-[13px]"
           >
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
             <div className="flex flex-col gap-1">
@@ -126,7 +126,7 @@ export function DocumentViewer({
 /** Pages rendues en images : un aperçu identique au PDF, quel que soit le navigateur. */
 function Preview({ document }: { document: DocumentInfo }) {
   return (
-    <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-[10px] bg-background-subtle p-3">
+    <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-[12px] bg-background-subtle p-3">
       {Array.from({ length: document.pages }, (_, index) => (
         <Page key={index} src={pageUrl(document, index + 1)} label={`Page ${index + 1}`} />
       ))}

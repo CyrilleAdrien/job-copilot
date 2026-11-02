@@ -67,7 +67,7 @@ export function FilterBar({
           onChange={(event) => set({ query: event.target.value })}
           placeholder="Poste, entreprise, ville"
           aria-label="Rechercher une candidature"
-          className="h-9 w-full rounded-full border border-border bg-surface pl-9 pr-8 text-sm outline-none transition-colors placeholder:text-text-tertiary focus:border-accent-strong/60 [&::-webkit-search-cancel-button]:hidden"
+          className="h-9 w-full rounded-full border border-border bg-surface pl-9 pr-8 text-sm outline-none transition-colors placeholder:text-text-tertiary focus:border-text-strong/60 [&::-webkit-search-cancel-button]:hidden"
         />
         {filters.query && (
           <button
@@ -89,7 +89,7 @@ export function FilterBar({
             <SlidersHorizontal className="size-4" aria-hidden />
             Filtres
             {active > 0 && (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-strong px-1.5 text-[11px] font-semibold tabular-nums text-white">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-strong px-1.5 text-[11px] font-medium tabular-nums text-white">
                 {active}
               </span>
             )}

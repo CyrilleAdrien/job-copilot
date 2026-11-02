@@ -32,9 +32,9 @@ const colors = [
 ];
 
 const typeScale = [
-  { label: "Titre de page", className: "text-[28px] font-semibold tracking-tight", size: "28 / 600" },
-  { label: "Titre de section", className: "text-xl font-semibold tracking-tight", size: "20 / 600" },
-  { label: "Titre de carte", className: "text-[15px] font-semibold", size: "15 / 600" },
+  { label: "Titre de page", className: "text-4xl font-normal", size: "36 / 400" },
+  { label: "Titre de section", className: "text-xl font-normal", size: "20 / 400" },
+  { label: "Titre de carte", className: "text-base font-medium", size: "16 / 500" },
   { label: "Texte courant", className: "text-sm", size: "14 / 400" },
   { label: "Légende", className: "text-xs text-text-secondary", size: "12 / 400" },
 ];
@@ -47,11 +47,11 @@ export default function DesignPage() {
         description="Tokens, composants et animations utilisés par toute l'application."
       />
       <div className="flex flex-col gap-14">
-        <Section title="Couleurs" description="Blanc et bleu pour l'interface, violet réservé à l'IA.">
+        <Section title="Couleurs" description="Blanc, noir, crème et jaune d'or pour l'interface, violet réservé à l'IA.">
           <div className="grid grid-cols-5 gap-3">
             {colors.map((color) => (
               <div key={color.token} className="flex flex-col gap-2">
-                <div className={`h-16 rounded-[10px] border border-border ${color.className}`} />
+                <div className={`h-16 rounded-[12px] border border-border ${color.className}`} />
                 <div className="flex flex-col">
                   <span className="text-[13px] font-medium">{color.name}</span>
                   <code className="text-xs text-text-tertiary">--{color.token}</code>
@@ -61,7 +61,7 @@ export default function DesignPage() {
           </div>
         </Section>
 
-        <Section title="Typographie" description="Inter, cinq tailles, chiffres tabulaires.">
+        <Section title="Typographie" description="Google Sans Flex, cinq tailles, chiffres tabulaires.">
           <div className="flex flex-col divide-y divide-border rounded-card border border-border">
             {typeScale.map((item) => (
               <div key={item.label} className="flex items-baseline justify-between px-5 py-4">
@@ -165,7 +165,7 @@ function Section({
   return (
     <section className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-xl font-medium">{title}</h2>
         {description && <p className="text-sm text-text-secondary">{description}</p>}
       </div>
       {children}

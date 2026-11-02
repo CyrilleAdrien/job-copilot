@@ -98,11 +98,11 @@ export function AccountForm({ onAdded, onCancel }: { onAdded: (account: MailAcco
                   aria-label={`Créer un mot de passe d'application ${provider.label}`}
                   className="flex flex-col gap-3 rounded-[12px] border border-border bg-background-subtle p-4"
                 >
-                  <h3 className="text-[13px] font-semibold">Créer un mot de passe d&apos;application {provider.label}</h3>
+                  <h3 className="text-[13px] font-medium">Créer un mot de passe d&apos;application {provider.label}</h3>
                   <ol className="flex flex-col gap-2">
                     {provider.steps.map((step, index) => (
                       <li key={step} className="flex gap-2.5 text-[13px] text-text-secondary">
-                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold tabular-nums text-accent-strong">
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-medium tabular-nums text-accent-strong">
                           {index + 1}
                         </span>
                         <span className="pt-px">{step}</span>

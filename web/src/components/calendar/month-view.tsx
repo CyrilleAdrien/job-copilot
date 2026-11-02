@@ -33,7 +33,7 @@ export function MonthView({
   return (
     <section aria-label="Mois" className="flex flex-col gap-3">
       <header className="flex items-center gap-2">
-        <h2 className="text-[17px] font-semibold capitalize tracking-tight">{monthFormat.format(month)}</h2>
+        <h2 className="text-[17px] font-medium capitalize">{monthFormat.format(month)}</h2>
         <div className="ml-auto flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => onMonth(new Date(today.getFullYear(), today.getMonth(), 1))}>
             Aujourd&apos;hui
@@ -62,7 +62,7 @@ export function MonthView({
               key={key}
               role="gridcell"
               aria-label={`${date.getDate()} ${items.length ? `, ${items.length} événement${items.length > 1 ? "s" : ""}` : ""}`}
-              className={cn("group flex min-h-28 flex-col gap-1 bg-surface p-1.5", outside && "bg-background-subtle/60")}
+              className={cn("group flex min-h-28 flex-col gap-1 bg-surface p-1.5", outside && "bg-background-subtle")}
             >
               <button
                 type="button"
@@ -74,7 +74,7 @@ export function MonthView({
                   className={cn(
                     "flex size-6 items-center justify-center rounded-full text-[12px] tabular-nums",
                     outside ? "text-text-tertiary" : "text-text-secondary",
-                    isToday && "bg-accent-strong font-semibold text-white",
+                    isToday && "bg-accent-strong font-medium text-white",
                   )}
                 >
                   {date.getDate()}

@@ -49,7 +49,7 @@ export function ProfilePhotoCard({ profile }: { profile: Profile }) {
         <div className="flex flex-wrap items-center gap-4">
           <ProfileAvatar size={72} />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <h2 className="truncate text-[15px] font-semibold tracking-tight">{profile.identity.full_name}</h2>
+            <h2 className="truncate text-[15px] font-medium">{profile.identity.full_name}</h2>
             <p className="text-[13px] text-text-secondary">Ta photo s&apos;affiche sur tout le site. Elle ne figure ni sur tes CV ni dans l&apos;export du profil.</p>
           </div>
           <div className="flex items-center gap-2">

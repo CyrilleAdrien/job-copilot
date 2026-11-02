@@ -157,7 +157,7 @@ function SheetContent({
       <header className="flex items-start justify-between gap-3">
         {application ? (
           <div className="flex min-w-0 flex-col gap-1">
-            <h2 className="text-[20px] font-semibold leading-tight tracking-tight">{application.title}</h2>
+            <h2 className="text-[20px] font-medium leading-tight">{application.title}</h2>
             <p className="text-[14px] text-text-secondary">
               {[application.company, application.location].filter(Boolean).join(" · ") || "Entreprise non précisée"}
             </p>
@@ -230,7 +230,7 @@ function SheetContent({
           </div>
 
           <section className="flex flex-col gap-2">
-            <h3 className="text-[13px] font-semibold">Documents</h3>
+            <h3 className="text-[13px] font-medium">Documents</h3>
             <div className="grid grid-cols-2 gap-2">
               <DocumentLink label="CV" id={application.cv_document_id} />
               <DocumentLink label="Lettre" id={application.letter_document_id} />
@@ -261,7 +261,7 @@ function SheetContent({
           />
 
           <section className="flex flex-col gap-3">
-            <h3 className="flex items-center gap-2 text-[13px] font-semibold">
+            <h3 className="flex items-center gap-2 text-[13px] font-medium">
               Entretiens
               <Link
                 href={`/calendrier?new=1&application_id=${application.id}&kind=interview`}
@@ -284,7 +284,7 @@ function SheetContent({
 
           {exchanges.length > 0 && (
             <section className="flex flex-col gap-3">
-              <h3 className="flex items-center gap-2 text-[13px] font-semibold">
+              <h3 className="flex items-center gap-2 text-[13px] font-medium">
                 Échanges
                 <Link href="/boite-de-reception" className="ml-auto text-[12px] font-normal text-accent-strong hover:underline">
                   Boîte de réception
@@ -303,7 +303,7 @@ function SheetContent({
           )}
 
           <section className="flex flex-col gap-3">
-            <h3 className="text-[13px] font-semibold">Historique</h3>
+            <h3 className="text-[13px] font-medium">Historique</h3>
             <ol className="flex flex-col gap-3 border-l border-border pl-4">
               {[...application.events].reverse().map((event, index) => {
                 const { label, icon: Icon } = applicationStatuses[event.to_status];
@@ -332,7 +332,7 @@ function SheetContent({
                   exit={{ opacity: 0 }}
                   role="alertdialog"
                   aria-label="Confirmer la suppression"
-                  className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/30 bg-danger-soft px-3.5 py-3 text-sm"
+                  className="flex flex-wrap items-center gap-3 rounded-[12px] border border-danger/30 bg-danger-soft px-3.5 py-3 text-sm"
                 >
                   <p className="flex-1 text-text-secondary">Supprimer cette candidature et son historique ?</p>
                   <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
@@ -361,7 +361,7 @@ function SheetContent({
 function DocumentLink({ label, id }: { label: string; id: string | null }) {
   if (!id) {
     return (
-      <div className="flex items-center gap-2 rounded-[10px] border border-dashed border-border px-3 py-2.5 text-[13px] text-text-tertiary">
+      <div className="flex items-center gap-2 rounded-[12px] border border-dashed border-border px-3 py-2.5 text-[13px] text-text-tertiary">
         <FileText className="size-4" aria-hidden />
         {label} à générer
       </div>
@@ -372,7 +372,7 @@ function DocumentLink({ label, id }: { label: string; id: string | null }) {
       href={documentPdfUrl(id)}
       target="_blank"
       rel="noreferrer"
-      className="flex items-center gap-2 rounded-[10px] border border-border bg-surface px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-surface-hover"
+      className="flex items-center gap-2 rounded-[12px] border border-border bg-surface px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-surface-hover"
     >
       <FileText className="size-4 text-accent-strong" aria-hidden />
       {label}
@@ -386,7 +386,7 @@ function Exchange({ message, onReplied }: { message: MailMessage; onReplied: (up
   const [replying, setReplying] = useState(false);
   const { label, icon: Icon } = categories[message.category];
   return (
-    <li className="flex flex-col gap-1 rounded-[10px] border border-border bg-surface px-3.5 py-3">
+    <li className="flex flex-col gap-1 rounded-[12px] border border-border bg-surface px-3.5 py-3">
       <span className="flex items-center gap-2 text-[12px] text-text-tertiary">
         <Icon className="size-3.5" aria-hidden />
         {label} · {dateFormatter.format(new Date(message.received_at))}

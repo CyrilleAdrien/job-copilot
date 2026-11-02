@@ -28,14 +28,14 @@ export function MessageRow({
   return (
     <li className="group relative">
       <button type="button" onClick={onOpen} className={ROW}>
-        <span className={cn("truncate", unread ? "font-semibold" : "text-text-secondary")}>{message.from_name || message.from_address}</span>
-        <time className={cn("col-start-2 row-start-1 text-[12px] tabular-nums md:col-start-3", unread ? "font-semibold" : "text-text-tertiary")} dateTime={message.received_at}>
+        <span className={cn("truncate", unread ? "font-medium" : "text-text-secondary")}>{message.from_name || message.from_address}</span>
+        <time className={cn("col-start-2 row-start-1 text-[12px] tabular-nums md:col-start-3", unread ? "font-medium" : "text-text-tertiary")} dateTime={message.received_at}>
           {listDate(message.received_at)}
         </time>
         <span className="col-span-2 flex min-w-0 items-center gap-2 md:col-span-1 md:col-start-2 md:row-start-1">
           {showLabel && <Badge tone={tone}>{label}</Badge>}
           <span className="min-w-0 truncate">
-            <span className={cn(unread && "font-semibold")}>{subject}</span>
+            <span className={cn(unread && "font-medium")}>{subject}</span>
             {message.snippet && <span className="text-text-tertiary"> – {message.snippet}</span>}
           </span>
         </span>

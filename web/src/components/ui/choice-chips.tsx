@@ -35,10 +35,10 @@ export function ChoiceChips<T extends string>({
                 onChange(selected ? value.filter((v) => v !== option.value) : [...value, option.value])
               }
               className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150",
+                "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors duration-150",
                 selected
-                  ? "border-accent-strong bg-accent-soft text-accent-strong"
-                  : "border-border-strong text-text-secondary hover:text-text",
+                  ? "border-text bg-text text-background"
+                  : "border-border bg-background-subtle text-text hover:border-border-strong",
               )}
             >
               <AnimatePresence initial={false}>

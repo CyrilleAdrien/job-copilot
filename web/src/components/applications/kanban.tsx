@@ -154,7 +154,7 @@ export function Kanban({
               <span className={cn("absolute inset-x-0 -top-px h-[3px] rounded-t-card", toneBar[tone])} aria-hidden />
               <header className="flex items-center gap-2 px-1 pb-1 pt-1">
                 <Icon className={cn("size-4", toneText[tone])} strokeWidth={1.75} aria-hidden />
-                <h2 className="text-[13px] font-semibold">{label}</h2>
+                <h2 className="text-[13px] font-medium">{label}</h2>
                 <span
                   className={cn(
                     "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium tabular-nums",
@@ -204,7 +204,7 @@ function KanbanCard({
       layoutId={`application-${item.id}`}
       transition={spring.smooth}
       className={cn(
-        "group relative rounded-[10px] border border-border bg-surface p-4 shadow-card transition-opacity",
+        "group relative rounded-[12px] border border-border bg-surface p-4 shadow-card transition-opacity",
         dragging && "opacity-40",
       )}
     >
@@ -223,7 +223,7 @@ function KanbanCard({
         <button
           type="button"
           onClick={() => onOpen(item.id)}
-          className="pr-6 text-left text-[13px] font-semibold leading-snug hover:text-accent-strong"
+          className="pr-6 text-left text-[13px] font-medium leading-snug hover:text-accent-strong"
         >
           {item.title}
         </button>
@@ -278,9 +278,9 @@ function FavoriteGroup({
           layout
           layoutId={`favorite-${offer.id}`}
           transition={spring.smooth}
-          className="flex flex-col gap-2 rounded-[10px] border border-dashed border-border-strong bg-surface/60 p-4"
+          className="flex flex-col gap-2 rounded-[12px] border border-dashed border-border-strong bg-surface/60 p-4"
         >
-          <Link href={`/offres/${offer.id}`} className="text-[13px] font-semibold leading-snug hover:text-accent-strong">
+          <Link href={`/offres/${offer.id}`} className="text-[13px] font-medium leading-snug hover:text-accent-strong">
             {offer.title}
           </Link>
           <p className="truncate text-[12px] text-text-secondary">{offer.company ?? "Entreprise non précisée"}</p>

@@ -169,7 +169,7 @@ export function ProfileWizard() {
           className="flex flex-col gap-6"
         >
           <header className="flex flex-col gap-1">
-            <h1 className="text-[28px] font-semibold leading-tight tracking-tight">{step.title}</h1>
+            <h1 className="text-[28px] font-medium leading-tight">{step.title}</h1>
             <p className="text-[15px] text-text-secondary">{step.description}</p>
           </header>
           {step.Component ? <step.Component profile={profile} update={update} errors={errors} focus={focus} /> : <ProfileView profile={toPayload(profile)} />}
@@ -274,7 +274,7 @@ function Welcome({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
-        <h1 className="text-[32px] font-semibold leading-tight tracking-tight">Bienvenue sur job-copilot</h1>
+        <h1 className="text-[32px] font-medium leading-tight">Bienvenue sur job-copilot</h1>
         <p className="max-w-xl text-[15px] text-text-secondary">
           Configure ton profil une fois : il sert à trouver les offres qui te correspondent et à rédiger tes CV et
           lettres. Tout reste sur ton ordinateur.
@@ -318,11 +318,11 @@ function Choice({
   return (
     <Card className="transition-colors hover:border-border-strong">
       <CardContent className="flex h-full flex-col gap-4">
-        <span className="flex size-10 items-center justify-center rounded-[10px] bg-accent-soft text-accent-strong">
+        <span className="flex size-10 items-center justify-center rounded-[12px] bg-accent-soft text-accent-strong">
           <Icon className="size-5" strokeWidth={1.75} aria-hidden />
         </span>
         <div className="flex flex-1 flex-col gap-1">
-          <h2 className="text-[15px] font-semibold">{title}</h2>
+          <h2 className="text-[15px] font-medium">{title}</h2>
           <p className="text-sm text-text-secondary">{description}</p>
         </div>
         <div>{action}</div>

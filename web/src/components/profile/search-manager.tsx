@@ -50,7 +50,7 @@ export function SearchManager({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <h3 className={cn("text-[15px] font-semibold", search.archived && "text-text-secondary")}>
+                      <h3 className={cn("text-[15px] font-medium", search.archived && "text-text-secondary")}>
                         {search.name}
                       </h3>
                       {search.archived && <Badge>Archivée</Badge>}
@@ -110,7 +110,7 @@ export function SearchManager({
                       <div
                         role="alertdialog"
                         aria-label="Confirmer la suppression"
-                        className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/30 bg-danger-soft px-3.5 py-3 text-sm"
+                        className="flex flex-wrap items-center gap-3 rounded-[12px] border border-danger/30 bg-danger-soft px-3.5 py-3 text-sm"
                       >
                         <p className="flex-1 text-text-secondary">
                           Supprimer <span className="font-medium text-text">« {search.name} »</span> et ses favoris ?

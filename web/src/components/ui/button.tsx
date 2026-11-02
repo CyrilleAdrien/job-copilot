@@ -8,10 +8,10 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   [
-    "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium",
+    "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-normal",
     "transition-[background-color,border-color,color,transform] duration-150 ease-out",
     "active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
-    "[&_svg]:size-4 [&_svg]:shrink-0",
+    "[&_svg]:size-[18px] [&_svg]:shrink-0",
   ],
   {
     variants: {
@@ -24,10 +24,10 @@ const buttonVariants = cva(
         danger: "border border-border-strong bg-surface text-danger hover:bg-danger-soft",
       },
       size: {
-        sm: "h-8 px-3 text-[13px]",
-        md: "h-9 px-4 text-sm",
-        lg: "h-11 px-5 text-[15px]",
-        icon: "size-9",
+        sm: "h-9 px-4 text-sm",
+        md: "h-11 px-6 text-base",
+        lg: "h-12 px-7 text-base",
+        icon: "size-11",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

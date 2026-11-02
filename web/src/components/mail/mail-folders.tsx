@@ -52,7 +52,7 @@ export function MailFolders({
             aria-current={folder === id ? "page" : undefined}
             onClick={() => onFolder(id)}
             className={cn(
-              "flex h-9 shrink-0 items-center gap-2.5 rounded-[10px] px-3 text-sm transition-colors duration-150",
+              "flex h-9 shrink-0 items-center gap-2.5 rounded-[12px] px-3 text-sm transition-colors duration-150",
               folder === id ? "bg-accent-soft font-medium text-accent-strong" : "text-text-secondary hover:bg-background-subtle hover:text-text",
             )}
           >
@@ -74,7 +74,7 @@ export function MailFolders({
               aria-pressed={category === item}
               onClick={() => onCategory(category === item ? "all" : item)}
               className={cn(
-                "flex h-8 items-center justify-between gap-2 rounded-[10px] px-3 text-[13px] transition-colors duration-150",
+                "flex h-8 items-center justify-between gap-2 rounded-[12px] px-3 text-[13px] transition-colors duration-150",
                 category === item ? "bg-accent-soft font-medium text-accent-strong" : "text-text-secondary hover:bg-background-subtle hover:text-text",
               )}
             >

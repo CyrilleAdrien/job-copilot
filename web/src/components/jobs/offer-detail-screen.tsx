@@ -52,7 +52,7 @@ export function OfferDetailScreen({ offerId }: { offerId: number }) {
             <motion.article {...fadeUp} transition={spring.smooth} className="flex flex-col gap-5">
               <header className="flex items-start justify-between gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <h1 className="text-[26px] font-semibold leading-tight tracking-tight">
+                  <h1 className="text-[26px] font-medium leading-tight">
                     {offer.title}
                   </h1>
                   <p className="flex flex-wrap items-center gap-1.5 text-[15px] text-text-secondary">

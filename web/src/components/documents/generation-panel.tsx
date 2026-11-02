@@ -124,11 +124,11 @@ export function GenerationPanel({
   return (
     <section className="flex flex-col gap-5 rounded-card border border-border bg-surface p-5 shadow-card">
       <header className="flex items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-[10px] bg-ai-soft text-ai-strong">
+        <span className="flex size-9 items-center justify-center rounded-[12px] bg-ai-soft text-ai-strong">
           <Sparkles className="size-4" aria-hidden />
         </span>
         <div className="flex flex-col">
-          <h2 className="text-[15px] font-semibold tracking-tight">CV et lettre</h2>
+          <h2 className="text-[15px] font-medium">CV et lettre</h2>
           <p className="text-[13px] text-text-secondary">
             Adaptés à cette offre, à partir de ton profil uniquement.
           </p>
@@ -175,7 +175,7 @@ export function GenerationPanel({
                 </p>
               )}
               {missingModel && (
-                <p className="rounded-[10px] bg-warning-soft px-3 py-2.5 text-[13px] text-warning">
+                <p className="rounded-[12px] bg-warning-soft px-3 py-2.5 text-[13px] text-warning">
                   Le modèle {llm?.model} n&apos;est pas encore téléchargé. Lance{" "}
                   <code>make models</code>, puis réessaie.
                 </p>

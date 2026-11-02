@@ -20,7 +20,7 @@ export function useRecipientCheck(to: string, setTo: (address: string) => void) 
   const address = to.trim();
   const typo = address === keptAddress ? null : addressTypo(address);
   const alert = typo && (
-    <div role="alert" className="flex flex-wrap items-center gap-2 rounded-[10px] bg-warning-soft px-3 py-2 text-[13px]">
+    <div role="alert" className="flex flex-wrap items-center gap-2 rounded-[12px] bg-warning-soft px-3 py-2 text-[13px]">
       <AlertTriangle className="size-4 shrink-0 text-warning" aria-hidden />
       <span className="min-w-0 flex-1">
         Faute de frappe ? Tu voulais peut-être écrire <strong className="font-medium">{typo}</strong>.
@@ -39,7 +39,7 @@ export function useRecipientCheck(to: string, setTo: (address: string) => void) 
 /** Rappel : le texte contient encore un passage que le modèle ne pouvait pas connaître. */
 export function ToFillNotice() {
   return (
-    <p role="status" className="flex items-center gap-2 rounded-[10px] bg-warning-soft px-3 py-2 text-[13px]">
+    <p role="status" className="flex items-center gap-2 rounded-[12px] bg-warning-soft px-3 py-2 text-[13px]">
       <AlertTriangle className="size-4 shrink-0 text-warning" aria-hidden />
       Remplace {TO_FILL} par la bonne information avant d&apos;envoyer.
     </p>

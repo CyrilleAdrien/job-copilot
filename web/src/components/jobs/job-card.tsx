@@ -73,14 +73,14 @@ export function JobCard({
       >
         <span
           aria-hidden
-          className="flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-border bg-background-subtle text-[15px] font-semibold text-text-secondary"
+          className="flex size-10 shrink-0 items-center justify-center rounded-[12px] border border-border bg-background-subtle text-[15px] font-medium text-text-secondary"
         >
           {(offer.company ?? offer.title).charAt(0).toUpperCase()}
         </span>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-[15px] font-semibold tracking-tight">{offer.title}</h3>
+            <h3 className="truncate text-[15px] font-medium">{offer.title}</h3>
             {fresh && !application && (
               <span className="shrink-0 rounded-full bg-accent-soft px-1.5 text-[11px] font-medium leading-5 text-accent-strong">
                 Nouveau
@@ -145,7 +145,7 @@ export function JobCard({
                 >
                   <Star
                     aria-hidden
-                    className={cn("size-4", offer.favorite && "fill-[#f5b301] text-[#f5b301]")}
+                    className={cn("size-4", offer.favorite && "fill-accent text-accent")}
                   />
                 </motion.span>
               </button>

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 export type Segment<T extends string> = { value: T; label: string };
 
-/** Sélecteur à segments façon iOS : la pastille glisse vers l'option choisie. */
+/** Sélecteur à segments : l'option choisie est noire et la pastille glisse vers elle. */
 export function SegmentedControl<T extends string>({
   segments,
   value,
@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="inline-flex w-fit rounded-full border border-border bg-background-subtle p-0.5"
+      className="inline-flex w-fit rounded-[14px] border border-border p-0.5"
     >
       {segments.map((segment) => {
         const selected = segment.value === value;
@@ -37,14 +37,14 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(segment.value)}
             className={cn(
-              "relative h-7 whitespace-nowrap rounded-full px-3 text-[13px] font-medium transition-colors duration-150",
-              selected ? "text-text" : "text-text-secondary hover:text-text",
+              "relative h-9 whitespace-nowrap rounded-[12px] px-3.5 text-sm transition-colors duration-150",
+              selected ? "font-medium text-background" : "text-text-secondary hover:text-text",
             )}
           >
             {selected && (
               <motion.span
                 layoutId={layoutId}
-                className="absolute inset-0 rounded-full border border-border bg-surface shadow-card"
+                className="absolute inset-0 rounded-[12px] bg-text"
                 transition={spring.snappy}
               />
             )}
