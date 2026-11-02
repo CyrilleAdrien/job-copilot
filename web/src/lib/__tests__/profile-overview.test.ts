@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
+import { cleanBullet, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
 
 const now = new Date(2026, 10, 2);
 const job = (start: string, end: string | null = null, technologies: string[] = []) => ({ start, end, technologies }) as Experience;
@@ -45,5 +45,13 @@ describe("isWebLink", () => {
   it("only accepts web addresses", () => {
     expect(isWebLink("https://github.com/alex")).toBe(true);
     expect(isWebLink("javascript:alert(1)")).toBe(false);
+  });
+});
+
+describe("cleanBullet", () => {
+  it("removes a bullet kept from a pasted CV, and nothing else", () => {
+    expect(cleanBullet("• Centralized flows")).toBe("Centralized flows");
+    expect(cleanBullet("- Built - and shipped")).toBe("Built - and shipped");
+    expect(cleanBullet("Reduced costs by 10%")).toBe("Reduced costs by 10%");
   });
 });

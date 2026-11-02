@@ -2,7 +2,7 @@ import { Award, BookOpen, Briefcase, FolderGit2, GraduationCap, HandHeart, Heart
 
 import { Entries, formatMonth, Section } from "@/components/profile/profile-view";
 import { Card, CardContent } from "@/components/ui/card";
-import { contractLabels, experienceDuration, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Profile } from "@/lib/profile";
+import { cleanBullet, contractLabels, experienceDuration, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Profile } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 const Chip = ({ children }: { children: string }) => (
@@ -56,6 +56,17 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
                       {(experience.location || experience.contract) && (
                         <p className="text-[13px] text-text-secondary">{[experience.location, experience.contract].filter(Boolean).join(" · ")}</p>
                       )}
+                      {experience.context && <p className="text-sm leading-relaxed text-text-secondary">{experience.context}</p>}
+                      {experience.groups.map((group, groupIndex) => (
+                        <div key={groupIndex} className="flex flex-col gap-1 pt-1.5">
+                          {group.title && <h5 className="text-[13px] font-medium">{group.title}</h5>}
+                          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm leading-relaxed text-text-secondary marker:text-border-strong">
+                            {group.bullets.map((bullet, bulletIndex) => (
+                              <li key={bulletIndex}>{cleanBullet(bullet)}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
                       {/* Sans compétences saisies, ces technologies remplissent déjà la carte Compétences. */}
                       {profile.skills.length > 0 && experience.technologies.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-0.5">

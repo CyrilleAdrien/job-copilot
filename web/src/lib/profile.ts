@@ -334,3 +334,8 @@ export function skillGroups(profile: Pick<Profile, "skills" | "experiences">) {
 export function isWebLink(url: string) {
   return /^https?:\/\//i.test(url);
 }
+
+/** Un texte collé d'un CV garde parfois sa puce : la liste affiche déjà la sienne. */
+export function cleanBullet(text: string) {
+  return text.replace(/^[\s•·▪*–—-]+/, "");
+}

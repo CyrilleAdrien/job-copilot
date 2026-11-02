@@ -16,7 +16,7 @@ const profile = {
     { id: "a", name: "Principal", archived: false, roles: ["Data Engineer"], seniority: "mid", contract_types: ["cdi"], locations: ["Paris"], remote: "any" },
     { id: "b", name: "Ancienne", archived: true, roles: ["Serveur"], seniority: "mid", contract_types: ["cdi"], locations: [], remote: "any" },
   ],
-  experiences: [{ title: "Ingénieur", company: "Nimbus", start: "2024-11", end: "2026-10", technologies: ["Python"], groups: [{ bullets: ["Détail réservé au CV"] }] }],
+  experiences: [{ title: "Ingénieur", company: "Nimbus", start: "2024-11", end: "2026-10", technologies: ["Python"], context: "Plateforme de paiement", groups: [{ title: "Pipelines", bullets: ["• Migré les flux"] }, { bullets: ["Réduit les coûts"] }] }],
   education: [{ degree: "Master", school: "ESEO", year: 2024 }],
   skills: [],
   certifications: [],
@@ -38,14 +38,21 @@ describe("profile overview", () => {
     expect(screen.getByLabelText("Choisir une photo de profil")).toBeInTheDocument();
   });
 
-  it("sums up the profile without the CV details or archived searches", () => {
+  it("sums up the profile without archived searches", () => {
     render(<ProfileOverview profile={profile} now={new Date(2026, 10, 2)} />);
     expect(screen.getByText("2 ans")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Ingénieur/ })).toBeInTheDocument();
     expect(screen.getByText("Master")).toBeInTheDocument();
     expect(screen.getByText("Rigueur")).toBeInTheDocument();
-    expect(screen.queryByText("Détail réservé au CV")).not.toBeInTheDocument();
     expect(screen.queryByText("Serveur")).not.toBeInTheDocument();
+  });
+
+  it("details each job: context, titled groups and bullets", () => {
+    render(<ProfileOverview profile={profile} />);
+    expect(screen.getByText("Plateforme de paiement")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pipelines" })).toBeInTheDocument();
+    expect(screen.getByText("Migré les flux")).toBeInTheDocument();
+    expect(screen.getByText("Réduit les coûts")).toBeInTheDocument();
   });
 
   it("shows a technology once when skills are deduced from the jobs", () => {
