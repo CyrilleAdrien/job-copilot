@@ -473,7 +473,7 @@ export function ExperiencesStep({ profile, update, errors }: StepProps) {
             <div className="flex flex-col gap-3">
               <span className="text-[13px] font-medium">Réalisations, regroupées par thème</span>
               {experience.groups.map((group, groupIndex) => (
-                <div key={groupIndex} className="flex flex-col gap-2 rounded-[10px] border border-border bg-surface p-3">
+                <div key={groupIndex} className="flex flex-col gap-2 rounded-[12px] border border-border bg-surface p-3">
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
                       <Input
@@ -769,7 +769,7 @@ function Group({ title, hint, children }: { title: string; hint?: string; childr
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-[15px] font-semibold">{title}</h3>
+        <h3 className="text-[15px] font-medium">{title}</h3>
         {hint && <p className="text-xs text-text-tertiary">{hint}</p>}
       </div>
       {children}

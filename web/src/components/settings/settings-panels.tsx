@@ -126,7 +126,7 @@ export function ModelPanel({ llm, onChange }: { llm: LlmState | null; onChange: 
             value={llm.model}
             disabled={busy !== null}
             onChange={(event) => run("choose", async () => onChange(await chooseModel(event.target.value)))}
-            className="h-10 max-w-sm rounded-[10px] border border-border bg-surface px-3 text-sm font-normal"
+            className="h-10 max-w-sm rounded-[12px] border border-border bg-surface px-3 text-sm font-normal"
           >
             {!llm.model_installed && <option value={llm.model}>{llm.model} (absent)</option>}
             {llm.installed.map((model) => (
@@ -319,7 +319,7 @@ export function SourcesPanel({
           <select
             value={search.refresh_minutes}
             onChange={(event) => choose(Number(event.target.value))}
-            className="h-10 max-w-xs rounded-[10px] border border-border bg-surface px-3 text-sm font-normal"
+            className="h-10 max-w-xs rounded-[12px] border border-border bg-surface px-3 text-sm font-normal"
           >
             {!known && <option value={search.refresh_minutes}>{search.refresh_minutes} minutes</option>}
             {DELAYS.map((delay) => (

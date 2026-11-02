@@ -33,6 +33,7 @@ import {
 } from "@/lib/applications";
 import { fetchFavorites, timeAgo, type Offer } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
+import { useOpenFromMenu } from "@/lib/use-open-from-menu";
 import type { ApplicationStatus } from "@/lib/statuses";
 
 type View = "kanban" | "list";
@@ -43,6 +44,7 @@ export function ApplicationsScreen() {
   const [view, setView] = useState<View>("kanban");
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  useOpenFromMenu(() => setAdding(true));
   const [signature, setSignature] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
   const [now] = useState(() => new Date());

@@ -40,7 +40,7 @@ const FORWARD: Partial<Record<EventKind, string[]>> = {
 };
 
 const selectClass =
-  "h-10 w-full rounded-[10px] border border-border-strong bg-surface px-3 text-sm text-text transition-[border-color,box-shadow] duration-150 focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:outline-none";
+  "h-11 w-full rounded-[12px] border border-border-strong bg-surface px-3 text-sm text-text transition-[border-color,box-shadow] duration-150 focus:border-text focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:outline-none";
 
 /** Panneau latéral de création ou de modification d'un événement. */
 export function EventEditor({
@@ -183,7 +183,7 @@ function EditorForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-5 p-6">
       <header className="flex items-start justify-between gap-4">
-        <h2 className="text-[20px] font-semibold tracking-tight">{existing ? "Modifier l'événement" : "Nouvel événement"}</h2>
+        <h2 className="text-[20px] font-medium">{existing ? "Modifier l'événement" : "Nouvel événement"}</h2>
         <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Fermer" onClick={onClose}>
           <X aria-hidden />
         </Button>

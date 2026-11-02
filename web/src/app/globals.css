@@ -1,74 +1,80 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/google-sans-flex";
+@import "@fontsource-variable/google-sans-code";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Design tokens. Inspiration Kaggle : fond blanc, texte anthracite,
- * bleu adouci pour les actions, violet réservé à ce qui vient de l'IA.
+ * Design tokens, relevés sur kaggle.com : texte presque noir, boutons noirs,
+ * crème pour les bandeaux et l'élément actif, jaune d'or en touche de couleur.
+ * Le violet reste réservé à ce qui vient de l'IA.
  */
 :root {
   --background: #ffffff;
-  --background-subtle: #f7f8fa;
+  --background-subtle: #f8f8f8;
   --surface: #ffffff;
-  --surface-hover: #f1f3f4;
-  --border: #e6e8eb;
-  --border-strong: #d2d6db;
+  --surface-hover: #f1f1f1;
+  --border: #dadce0;
+  --border-strong: #b8b8b8;
 
-  --text: #202124;
-  --text-secondary: #5f6368;
-  --text-tertiary: #80868b;
+  --text: #1f1f1f;
+  --text-secondary: #3d3d3d;
+  --text-tertiary: #5a5a5a;
 
-  --accent: #5aa7dd;
-  --accent-strong: #2f6e9e;
-  --accent-soft: #eef5fb;
+  --accent: #ffc412;
+  --accent-strong: #1f1f1f;
+  --accent-soft: #fbf7ef;
+  --sand: #e8e0cc;
+  --art-mist: #b4c6cc;
 
   --ai: #7c5cff;
   --ai-strong: #5b3fd9;
   --ai-soft: #f1edff;
 
   --success: #1e7b45;
-  --success-soft: #e7f4ec;
-  --warning: #9a5b00;
-  --warning-soft: #fdf3e2;
+  --success-soft: #dff3e7;
+  --warning: #8a5a00;
+  --warning-soft: #fff4d1;
   --danger: #b3261e;
   --danger-soft: #fbeceb;
 
-  --sidebar: rgb(247 248 250 / 0.8);
-  --shadow-card: 0 1px 2px rgb(32 33 36 / 0.04);
-  --shadow-pop: 0 8px 24px rgb(32 33 36 / 0.12);
+  --sidebar: #ffffff;
+  --shadow-card: none;
+  --shadow-pop: 0 8px 24px rgb(31 31 31 / 0.14);
 }
 
 .dark {
-  --background: #0f1115;
-  --background-subtle: #14171c;
-  --surface: #171a20;
-  --surface-hover: #1f232a;
-  --border: #2a2e36;
-  --border-strong: #3a3f49;
+  --background: #202124;
+  --background-subtle: #28292c;
+  --surface: #202124;
+  --surface-hover: #303134;
+  --border: #3c4043;
+  --border-strong: #5f6368;
 
-  --text: #e8eaed;
-  --text-secondary: #a0a6ae;
-  --text-tertiary: #7d838c;
+  --text: #f1f1f1;
+  --text-secondary: #d0d0d0;
+  --text-tertiary: #a8a8a8;
 
-  --accent: #6aaedf;
-  --accent-strong: #8dbfe4;
-  --accent-soft: rgb(106 174 223 / 0.12);
+  --accent: #ffc412;
+  --accent-strong: #f1f1f1;
+  --accent-soft: #33302a;
+  --sand: #4a4436;
+  --art-mist: #5f7379;
 
   --ai: #9b85ff;
   --ai-strong: #b4a3ff;
   --ai-soft: rgb(155 133 255 / 0.14);
 
   --success: #5cc48a;
-  --success-soft: rgb(92 196 138 / 0.12);
-  --warning: #e3a748;
-  --warning-soft: rgb(227 167 72 / 0.12);
+  --success-soft: rgb(92 196 138 / 0.14);
+  --warning: #f0bc4e;
+  --warning-soft: rgb(240 188 78 / 0.14);
   --danger: #f08a83;
-  --danger-soft: rgb(240 138 131 / 0.12);
+  --danger-soft: rgb(240 138 131 / 0.14);
 
-  --sidebar: rgb(20 23 28 / 0.8);
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.45);
+  --sidebar: #202124;
+  --shadow-card: none;
+  --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
@@ -84,6 +90,7 @@
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
+  --color-sand: var(--sand);
   --color-ai: var(--ai);
   --color-ai-strong: var(--ai-strong);
   --color-ai-soft: var(--ai-soft);
@@ -95,9 +102,10 @@
   --color-danger-soft: var(--danger-soft);
   --color-sidebar: var(--sidebar);
 
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Google Sans Flex Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Google Sans Code Variable", ui-monospace, monospace;
 
-  --radius-card: 12px;
+  --radius-card: 20px;
   --shadow-card: var(--shadow-card);
   --shadow-pop: var(--shadow-pop);
 
@@ -116,20 +124,93 @@
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
-    font-feature-settings: "cv11", "ss01";
   }
 
   body {
-    @apply bg-background text-text font-sans;
+    @apply bg-background text-text font-sans font-light;
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--text);
     outline-offset: 2px;
   }
 
   ::selection {
-    background: var(--accent-soft);
+    background: var(--accent);
+    color: #1f1f1f;
+  }
+}
+
+/* Survol : ce qui s'ouvre se soulève, une ligne reçoit un liseré d'or. */
+.lift {
+  transition:
+    transform 180ms ease-out,
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 18px rgb(31 31 31 / 0.08);
+}
+.row-glow {
+  position: relative;
+  transition: background-color 150ms ease-out;
+}
+.row-glow::before {
+  content: "";
+  position: absolute;
+  inset-block: 6px;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 180ms ease-out;
+}
+.row-glow:hover {
+  background: var(--background-subtle);
+}
+.row-glow:hover::before,
+.row-glow:focus-visible::before {
+  transform: scaleY(1);
+}
+
+/* Bandeau de titre : le tracé du parcours avance et les objets s'élèvent au survol. */
+.hero-trail {
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+}
+.hero:hover .hero-trail {
+  animation: hero-walk 1.2s linear infinite;
+}
+.hero-part {
+  transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.hero:hover .hero-part {
+  transform: translateY(-4px);
+}
+.hero:hover .hero-part-b {
+  transform: translateY(-7px);
+  transition-delay: 50ms;
+}
+.hero:hover .hero-part-c {
+  transform: translateY(-10px);
+  transition-delay: 100ms;
+}
+@keyframes hero-walk {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift:hover,
+  .hero:hover .hero-part {
+    transform: none;
+  }
+  .hero:hover .hero-trail {
+    animation: none;
   }
 }
 
@@ -143,7 +224,7 @@
   }
 }
 
-/* Curseur façon iOS : piste fine remplie jusqu'à la valeur, pouce blanc ombré. */
+/* Curseur : piste fine remplie jusqu'à la valeur, pouce blanc ombré. */
 .slider::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 999px;

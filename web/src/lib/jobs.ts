@@ -107,6 +107,7 @@ export async function fetchOffers(
   search?: string,
   favorites = false,
   page = 0,
+  query = "",
 ): Promise<OfferList> {
   const params = new URLSearchParams({
     sort,
@@ -116,6 +117,7 @@ export async function fetchOffers(
   if (favorites) params.set("favorites", "true");
   if (days) params.set("max_age_days", String(days));
   if (search) params.set("search", search);
+  if (query) params.set("q", query);
   const response = await fetch(`/api/jobs/offers?${params}`, { cache: "no-store" });
   if (!response.ok) throw await parseError(response);
   return response.json();

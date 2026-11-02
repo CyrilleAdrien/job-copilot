@@ -4,8 +4,8 @@ import { ArrowLeft, ArrowUpRight, CalendarPlus, Check, Link2, Reply, Tag, Undo2 
 import Link from "next/link";
 import { useState } from "react";
 
+import { CategoryTag } from "@/components/mail/category-tag";
 import { DeliveryNotice, ReplyComposer, ReplyList } from "@/components/mail/reply-composer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu } from "@/components/ui/menu";
 import type { ApplicationSummary } from "@/lib/applications";
@@ -53,7 +53,7 @@ export function MessageView({
   onReplied: (updated: MailMessage) => void;
 }) {
   const [replying, setReplying] = useState(false);
-  const { label, tone, icon: Icon } = categories[message.category];
+  const { label, tone } = categories[message.category];
   const suggested = message.suggested_status ? applicationStatuses[message.suggested_status].label : null;
 
   return (
@@ -110,11 +110,8 @@ export function MessageView({
 
       <div className="flex flex-col gap-4 p-5">
         <header className="flex flex-wrap items-center gap-3">
-          <h2 className="min-w-0 text-xl font-semibold tracking-tight">{message.subject || "(sans objet)"}</h2>
-          <Badge tone={tone}>
-            <Icon aria-hidden strokeWidth={2} />
-            {label}
-          </Badge>
+          <h2 className="min-w-0 text-xl font-normal">{message.subject || "(sans objet)"}</h2>
+          <CategoryTag label={label} tone={tone} />
         </header>
 
         <div className="flex items-start gap-3">
@@ -132,7 +129,7 @@ export function MessageView({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[10px] bg-background-subtle px-3 py-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-background-subtle px-3 py-2 text-[13px]">
           {application ? <ApplicationLink application={application} /> : <span className="text-text-tertiary">Aucune candidature liée</span>}
           {application && message.match_reason?.endsWith("à confirmer") && (
             <span className="text-warning" title="Plusieurs candidatures en cours chez cette entreprise">
@@ -183,7 +180,7 @@ export function SentView({ reply, original, onBack, onOpenOriginal }: { reply: M
         <BackButton onBack={onBack} />
       </div>
       <div className="flex flex-col gap-4 p-5">
-        <h2 className="text-xl font-semibold tracking-tight">{reply.subject}</h2>
+        <h2 className="text-xl font-medium">{reply.subject}</h2>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 text-sm">
           <p className="min-w-0 truncate">À {reply.to_address}</p>
           <time className="text-[12px] tabular-nums text-text-tertiary" dateTime={reply.sent_at}>

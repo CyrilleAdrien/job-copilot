@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Check, Inbox, RefreshCw, Settings, X } from "lucide-react";
+import { AlertCircle, Check, Inbox, RefreshCw, SearchX, Settings, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { AccountForm } from "@/components/mail/account-form";
 import { ComposeWindow } from "@/components/mail/compose-window";
+import { MailFilterBar } from "@/components/mail/mail-filter-bar";
 import { MailFolders } from "@/components/mail/mail-folders";
 import { MessageRow, SentRow } from "@/components/mail/message-row";
 import { MessageView, SentView } from "@/components/mail/message-view";
@@ -17,10 +18,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
-import { fetchApplications, type ApplicationSummary } from "@/lib/applications";
+import { fetchApplications, statusOrder, type ApplicationSummary } from "@/lib/applications";
 import {
+  activeMailFilters,
+  applyMailFilters,
   applyMessage,
+  applySentFilters,
+  categoryOrder,
   countByCategory,
+  emptyMailFilters,
   fetchAccounts,
   fetchMessages,
   fetchSent,
@@ -31,13 +37,14 @@ import {
   syncSummary,
   unseenBounce,
   updateMessage,
-  type Category,
   type MailAccount,
+  type MailFilters,
   type MailFolder,
   type MailMessage,
   type MailReply,
 } from "@/lib/mail";
 import { fadeUp, spring } from "@/lib/motion";
+import { useOpenFromMenu } from "@/lib/use-open-from-menu";
 
 /** Une confirmation s'efface seule. Un problème à traiter reste jusqu'à ce qu'on le ferme. */
 const NOTICE_MS = 6000;
@@ -52,10 +59,12 @@ export function InboxScreen() {
   // Le mail ouvert : tant qu'il y en a un, il remplace la liste.
   const [opened, setOpened] = useState<{ kind: "message" | "sent"; id: string } | null>(null);
   const [composing, setComposing] = useState(false);
-  const [category, setCategory] = useState<Category | "all">("all");
+  const [filters, setFilters] = useState<MailFilters>(emptyMailFilters);
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+
+  useOpenFromMenu(() => setComposing(true));
 
   const load = useCallback(async () => {
     try {
@@ -87,14 +96,20 @@ export function InboxScreen() {
   const byId = useMemo(() => new Map(applications.map((item) => [item.id, item])), [applications]);
   const pending = messages.filter(needsReview).length;
   const inboxFolder = folder === "sent" ? "inbox" : folder;
-  const counts = countByCategory(filterMessages(messages, inboxFolder, "all"));
-  const visible = filterMessages(messages, inboxFolder, category);
+  const statusOf = (message: MailMessage) => (message.application_id ? byId.get(message.application_id)?.status : undefined);
+  const inFolder = filterMessages(messages, inboxFolder, "all");
+  const visible = applyMailFilters(inFolder, filters, statusOf);
+  // Les catégories comptent ce que les autres filtres laissent passer.
+  const counts = countByCategory(applyMailFilters(inFolder, { ...filters, categories: [] }, statusOf));
+  const visibleSent = applySentFilters(sent, filters);
+  const linkedStatuses = statusOrder.filter((status) => inFolder.some((message) => statusOf(message) === status));
+  const filtering = activeMailFilters(filters, folder === "sent") > 0;
   const openedMessage = opened?.kind === "message" ? messages.find((m) => m.id === opened.id) : undefined;
   const openedSent = opened?.kind === "sent" ? sent.find((m) => m.id === opened.id) : undefined;
 
   function chooseFolder(next: MailFolder) {
     setFolder(next);
-    setCategory("all");
+    setFilters((current) => ({ ...current, categories: [] }));
     setOpened(null);
   }
 
@@ -250,18 +265,19 @@ export function InboxScreen() {
           </CardContent>
         </Card>
       ) : (
-        <motion.div {...fadeUp} transition={spring.smooth} className="grid items-start gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <motion.div {...fadeUp} transition={spring.smooth} className="grid items-start gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
           <MailFolders
             folder={folder}
             counts={{ inbox: pending, pending }}
             alertSent={sent.some(unseenBounce)}
-            category={category}
+            selected={filters.categories}
             categoryCounts={counts}
             accounts={accounts}
             onCompose={() => setComposing(true)}
             onFolder={chooseFolder}
-            onCategory={(next) => {
-              setCategory(next);
+            onCategory={(item) => {
+              const alone = filters.categories.length === 1 && filters.categories[0] === item;
+              setFilters({ ...filters, categories: alone ? [] : [item] });
               setOpened(null);
             }}
           />
@@ -285,6 +301,30 @@ export function InboxScreen() {
                 onBack={() => setOpened(null)}
                 onOpenOriginal={() => openedSent.message_id && openMessage(openedSent.message_id)}
               />
+            ) : (
+              <>
+                <MailFilterBar
+                  sentFolder={folder === "sent"}
+                  filters={filters}
+                  categories={categoryOrder.filter((item) => counts[item] > 0 || filters.categories.includes(item))}
+                  statuses={linkedStatuses}
+                  accounts={accounts}
+                  shown={folder === "sent" ? visibleSent.length : visible.length}
+                  onChange={setFilters}
+                />
+                {filtering && (folder === "sent" ? visibleSent : visible).length === 0 ? (
+              <div className="p-6">
+                <EmptyState
+                  icon={SearchX}
+                  title="Aucun mail avec ces filtres"
+                  description="Élargis la période ou retire un filtre."
+                  action={
+                    <Button variant="secondary" onClick={() => setFilters(emptyMailFilters)}>
+                      Réinitialiser les filtres
+                    </Button>
+                  }
+                />
+              </div>
             ) : folder === "sent" ? (
               sent.length === 0 ? (
                 <div className="p-6">
@@ -292,7 +332,7 @@ export function InboxScreen() {
                 </div>
               ) : (
                 <ul aria-label="Mails envoyés" className="flex flex-col divide-y divide-border">
-                  {sent.map((reply) => (
+                  {visibleSent.map((reply) => (
                     <SentRow key={reply.id} reply={reply} onOpen={() => openSent(reply)} />
                   ))}
                 </ul>
@@ -322,6 +362,8 @@ export function InboxScreen() {
                   />
                 ))}
               </ul>
+            )}
+              </>
             )}
           </Card>
         </motion.div>

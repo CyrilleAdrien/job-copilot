@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { waitFor, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsScreen } from "@/components/settings/settings-screen";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/reglages" }));
 vi.mock("@/components/profile/profile-identity", () => ({ useProfileIdentity: () => ({ refresh: vi.fn() }) }));
 
 const ok = { status: "ok", checks: { postgres: "ok", redis: "ok" } };
@@ -47,9 +47,24 @@ describe("SettingsScreen", () => {
   it("shows each step with its state and opens the first one to do", async () => {
     backend();
     render(<SettingsScreen />);
-    expect(await screen.findByRole("button", { name: /1\. Système.*Prêt/s })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: /4\. Sources d'offres.*À faire/s })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Pas de clé.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /1\. Système.*Prêt/s })).not.toHaveAttribute("aria-current");
+    // L'étape à faire s'ouvre une fois toutes les réponses reçues.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /4\. Sources d'offres.*À faire/s })).toHaveAttribute("aria-current", "step"),
+    );
+    expect(await screen.findByText("Pas de clé.")).toBeInTheDocument();
+  });
+
+  it("shows the chosen step beside the list, and leaves one shown when clicked again", async () => {
+    backend();
+    const user = userEvent.setup();
+    render(<SettingsScreen />);
+    const data = await screen.findByRole("button", { name: /7\. Mes données/ });
+    await user.click(data);
+    expect(await screen.findByRole("heading", { name: "Mes données" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#donnees");
+    await user.click(data);
+    expect(screen.getByRole("heading", { name: "Mes données" })).toBeInTheDocument();
   });
 
   it("locks the sources without a profile, and never opens them", async () => {

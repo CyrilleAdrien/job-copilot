@@ -8,26 +8,26 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   [
-    "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium",
-    "transition-[background-color,border-color,color,transform] duration-150 ease-out",
-    "active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
-    "[&_svg]:size-4 [&_svg]:shrink-0",
+    "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-normal",
+    "transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-out hover:-translate-y-px",
+    "active:translate-y-0 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
+    "[&_svg]:size-[18px] [&_svg]:shrink-0",
   ],
   {
     variants: {
       variant: {
-        primary: "bg-text text-background hover:bg-text/85",
+        primary: "bg-text text-background hover:shadow-[0_4px_14px_rgb(31_31_31/0.28)]",
         accent: "bg-accent-strong text-background hover:bg-accent-strong/90",
-        secondary: "border border-border-strong bg-surface text-text hover:bg-surface-hover",
+        secondary: "border border-border-strong bg-surface text-text hover:border-text hover:bg-surface-hover",
         ghost: "text-text-secondary hover:bg-surface-hover hover:text-text",
         ai: "bg-ai text-background hover:bg-ai/90",
         danger: "border border-border-strong bg-surface text-danger hover:bg-danger-soft",
       },
       size: {
-        sm: "h-8 px-3 text-[13px]",
-        md: "h-9 px-4 text-sm",
-        lg: "h-11 px-5 text-[15px]",
-        icon: "size-9",
+        sm: "h-9 px-4 text-sm",
+        md: "h-11 px-6 text-base",
+        lg: "h-12 px-7 text-base",
+        icon: "size-11",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

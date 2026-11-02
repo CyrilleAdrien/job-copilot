@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-card border border-border bg-surface shadow-card", className)}
+      className={cn("rounded-card border border-border bg-surface shadow-card transition-colors duration-150 hover:border-border-strong", className)}
       {...props}
     />
   );
@@ -17,7 +17,7 @@ export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElemen
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn("text-[15px] font-semibold tracking-tight", className)} {...props} />
+    <h3 className={cn("text-base font-medium", className)} {...props} />
   );
 }
 

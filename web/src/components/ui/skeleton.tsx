@@ -22,7 +22,7 @@ export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>
 export function JobCardSkeleton() {
   return (
     <div className="flex items-start gap-4 rounded-card border border-border bg-surface p-5">
-      <Skeleton className="size-10 rounded-[10px]" />
+      <Skeleton className="size-10 rounded-[12px]" />
       <div className="flex flex-1 flex-col gap-2.5">
         <Skeleton className="h-4 w-2/5" />
         <Skeleton className="h-3 w-1/4" />

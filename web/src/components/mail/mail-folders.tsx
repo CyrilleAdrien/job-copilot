@@ -2,6 +2,7 @@
 
 import { CheckCircle2, CircleDot, Inbox, Pencil, Send, type LucideIcon } from "lucide-react";
 
+import { ToneDot } from "@/components/mail/category-tag";
 import { Button } from "@/components/ui/button";
 import { categories, categoryOrder, type Category, type MailAccount, type MailFolder } from "@/lib/mail";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,7 @@ export function MailFolders({
   folder,
   counts,
   alertSent,
-  category,
+  selected,
   categoryCounts,
   accounts,
   onCompose,
@@ -28,23 +29,23 @@ export function MailFolders({
   folder: MailFolder;
   counts: Partial<Record<MailFolder, number>>;
   alertSent: boolean;
-  category: Category | "all";
+  selected: Category[];
   categoryCounts: Record<Category, number>;
   accounts: MailAccount[];
   onCompose: () => void;
   onFolder: (folder: MailFolder) => void;
-  onCategory: (category: Category | "all") => void;
+  onCategory: (category: Category) => void;
 }) {
-  const present = categoryOrder.filter((item) => categoryCounts[item] > 0 || category === item);
+  const present = categoryOrder.filter((item) => categoryCounts[item] > 0 || selected.includes(item));
 
   return (
-    <aside aria-label="Dossiers de la boîte de réception" className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-8">
+    <aside aria-label="Dossiers de la boîte de réception" className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-8">
       <Button className="self-start" onClick={onCompose}>
         <Pencil aria-hidden />
         Nouveau message
       </Button>
 
-      <nav aria-label="Dossiers" className="flex gap-0.5 overflow-x-auto lg:flex-col">
+      <nav aria-label="Dossiers" className="flex gap-0.5 overflow-x-auto xl:flex-col">
         {FOLDERS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -52,11 +53,11 @@ export function MailFolders({
             aria-current={folder === id ? "page" : undefined}
             onClick={() => onFolder(id)}
             className={cn(
-              "flex h-9 shrink-0 items-center gap-2.5 rounded-[10px] px-3 text-sm transition-colors duration-150",
-              folder === id ? "bg-accent-soft font-medium text-accent-strong" : "text-text-secondary hover:bg-background-subtle hover:text-text",
+              "group flex h-11 shrink-0 items-center gap-3 rounded-[12px] px-3 text-sm transition-colors duration-150",
+              folder === id ? "bg-accent-soft text-text" : "text-text-secondary hover:bg-surface-hover hover:text-text",
             )}
           >
-            <Icon className="size-4 shrink-0" aria-hidden />
+            <Icon className="size-5 shrink-0 transition-transform duration-150 group-hover:scale-110" strokeWidth={1.25} aria-hidden />
             <span className="flex-1 text-left">{label}</span>
             {id === "sent" && alertSent && <span role="img" aria-label="Un mail n'a pas été distribué" className="size-2 rounded-full bg-danger" />}
             {Boolean(counts[id]) && <span className="text-[12px] tabular-nums">{counts[id]}</span>}
@@ -65,20 +66,21 @@ export function MailFolders({
       </nav>
 
       {folder !== "sent" && present.length > 0 && (
-        <div className="hidden flex-col gap-0.5 lg:flex" role="group" aria-label="Catégorie">
-          <p className="px-3 pb-1 text-[12px] font-medium text-text-tertiary">Catégories</p>
+        <div className="hidden flex-col gap-0.5 xl:flex" role="group" aria-label="Catégorie">
+          <p className="px-3 pb-1 text-[13px] font-medium text-text">Catégories</p>
           {present.map((item) => (
             <button
               key={item}
               type="button"
-              aria-pressed={category === item}
-              onClick={() => onCategory(category === item ? "all" : item)}
+              aria-pressed={selected.includes(item)}
+              onClick={() => onCategory(item)}
               className={cn(
-                "flex h-8 items-center justify-between gap-2 rounded-[10px] px-3 text-[13px] transition-colors duration-150",
-                category === item ? "bg-accent-soft font-medium text-accent-strong" : "text-text-secondary hover:bg-background-subtle hover:text-text",
+                "flex h-9 items-center gap-2.5 rounded-[12px] px-3 text-[13px] transition-colors duration-150",
+                selected.includes(item) ? "bg-accent-soft text-text" : "text-text-secondary hover:bg-surface-hover hover:text-text",
               )}
             >
-              <span className="truncate">{categories[item].label}</span>
+              <ToneDot tone={categories[item].tone} />
+              <span className="min-w-0 flex-1 truncate text-left">{categories[item].label}</span>
               <span className="text-[12px] tabular-nums">{categoryCounts[item]}</span>
             </button>
           ))}

@@ -70,7 +70,7 @@ export function ComposeWindow({
             <select
               value={accountId}
               onChange={(event) => setAccountId(event.target.value)}
-              className="h-10 rounded-[10px] border border-border bg-surface px-3 text-sm font-normal"
+              className="h-10 rounded-[12px] border border-border bg-surface px-3 text-sm font-normal"
             >
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>

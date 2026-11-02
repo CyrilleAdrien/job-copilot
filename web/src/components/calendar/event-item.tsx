@@ -30,7 +30,7 @@ export function EventItem({
   const { label, tone, icon: Icon } = eventKinds[event.kind];
   const soon = countdown(event.starts_at, now);
   return (
-    <div className="relative flex flex-col gap-1.5 rounded-[10px] border border-border bg-surface py-3 pl-4 pr-3">
+    <div className="relative flex flex-col gap-1.5 rounded-[12px] border border-border bg-surface py-3 pl-4 pr-3">
       <span className={cn("absolute -left-px inset-y-[-1px] w-[3px] rounded-l-[10px]", toneBar[tone])} aria-hidden />
       <div className="flex items-center gap-2 text-[12px] text-text-tertiary">
         <Icon className={cn("size-3.5", toneText[tone])} aria-hidden />
@@ -38,15 +38,15 @@ export function EventItem({
         {soon && <span className="ml-auto font-medium text-text-secondary">{soon}</span>}
       </div>
       {href ? (
-        <Link href={href} className="text-[13px] font-semibold leading-snug hover:text-accent-strong">
+        <Link href={href} className="text-[13px] font-medium leading-snug hover:text-accent-strong">
           {event.title}
         </Link>
       ) : onOpen ? (
-        <button type="button" onClick={onOpen} className="text-left text-[13px] font-semibold leading-snug hover:text-accent-strong">
+        <button type="button" onClick={onOpen} className="text-left text-[13px] font-medium leading-snug hover:text-accent-strong">
           {event.title}
         </button>
       ) : (
-        <span className="text-[13px] font-semibold leading-snug">{event.title}</span>
+        <span className="text-[13px] font-medium leading-snug">{event.title}</span>
       )}
       <span className="text-[12px] text-text-secondary first-letter:uppercase">{formatSlot(event)}</span>
       {(event.location || event.video_url) && (

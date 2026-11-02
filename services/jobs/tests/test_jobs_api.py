@@ -101,6 +101,18 @@ async def test_offers_are_newest_first_without_excluded_or_off_topic(client):
     assert body["refreshed_at"] is not None
 
 
+async def test_offers_filtered_by_text_ignoring_case_and_accents(client):
+    await client.post("/refresh")
+    titles = {
+        (q, (await client.get("/offers", params={"q": q})).json()["total"])
+        for q in ("INGENIEUR nimbus", "junior", "inexistant")
+    }
+    everything = (await client.get("/offers")).json()["total"]
+    assert ("INGENIEUR nimbus", everything) in titles
+    assert ("junior", 1) in titles
+    assert ("inexistant", 0) in titles
+
+
 async def test_offers_sorted_by_relevance(client):
     await client.post("/refresh")
     items = (await client.get("/offers", params={"sort": "relevance"})).json()["items"]

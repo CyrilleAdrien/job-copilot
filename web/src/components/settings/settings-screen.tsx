@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -10,13 +11,15 @@ import { useProfileIdentity } from "@/components/profile/profile-identity";
 import { CalendarSync } from "@/components/calendar/calendar-sync";
 import { MailAccounts } from "@/components/mail/mail-accounts";
 import { Hint, ModelPanel, ProfilePanel, SourcesPanel, SystemPanel } from "@/components/settings/settings-panels";
-import { SettingsStep } from "@/components/settings/settings-step";
+import { SettingsStepItem, STEP_STATES } from "@/components/settings/settings-step";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, eraseAllData, exportAllData, fetchProfile } from "@/lib/api";
 import { fetchCalendarAccounts, type CalendarAccount } from "@/lib/calendar";
 import { fetchAccounts, type MailAccount } from "@/lib/mail";
+import { spring } from "@/lib/motion";
 import {
   buildSteps,
   fetchLlm,
@@ -30,6 +33,7 @@ import {
   type StepId,
   type SystemStatus,
 } from "@/lib/system";
+import { cn } from "@/lib/utils";
 
 function download({ blob, filename }: { blob: Blob; filename: string }) {
   const url = URL.createObjectURL(blob);
@@ -91,8 +95,10 @@ export function SettingsScreen() {
     () => buildSteps({ status, llm, profile, profileLoaded, sources, mail, calendar }),
     [status, llm, profile, profileLoaded, sources, mail, calendar],
   );
-  const ready = steps.filter((step) => step.state === "ready").length;
-  const required = steps.filter((step) => step.state !== "optional").length;
+  const ready = steps.filter((item) => item.state === "ready").length;
+  const required = steps.filter((item) => item.state !== "optional").length;
+  const usable = steps.filter((item) => item.state !== "locked");
+  const step = usable.find((item) => item.id === open) ?? usable[0];
 
   // Une seule fois : la suite des rechargements ne doit pas refermer l'étape en cours.
   useEffect(() => {
@@ -100,6 +106,11 @@ export function SettingsScreen() {
     opened.current = true;
     setOpen(firstOpenStep(steps, window.location.hash.slice(1)));
   }, [loaded, steps]);
+
+  function select(id: StepId) {
+    setOpen(id);
+    window.history.replaceState(null, "", `#${id}`);
+  }
 
   async function recheck() {
     setChecking(true);
@@ -137,23 +148,53 @@ export function SettingsScreen() {
 
   return (
     <>
-      <PageHeader title="Réglages" description="Tout ce qu'il faut pour que l'application fonctionne, dans l'ordre où chaque étape dépend de la précédente." />
-      <div className="flex max-w-3xl flex-col gap-3">
-        {error && <ErrorBanner error={error} />}
-        {!loaded ? (
-          <div className="flex flex-col gap-3" aria-busy aria-label="Chargement des réglages">
+      <PageHeader title="Réglages" description="Tout ce qu'il faut pour que l'application fonctionne, dans l'ordre." />
+      {error && (
+        <div className="pb-4">
+          <ErrorBanner error={error} />
+        </div>
+      )}
+      {!loaded || !step || open === null ? (
+        <div className="grid items-start gap-8 lg:grid-cols-[360px_minmax(0,1fr)]" aria-busy aria-label="Chargement des réglages">
+          <div className="flex flex-col gap-2">
             {Array.from({ length: 7 }, (_, index) => (
-              <Skeleton key={index} className="h-[72px] rounded-card" />
+              <Skeleton key={index} className="h-[68px] rounded-[14px]" />
             ))}
           </div>
-        ) : (
-          <>
-            <p role="status" className="text-[13px] text-text-secondary">
-              {ready} étape{ready > 1 ? "s" : ""} prête{ready > 1 ? "s" : ""} sur {required}.
-            </p>
-            {steps.map((step, index) => (
-              <SettingsStep key={step.id} step={step} number={index + 1} open={open === step.id} onToggle={() => setOpen(open === step.id ? null : step.id)}>
-                {step.id === "systeme" && <SystemPanel status={status} encryption={search?.encryption ?? null} busy={checking} onRefresh={recheck} />}
+          <Skeleton className="h-96 rounded-card" />
+        </div>
+      ) : (
+        <div className="grid items-start gap-8 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <nav aria-label="Étapes des réglages" className="flex flex-col gap-3 lg:sticky lg:top-4">
+            <div className="flex flex-col gap-2 px-3">
+              <p role="status" className="text-[13px] text-text-secondary">
+                {ready} étape{ready > 1 ? "s" : ""} prête{ready > 1 ? "s" : ""} sur {required}
+              </p>
+              <div aria-hidden className="h-1 overflow-hidden rounded-full bg-surface-hover">
+                <motion.div className="h-full rounded-full bg-accent" initial={false} animate={{ width: `${required ? (ready / required) * 100 : 0}%` }} transition={spring.smooth} />
+              </div>
+            </div>
+            <ol className="flex flex-col gap-1">
+              {steps.map((item, index) => (
+                <SettingsStepItem key={item.id} step={item} number={index + 1} selected={item.id === step.id} last={index === steps.length - 1} onSelect={() => select(item.id)} />
+              ))}
+            </ol>
+          </nav>
+
+          <Card id={step.id} className="min-w-0 scroll-mt-6 overflow-hidden hover:border-border">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.section key={step.id} aria-labelledby="settings-panel-title" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -4 }} transition={{ duration: 0.14 }}>
+                <header className="flex items-start justify-between gap-4 border-b border-border p-6">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <h2 id="settings-panel-title" className="text-xl font-normal">
+                      {step.title}
+                    </h2>
+                    <p className="break-words text-sm text-text-secondary">{step.summary}</p>
+                  </div>
+                  <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs", STEP_STATES[step.state].className)}>{STEP_STATES[step.state].label}</span>
+                </header>
+                <div className="p-6">
+            {step.id === "systeme" && <SystemPanel status={status} encryption={search?.encryption ?? null} busy={checking} onRefresh={recheck} />}
                 {step.id === "modele" && <ModelPanel llm={llm} onChange={setLlm} />}
                 {step.id === "profil" && <ProfilePanel profile={profile} />}
                 {step.id === "sources" && (sources ? <SourcesPanel sources={sources} search={search} onChange={load} onSearchChange={setSearch} /> : <Hint>Le service des offres ne répond pas.</Hint>)}
@@ -186,11 +227,12 @@ export function SettingsScreen() {
                     </section>
                   </div>
                 )}
-              </SettingsStep>
-            ))}
-          </>
-        )}
-      </div>
+                </div>
+              </motion.section>
+            </AnimatePresence>
+          </Card>
+        </div>
+      )}
 
       <Modal
         open={confirming}

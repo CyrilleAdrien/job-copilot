@@ -54,7 +54,7 @@ export function ProfileView({
       <Card>
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
-            <h2 className="text-xl font-semibold tracking-tight">{identity.full_name}</h2>
+            <h2 className="text-xl font-medium">{identity.full_name}</h2>
             <p className="text-[15px] text-text-secondary">{identity.headline}</p>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
@@ -100,7 +100,7 @@ export function ProfileView({
               <div key={search.id || search.name} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0">
                 {profile.searches.length > 1 && (
                   <div className="flex items-center gap-2">
-                    <span className={cn("text-sm font-semibold", search.archived && "text-text-secondary")}>{search.name}</span>
+                    <span className={cn("text-sm font-medium", search.archived && "text-text-secondary")}>{search.name}</span>
                     {search.archived && <Badge>Archivée</Badge>}
                     {search.archived && onRestore && (
                       <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRestore(search.id)}>
@@ -256,7 +256,7 @@ function Section({
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
-        <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+        <h3 className="flex items-center gap-2 text-[15px] font-medium">
           <Icon className="size-4 text-text-tertiary" strokeWidth={1.75} aria-hidden />
           {title}
           {action && <span className="ml-auto font-normal">{action}</span>}

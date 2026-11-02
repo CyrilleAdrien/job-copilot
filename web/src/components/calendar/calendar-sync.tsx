@@ -92,7 +92,7 @@ export function Section({ title, description, children }: { title: string; descr
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-[15px] font-semibold">{title}</h3>
+        <h3 className="text-[15px] font-medium">{title}</h3>
         {description && <p className="text-[13px] text-text-secondary">{description}</p>}
       </div>
       {children}
@@ -236,7 +236,7 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
             <ol className="flex flex-col gap-2 rounded-[12px] border border-border bg-background-subtle p-3.5" aria-label="Étapes">
               {provider.steps.map((step, index) => (
                 <li key={step} className="flex gap-2.5 text-[12px] text-text-secondary">
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold tabular-nums text-accent-strong">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-medium tabular-nums text-accent-strong">
                     {index + 1}
                   </span>
                   <span className="pt-0.5">{step}</span>
@@ -309,7 +309,7 @@ function ConnectForm({ onConnected }: { onConnected: () => void }) {
               <label
                 key={calendar.url}
                 className={cn(
-                  "flex cursor-pointer items-center gap-2.5 rounded-[10px] border px-3 py-2 text-sm transition-colors",
+                  "flex cursor-pointer items-center gap-2.5 rounded-[12px] border px-3 py-2 text-sm transition-colors",
                   chosen === calendar.url ? "border-accent-strong bg-accent-soft" : "border-border hover:bg-surface-hover",
                 )}
               >

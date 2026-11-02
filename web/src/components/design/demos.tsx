@@ -49,7 +49,7 @@ export function GenerationDemo() {
             <motion.div
               {...fadeUp}
               transition={spring.smooth}
-              className="flex items-center gap-3 rounded-[10px] border border-border bg-background-subtle p-3"
+              className="flex items-center gap-3 rounded-[12px] border border-border bg-background-subtle p-3"
             >
               <span className="flex size-9 items-center justify-center rounded-lg bg-ai-soft text-ai-strong">
                 <FileText className="size-4" aria-hidden />
@@ -118,7 +118,7 @@ function JobRow({
 }) {
   return (
     <div className="flex items-start gap-4 rounded-card border border-border bg-surface p-5 transition-colors hover:border-border-strong">
-      <span className="flex size-10 items-center justify-center rounded-[10px] bg-accent-soft text-sm font-semibold text-accent-strong">
+      <span className="flex size-10 items-center justify-center rounded-[12px] bg-accent-soft text-sm font-medium text-accent-strong">
         {company[0]}
       </span>
       <div className="flex flex-1 flex-col gap-1">
@@ -170,7 +170,7 @@ export function StatsDemo() {
         <Card key={stat.label}>
           <CardContent className="flex flex-col gap-1">
             <span className="text-[13px] text-text-secondary">{stat.label}</span>
-            <span className="text-[28px] font-semibold tracking-tight">
+            <span className="text-[28px] font-medium">
               <AnimatedNumber value={stat.value} suffix={stat.suffix} />
             </span>
           </CardContent>

@@ -26,6 +26,7 @@ import {
   type EventKind,
 } from "@/lib/calendar";
 import { fadeUp, spring } from "@/lib/motion";
+import { useOpenFromMenu } from "@/lib/use-open-from-menu";
 
 /** Événements à venir affichés à droite du mois. */
 const UPCOMING = 6;
@@ -36,6 +37,7 @@ export function CalendarScreen() {
   const [account, setAccount] = useState<CalendarAccount | null>(null);
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [target, setTarget] = useState<EditorTarget | null>(null);
+  useOpenFromMenu(() => setTarget({ mode: "create", day: dayKey(new Date(Date.now() + 86400000)) }));
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [now] = useState(() => new Date());

@@ -41,6 +41,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/boite-de-reception" }));
+vi.mock("@/lib/use-open-from-menu", () => ({ useOpenFromMenu: vi.fn() }));
+
 describe("InboxScreen", () => {
   it("lists a mail on one line, without its actions, then opens it", async () => {
     backend();
@@ -56,6 +59,20 @@ describe("InboxScreen", () => {
     expect(screen.getByRole("button", { name: "Passer à « Entretien »" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retour à la liste" }));
     expect(screen.getByRole("list", { name: "Mails" })).toBeInTheDocument();
+  });
+
+  it("filters the list, says when nothing matches, and resets", async () => {
+    backend();
+    const user = userEvent.setup();
+    render(<InboxScreen />);
+    const list = await screen.findByRole("list", { name: "Mails" });
+    expect(within(list).getByText("Invitation à un entretien")).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox", { name: "Chercher dans les mails" }), "introuvable");
+    expect(await screen.findByText("Aucun mail avec ces filtres")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Réinitialiser les filtres" }));
+    expect(await screen.findByRole("list", { name: "Mails" })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "7 j" }));
+    expect(await screen.findByText("Aucun mail avec ces filtres")).toBeInTheDocument();
   });
 
   it("moves a mail out of the pending folder once treated", async () => {

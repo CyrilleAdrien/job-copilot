@@ -277,7 +277,7 @@ function Tile({ label, value, detail }: { label: string; value: ReactNode; detai
   return (
     <Card className="flex flex-col gap-2 p-5">
       <span className="text-[13px] text-text-secondary">{label}</span>
-      <span className="text-[30px] font-semibold leading-none tracking-tight tabular-nums">{value}</span>
+      <span className="text-[30px] font-medium leading-none tabular-nums">{value}</span>
       <span className="text-[12px] text-text-tertiary">{detail}</span>
     </Card>
   );

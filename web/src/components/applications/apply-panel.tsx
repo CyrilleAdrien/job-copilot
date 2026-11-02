@@ -100,7 +100,7 @@ export function ApplyPanel({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h2 className="text-[15px] font-semibold">Candidature</h2>
+          <h2 className="text-[15px] font-medium">Candidature</h2>
           <p className="text-[13px] text-text-secondary">
             {application
               ? application.status === "draft"
