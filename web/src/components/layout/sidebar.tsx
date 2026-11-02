@@ -1,7 +1,8 @@
 "use client";
 
-import { Menu, Sparkles } from "lucide-react";
+import { Menu } from "lucide-react";
 import { motion } from "motion/react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -47,7 +48,7 @@ export function Sidebar() {
         </button>
         {!collapsed && (
           <Link href="/" className="flex items-center gap-1.5 whitespace-nowrap">
-            <Sparkles className="size-[18px] text-accent" strokeWidth={2} aria-hidden />
+            <Image src="/icon.svg" alt="" width={24} height={24} unoptimized />
             <span className="text-[22px] font-normal leading-none">job-copilot</span>
           </Link>
         )}

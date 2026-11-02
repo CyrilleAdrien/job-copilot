@@ -4,7 +4,7 @@ import { isLocalRequest } from "@/lib/local-request";
 
 describe("isLocalRequest", () => {
   it("accepts the app opened on this machine", () => {
-    for (const host of ["localhost:3000", "127.0.0.1:3000", "[::1]:3000", "localhost"]) {
+    for (const host of ["localhost:3000", "job-copilot.localhost:3000", "127.0.0.1:3000", "[::1]:3000", "localhost"]) {
       expect(isLocalRequest("DELETE", host, null)).toBe(true);
       expect(isLocalRequest("DELETE", host, `http://${host}`)).toBe(true);
     }
@@ -15,6 +15,8 @@ describe("isLocalRequest", () => {
     expect(isLocalRequest("GET", "localhost.evil.example:3000", null)).toBe(false);
     expect(isLocalRequest("GET", null, null)).toBe(false);
     expect(isLocalRequest("GET", "[bad", null)).toBe(false);
+    expect(isLocalRequest("GET", "other.localhost:3000", null)).toBe(false);
+    expect(isLocalRequest("POST", "localhost:3000", "http://other.localhost:3000")).toBe(false);
   });
 
   it("refuses writes sent from another site", () => {
