@@ -21,13 +21,13 @@ const bounced: MailReply = {
   body: "Bonjour", sent_at: "2026-10-21T10:00:00Z", status: "bounced", error: "550 User unknown", problem_seen: false,
 };
 
-function backend({ messages = [mail], sent = [] as MailReply[] } = {}) {
+function backend({ messages = [mail], sent = [] as MailReply[], accounts = [account] } = {}) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
     if (url.endsWith("/seen")) return reply({ ...bounced, problem_seen: true });
     if (url.endsWith("/accounts/a/send")) return reply({ ...bounced, id: "r2", status: "sent", error: null, to_address: JSON.parse(String(init?.body)).to }, 201);
     if (init?.method === "PATCH") return reply({ ...mail, ...JSON.parse(String(init.body)) });
-    if (url.includes("/mail/accounts")) return reply([account]);
+    if (url.includes("/mail/accounts")) return reply(accounts);
     if (url.includes("/mail/messages")) return reply(messages);
     if (url.includes("/mail/sent")) return reply(sent);
     return reply([]);
@@ -59,6 +59,24 @@ describe("InboxScreen", () => {
     expect(screen.getByRole("button", { name: "Passer à « Entretien »" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retour à la liste" }));
     expect(screen.getByRole("list", { name: "Mails" })).toBeInTheDocument();
+  });
+
+  it("shows the connected mailbox next to the settings button", async () => {
+    backend();
+    render(<InboxScreen />);
+    const header = await screen.findByRole("banner");
+    expect(await within(header).findByText("moi@gmail.com")).toBeInTheDocument();
+    expect(within(header).getByRole("img", { name: "Connectée" })).toBeInTheDocument();
+    expect(within(header).getByRole("link", { name: "Réglages" })).toHaveAttribute("href", "/reglages#boite-mail");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("flags a failing mailbox in the header and gives the reason below", async () => {
+    backend({ accounts: [{ ...account, smtp_error: "Mot de passe refusé" }] });
+    render(<InboxScreen />);
+    const header = await screen.findByRole("banner");
+    expect(await within(header).findByRole("img", { name: "Envoi impossible" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("moi@gmail.com, envoi impossible : Mot de passe refusé");
   });
 
   it("filters the list, says when nothing matches, and resets", async () => {

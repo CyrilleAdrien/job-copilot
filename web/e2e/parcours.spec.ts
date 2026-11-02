@@ -113,8 +113,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.goto("/boite-de-reception");
     await page.getByRole("radio", { name: "Démonstration" }).click();
     await page.getByRole("button", { name: "Connecter la boîte" }).click();
-    const folders = page.getByRole("complementary", { name: "Dossiers de la boîte de réception" });
-    await expect(folders.getByRole("img", { name: "Connectée" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Connectée" })).toBeVisible();
 
     await page.getByRole("button", { name: "Synchroniser" }).click();
     await expect
@@ -148,7 +147,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await recipient.fill(original);
     await composer.getByRole("button", { name: "Envoyer" }).click();
     await expect(composer).toHaveCount(0);
-    await folders.getByRole("button", { name: "Envoyés" }).click();
+    await page.getByRole("complementary", { name: "Dossiers de la boîte de réception" }).getByRole("button", { name: "Envoyés" }).click();
     await expect(page.getByRole("list", { name: "Mails envoyés" })).toContainText("Re: ");
 
     await page.getByRole("button", { name: "Nouveau message" }).click();

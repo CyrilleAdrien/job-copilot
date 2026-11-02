@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { AccountForm } from "@/components/mail/account-form";
+import { AccountChips, AccountErrors } from "@/components/mail/account-status";
 import { ComposeWindow } from "@/components/mail/compose-window";
 import { MailFilterBar } from "@/components/mail/mail-filter-bar";
 import { MailFolders } from "@/components/mail/mail-folders";
@@ -203,6 +204,7 @@ export function InboxScreen() {
         actions={
           connected && (
             <>
+              <AccountChips accounts={accounts} />
               <Button variant="secondary" asChild>
                 <Link href="/reglages#boite-mail">
                   {accounts.some((account) => account.last_error || account.smtp_error) ? (
@@ -221,6 +223,7 @@ export function InboxScreen() {
           )
         }
       />
+      {connected && <AccountErrors accounts={accounts} />}
       <AnimatePresence>
         {error && (
           <div className="pb-4">
@@ -272,7 +275,6 @@ export function InboxScreen() {
             alertSent={sent.some(unseenBounce)}
             selected={filters.categories}
             categoryCounts={counts}
-            accounts={accounts}
             onCompose={() => setComposing(true)}
             onFolder={chooseFolder}
             onCategory={(item) => {
