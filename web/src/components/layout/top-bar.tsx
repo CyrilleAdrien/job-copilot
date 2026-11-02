@@ -1,16 +1,13 @@
 "use client";
 
 import { Search } from "lucide-react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { ProfileAvatar, useProfileIdentity } from "@/components/profile/profile-identity";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-/** Recherche dans les offres, apparence et profil, en haut de chaque page. */
+/** Recherche dans les offres et apparence, en haut de chaque page. */
 export function TopBar() {
-  const { name } = useProfileIdentity();
   const router = useRouter();
   const current = useSearchParams().get("q") ?? "";
   const [text, setText] = useState(current);
@@ -39,16 +36,8 @@ export function TopBar() {
           />
         </label>
       </form>
-      <div className="flex items-center justify-end gap-3">
-      <ThemeToggle />
-      <Link
-        href="/profil"
-        aria-label="Mon profil"
-        title={name ?? "Mon profil"}
-        className="flex size-11 shrink-0 items-center justify-center rounded-full transition-[background-color,transform] duration-150 hover:scale-105 hover:bg-surface-hover"
-      >
-        <ProfileAvatar size={36} />
-      </Link>
+      <div className="flex items-center justify-end">
+        <ThemeToggle />
       </div>
     </div>
   );

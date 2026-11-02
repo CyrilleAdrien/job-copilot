@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { CreateMenu } from "@/components/layout/create-menu";
+import { ProfileAvatar, useProfileIdentity } from "@/components/profile/profile-identity";
 import { spring } from "@/lib/motion";
 import { isActive, mainNav, secondaryNav, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ const COLLAPSED_KEY = "sidebar:collapsed";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { name } = useProfileIdentity();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -63,6 +65,16 @@ export function Sidebar() {
         <div className="mx-3 border-t border-border" />
         <NavGroup items={secondaryNav} pathname={pathname} collapsed={collapsed} />
       </nav>
+
+      <Link
+        href="/profil"
+        aria-label="Mon profil"
+        title={name ?? "Mon profil"}
+        className="group mt-3 flex h-12 shrink-0 items-center gap-3 rounded-[12px] px-1.5 transition-colors duration-150 hover:bg-surface-hover"
+      >
+        <ProfileAvatar size={36} className="transition-transform duration-150 group-hover:scale-105" />
+        {!collapsed && <span className="min-w-0 truncate text-sm">{name ?? "Mon profil"}</span>}
+      </Link>
     </aside>
   );
 }
