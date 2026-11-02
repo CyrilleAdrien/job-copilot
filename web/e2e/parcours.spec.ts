@@ -280,4 +280,49 @@ test("parcours complet, du profil à la suppression des données", async ({ page
       .poll(async () => (await read(request, "/api/applications/applications")).length)
       .toBe(1);
   });
+
+  await test.step("une date d'entretien se fixe à l'ajout et au passage en Entretien", async () => {
+    const day = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+    await page.goto("/candidatures");
+    await page.getByRole("button", { name: "Ajouter une candidature" }).first().click();
+    let form = page.getByRole("form", { name: "Nouvelle candidature" });
+    await form.getByLabel("Poste").fill("Poste manuel");
+    await form.getByRole("switch", { name: "Un entretien est déjà prévu" }).click();
+    await form.getByLabel("Date de l'entretien").fill(day);
+    await form.getByLabel("Heure").fill("14:30");
+    await form.getByRole("button", { name: "Ajouter" }).click();
+    await expect(form).toHaveCount(0);
+    const eventsOf = async (title: string) => {
+      const applications = await read(request, "/api/applications/applications");
+      const application = applications.find((item: { title: string }) => item.title === title);
+      return { application, events: await read(request, `/api/calendar/events?application_id=${application.id}`) };
+    };
+    const manual = await eventsOf("Poste manuel");
+    expect(manual.application.status).toBe("interview");
+    expect(manual.events).toHaveLength(1);
+
+    await page.getByRole("button", { name: "Ajouter une candidature" }).first().click();
+    form = page.getByRole("form", { name: "Nouvelle candidature" });
+    await form.getByLabel("Poste").fill("Poste à planifier");
+    await form.getByRole("button", { name: "Ajouter" }).click();
+    await expect(form).toHaveCount(0);
+    await page.getByRole("button", { name: "Changer le statut de « Poste à planifier »" }).click();
+    await page.getByRole("menuitem", { name: "Passer à « Entretien »" }).click();
+    const dialog = page.getByRole("dialog", { name: "Planifier l'entretien" });
+    await dialog.getByRole("button", { name: "Annuler" }).click();
+    await expect(dialog).toHaveCount(0);
+    expect((await eventsOf("Poste à planifier")).application.status).toBe("draft");
+
+    await page.getByRole("button", { name: "Changer le statut de « Poste à planifier »" }).click();
+    await page.getByRole("menuitem", { name: "Passer à « Entretien »" }).click();
+    await dialog.getByLabel("Date de l'entretien").fill(day);
+    await dialog.getByRole("button", { name: "Planifier" }).click();
+    await expect(dialog).toHaveCount(0);
+    const moved = await eventsOf("Poste à planifier");
+    expect(moved.application.status).toBe("interview");
+    expect(moved.events).toHaveLength(1);
+
+    await page.goto(`/calendrier?event=${moved.events[0].id}`);
+    await expect(page.getByRole("dialog", { name: "Modifier l'événement" })).toBeVisible();
+  });
 });

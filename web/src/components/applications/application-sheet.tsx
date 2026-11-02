@@ -36,14 +36,19 @@ const sourceLabels = { manual: "à la main", mail: "d'après un mail", system: "
 /** Fiche d'une candidature, en panneau latéral : statut, documents, contact, notes, historique. */
 export function ApplicationSheet({
   id,
+  version,
   signature,
   onClose,
+  onInterview,
   onChange,
   onDelete,
 }: {
   id: string | null;
+  /** Change quand la candidature a été modifiée depuis l'extérieur de la fiche. */
+  version: number;
   signature: string;
   onClose: () => void;
+  onInterview: (application: Application) => void;
   onChange: (application: Application) => void;
   onDelete: (id: string) => void;
 }) {
@@ -81,7 +86,7 @@ export function ApplicationSheet({
             transition={spring.smooth}
             className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col overflow-y-auto border-l border-border bg-background shadow-[0_0_48px_-12px_rgb(0_0_0/0.3)] outline-none"
           >
-            <SheetContent key={id} id={id} signature={signature} onClose={onClose} onChange={onChange} onDelete={onDelete} />
+            <SheetContent key={id} id={id} version={version} signature={signature} onClose={onClose} onInterview={onInterview} onChange={onChange} onDelete={onDelete} />
           </motion.div>
         </>
       )}
@@ -91,14 +96,18 @@ export function ApplicationSheet({
 
 function SheetContent({
   id,
+  version,
   signature,
   onClose,
+  onInterview,
   onChange,
   onDelete,
 }: {
   id: string;
+  version: number;
   signature: string;
   onClose: () => void;
+  onInterview: (application: Application) => void;
   onChange: (application: Application) => void;
   onDelete: (id: string) => void;
 }) {
@@ -150,7 +159,19 @@ function SheetContent({
     }
   }
 
-  const move = (status: ApplicationStatus) => save({ status });
+  // Relit le statut et les rendez-vous sans toucher aux notes en cours de saisie.
+  const seenVersion = useRef(version);
+  useEffect(() => {
+    if (seenVersion.current === version) return;
+    seenVersion.current = version;
+    fetchApplication(id).then(setApplication).catch(setError);
+    fetchEvents({ application_id: id }).then(setMeetings).catch(() => setMeetings([]));
+  }, [id, version]);
+
+  function move(status: ApplicationStatus) {
+    if (status === "interview" && application) onInterview(application);
+    else save({ status });
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">

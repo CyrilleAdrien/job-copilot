@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
+import { emptySlot, InterviewDialog, InterviewFields } from "@/components/applications/interview-dialog";
 import { ApplicationSheet } from "@/components/applications/application-sheet";
 import { DraftsPanel } from "@/components/applications/drafts-panel";
 import { FilterBar } from "@/components/applications/filter-bar";
@@ -17,6 +18,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { fetchProfile } from "@/lib/api";
 import {
   ApiError,
@@ -31,10 +33,13 @@ import {
   type ApplicationSummary,
   type Filters,
 } from "@/lib/applications";
+import { createEvent, interviewEvent } from "@/lib/calendar";
 import { fetchFavorites, timeAgo, type Offer } from "@/lib/jobs";
 import { fadeUp, spring } from "@/lib/motion";
 import { useOpenFromMenu } from "@/lib/use-open-from-menu";
 import type { ApplicationStatus } from "@/lib/statuses";
+
+const noop = () => undefined;
 
 type View = "kanban" | "list";
 const VIEW_KEY = "jobcopilot.applications.view";
@@ -44,6 +49,9 @@ export function ApplicationsScreen() {
   const [view, setView] = useState<View>("kanban");
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [scheduling, setScheduling] = useState<ApplicationSummary | null>(null);
+  // Fait relire la fiche ouverte après une planification.
+  const [sheetVersion, setSheetVersion] = useState(0);
   useOpenFromMenu(() => setAdding(true));
   const [signature, setSignature] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
@@ -113,6 +121,12 @@ export function ApplicationsScreen() {
 
   /** Déplacement optimiste : la carte change de colonne tout de suite, et revient si l'appel échoue. */
   function move(id: string, status: ApplicationStatus) {
+    // Passer en Entretien propose d'abord une date : la carte ne bouge qu'une fois le choix fait.
+    const item = items?.find((candidate) => candidate.id === id);
+    if (status === "interview" && item && item.status !== "interview") {
+      setScheduling(item);
+      return;
+    }
     const before = items;
     setItems(
       (current) =>
@@ -144,10 +158,8 @@ export function ApplicationsScreen() {
         {adding && (
           <NewApplication
             onCancel={() => setAdding(false)}
-            onCreated={(created) => {
-              setItems((current) => [created, ...(current ?? [])]);
-              setAdding(false);
-            }}
+            onCreated={(created) => setItems((current) => [created, ...(current ?? [])])}
+            onDone={() => setAdding(false)}
           />
         )}
       </AnimatePresence>
@@ -232,12 +244,24 @@ export function ApplicationsScreen() {
 
       <ApplicationSheet
         id={open}
+        version={sheetVersion}
         signature={signature}
-        onClose={close}
+        // Échap ne doit fermer que la fenêtre de planification, posée au-dessus.
+        onClose={scheduling ? noop : close}
+        onInterview={setScheduling}
         onChange={replace}
         onDelete={(id) => {
           setItems((current) => current && current.filter((item) => item.id !== id));
           close();
+        }}
+      />
+
+      <InterviewDialog
+        application={scheduling}
+        onClose={() => setScheduling(null)}
+        onChanged={(updated) => {
+          replace(updated);
+          setSheetVersion((version) => version + 1);
         }}
       />
     </>
@@ -288,24 +312,41 @@ function ApplicationList({
 function NewApplication({
   onCancel,
   onCreated,
+  onDone,
 }: {
   onCancel: () => void;
   onCreated: (application: ApplicationSummary) => void;
+  onDone: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
   const [url, setUrl] = useState("");
+  const [planned, setPlanned] = useState(false);
+  const [slot, setSlot] = useState(emptySlot);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  // Une fois créée, la candidature n'est pas recréée si seul le rendez-vous a échoué.
+  const [created, setCreated] = useState<ApplicationSummary | null>(null);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || (planned && !slot.day)) return;
     setSaving(true);
+    setError(null);
     try {
-      onCreated(
-        await createApplication({ title: title.trim(), company: company.trim() || undefined, url: url.trim() || undefined }),
-      );
+      let application = created;
+      if (!application) {
+        application = await createApplication({
+          title: title.trim(),
+          company: company.trim() || undefined,
+          url: url.trim() || undefined,
+          status: planned ? "interview" : "draft",
+        });
+        setCreated(application);
+        onCreated(application);
+      }
+      if (planned) await createEvent({ ...interviewEvent(application, slot.day, slot.time, slot.minutes), advance_status: false });
+      onDone();
     } catch (e) {
       setError(e as ApiError);
       setSaving(false);
@@ -324,17 +365,20 @@ function NewApplication({
         Pour une offre trouvée ailleurs (site carrière, réseau). Les offres de l&apos;app passent par « Postuler ».
       </p>
       <div className="grid gap-3 md:grid-cols-3">
-        <Input label="Poste" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-        <Input label="Entreprise" value={company} onChange={(e) => setCompany(e.target.value)} />
-        <Input label="Lien de l'offre" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
+        <Input label="Poste" value={title} disabled={created !== null} onChange={(e) => setTitle(e.target.value)} required autoFocus />
+        <Input label="Entreprise" value={company} disabled={created !== null} onChange={(e) => setCompany(e.target.value)} />
+        <Input label="Lien de l'offre" type="url" value={url} disabled={created !== null} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
       </div>
+      <Switch checked={planned} disabled={created !== null} onChange={setPlanned} label="Un entretien est déjà prévu" description="La candidature passe en Entretien et le rendez-vous s'ajoute au calendrier." />
+      {planned && <InterviewFields slot={slot} onChange={setSlot} />}
+      {created && error && <p className="text-[13px] text-warning">La candidature est ajoutée, mais le rendez-vous n&apos;a pas été créé. Tu peux réessayer.</p>}
       <AnimatePresence>{error && <ErrorBanner error={error} />}</AnimatePresence>
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Annuler
+        <Button type="button" variant="ghost" onClick={created ? onDone : onCancel}>
+          {created ? "Fermer" : "Annuler"}
         </Button>
-        <Button type="submit" loading={saving} disabled={!title.trim()}>
-          Ajouter
+        <Button type="submit" loading={saving} disabled={!title.trim() || (planned && !slot.day)}>
+          {created ? "Réessayer" : "Ajouter"}
         </Button>
       </div>
     </motion.form>

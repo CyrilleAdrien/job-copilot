@@ -174,6 +174,26 @@ export function localToIso(day: string, time: string) {
   return new Date(year, month - 1, date, hours, minutes).toISOString();
 }
 
+/** L'événement d'un entretien fixé pour une candidature, à partir de l'heure locale saisie. */
+export function interviewEvent(
+  application: { id: string; title: string; company: string | null },
+  day: string,
+  time: string,
+  minutes: number,
+): EventInput {
+  const starts_at = localToIso(day, time);
+  return {
+    kind: "interview",
+    title: defaultTitle("interview", application),
+    starts_at,
+    ends_at: new Date(new Date(starts_at).getTime() + minutes * 60000).toISOString(),
+    location: "",
+    video_url: "",
+    notes: "",
+    application_id: application.id,
+  };
+}
+
 /** ISO vers les champs du formulaire (heure locale). */
 export function isoToLocal(iso: string) {
   const date = new Date(iso);
