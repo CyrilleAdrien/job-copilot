@@ -68,7 +68,7 @@ Les deux sources sont gratuites. Renseigne leurs clés dans `.env`, puis relance
 | France Travail | [francetravail.io](https://francetravail.io), application avec l'API « Offres d'emploi v2 » | `FRANCE_TRAVAIL_CLIENT_ID`, `FRANCE_TRAVAIL_CLIENT_SECRET` |
 | Adzuna | [developer.adzuna.com](https://developer.adzuna.com) | `ADZUNA_APP_ID`, `ADZUNA_APP_KEY` |
 
-Sans clé, `JOBS_DEMO=true` active des offres fictives pour essayer l'outil. Une collecte est mise en cache 15 minutes dans Redis. Le bouton Actualiser force une nouvelle collecte.
+Sans clé, `JOBS_DEMO=true` active des offres fictives pour essayer l'outil. Une collecte reste en cache 15 minutes dans Redis, un délai réglable dans Réglages. Le bouton Actualiser force une nouvelle collecte. Aucune recherche ne tourne en tâche de fond : elle part quand tu ouvres les offres.
 
 | Méthode | Chemin | Rôle |
 | --- | --- | --- |
@@ -108,13 +108,29 @@ Tout reste sur ta machine. L'écran **Réglages** permet :
 - Les clés France Travail et Adzuna restent dans `.env` : elles ne sont pas stockées en base.
 - `web` et `gateway` ne sont publiés que sur `127.0.0.1`. L'API n'a pas de compte : elle refuse donc les noms d'hôte étrangers et les écritures venues d'un autre site.
 
+## Réglages
+
+L'onglet Réglages réunit toute la configuration, dans l'ordre où chaque étape dépend de la précédente. Chacune affiche son état, et une étape verrouillée dit ce qui manque avant elle.
+
+| Étape | Contenu | Dépend de |
+| --- | --- | --- |
+| 1. Système | État des services, de la base, de Redis, du stockage et de la clé de chiffrement | rien |
+| 2. Modèle IA | Modèle Ollama utilisé par tous les services, avec un test | Ollama lancé |
+| 3. Profil | Identité et critères de recherche | service profil |
+| 4. Sources d'offres | Clés France Travail et Adzuna, délai entre deux recherches | profil, service des offres |
+| 5. Boîte mail | Lecture, envoi, tests | service mail |
+| 6. Calendrier | CalDAV et abonnement .ics (facultatif) | service calendrier |
+| 7. Mes données | Export et suppression | rien |
+
+Les clés saisies ici sont testées auprès de la source, chiffrées avec `SECRET_KEY` et absentes de l'export. Elles priment sur celles de `.env`. `SECRET_KEY`, la base et les ports restent dans `.env`, car les services en ont besoin pour démarrer. L'intervalle de lecture des boîtes (`MAIL_SYNC_MINUTES`) y reste aussi pour l'instant.
+
 ## Écrire et répondre aux mails
 
 La boîte de réception se lit comme une messagerie : une ligne par mail, en gras s'il reste à vérifier, et les dossiers À vérifier, Envoyés et Traités. Les actions (statut, rattachement, catégorie, réponse) apparaissent à l'ouverture du mail. « Nouveau message » écrit à n'importe quelle adresse.
 
 Chaque mail part d'une boîte connectée, en SMTP chiffré, avec le même mot de passe d'application que la lecture, et porte le nom de ton profil.
 
-- **À la connexion**, l'envoi est testé sans envoyer de mail. Le serveur et le port se corrigent dans les réglages de la boîte de réception, qui permettent aussi de relancer le test.
+- **À la connexion**, l'envoi est testé sans envoyer de mail. Le serveur et le port se corrigent dans Réglages, étape Boîte mail, qui permet aussi de relancer le test.
 - **Le destinataire** d'une réponse est l'adresse demandée par le mail (`Reply-To`), sinon l'expéditeur. Une faute de frappe dans un domaine courant (`@gamil.com`) bloque l'envoi jusqu'à ce que tu la corriges ou la confirmes.
 - **« Accepté par le serveur »** veut dire que ton fournisseur a pris le mail en charge, pas qu'il est arrivé. Si un avis de non-distribution revient, le mail passe à « Non distribué » à la lecture suivante, avec la raison. Un domaine qui existe peut aussi accepter le mail sans rien dire.
 - **Si la connexion est coupée pendant l'envoi**, le mail est marqué « incertain » : l'app ne le renvoie pas d'elle-même. Vérifie ton dossier Envoyés. Un second clic sur le même brouillon ne repart pas non plus.

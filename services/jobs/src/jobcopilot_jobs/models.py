@@ -36,6 +36,30 @@ class OfferRow(Base):
     )
 
 
+class SourceCredentialRow(Base):
+    """Clés d'une source saisies dans les réglages. Chiffrées, et absentes de l'export."""
+
+    __tablename__ = "source_credentials"
+    __table_args__ = {"schema": SCHEMA}
+
+    name: Mapped[str] = mapped_column(String(30), primary_key=True)
+    secret_id: Mapped[str] = mapped_column(Text)
+    secret_key: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SearchSettingsRow(Base):
+    """Une seule ligne : le délai minimum entre deux recherches sur les sources."""
+
+    __tablename__ = "search_settings"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    refresh_minutes: Mapped[int] = mapped_column(Integer)
+
+
 class FavoriteRow(Base):
     """Offre mise de côté pour un profil de recherche : elle échappe à la purge."""
 

@@ -15,6 +15,10 @@ class Connector(Protocol):
 
     def configured(self) -> bool: ...
 
+    async def check(self) -> None:
+        """Vérifie les clés auprès de la source. SourceError si elle les refuse."""
+        ...
+
     async def search(self, query: Query) -> list[RawOffer]: ...
 
 

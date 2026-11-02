@@ -10,6 +10,7 @@ TEST_DATABASE_URL = os.environ.setdefault(
     "TEST_DATABASE_URL", "postgresql://postgres@127.0.0.1:5433/jobcopilot_test"
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["SECRET_KEY"] = "test-secret-key-for-jobs-service"
 
 from jobcopilot_common.db import async_url, get_engine, get_sessionmaker  # noqa: E402
 from jobcopilot_jobs.migrate import upgrade  # noqa: E402

@@ -1,7 +1,8 @@
 "use client";
 
-import { AlertCircle, Check, Inbox, Plus, RefreshCw, Settings, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, Inbox, RefreshCw, Settings, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,16 +15,12 @@ import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SendSettings } from "@/components/mail/send-settings";
-import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
 import { fetchApplications, type ApplicationSummary } from "@/lib/applications";
-import { timeAgo } from "@/lib/jobs";
 import {
   applyMessage,
   countByCategory,
-  deleteAccount,
   fetchAccounts,
   fetchMessages,
   fetchSent,
@@ -56,8 +53,6 @@ export function InboxScreen() {
   const [opened, setOpened] = useState<{ kind: "message" | "sent"; id: string } | null>(null);
   const [composing, setComposing] = useState(false);
   const [category, setCategory] = useState<Category | "all">("all");
-  const [adding, setAdding] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -183,15 +178,6 @@ export function InboxScreen() {
     acknowledge([reply]);
   }
 
-  async function removeAccount(id: string) {
-    try {
-      await deleteAccount(id);
-      await load();
-    } catch (e) {
-      setError(e as ApiError);
-    }
-  }
-
   const connected = accounts !== null && accounts.length > 0;
 
   return (
@@ -202,13 +188,15 @@ export function InboxScreen() {
         actions={
           connected && (
             <>
-              <Button variant="secondary" onClick={() => setSettingsOpen(true)}>
-                {accounts.some((account) => account.last_error) ? (
-                  <AlertCircle className="text-danger" aria-hidden />
-                ) : (
-                  <Settings aria-hidden />
-                )}
-                Réglages
+              <Button variant="secondary" asChild>
+                <Link href="/reglages#boite-mail">
+                  {accounts.some((account) => account.last_error || account.smtp_error) ? (
+                    <AlertCircle className="text-danger" aria-hidden />
+                  ) : (
+                    <Settings aria-hidden />
+                  )}
+                  Réglages
+                </Link>
               </Button>
               <Button variant="secondary" onClick={sync} loading={syncing}>
                 <RefreshCw aria-hidden />
@@ -343,65 +331,6 @@ export function InboxScreen() {
         {composing && connected && <ComposeWindow accounts={accounts} onSent={composed} onClose={() => setComposing(false)} />}
       </AnimatePresence>
 
-      <Modal
-        open={settingsOpen && connected}
-        onClose={() => {
-          setSettingsOpen(false);
-          setAdding(false);
-        }}
-        title="Réglages de la boîte de réception"
-        description="Boîtes lues toutes les 15 minutes, et à la demande."
-      >
-        <section className="flex flex-col gap-4">
-              <ul className="flex flex-col divide-y divide-border">
-                {(accounts ?? []).map((account) => (
-                  <li key={account.id} className="flex items-start gap-3 py-3 first:pt-0">
-                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-sm font-medium">{account.email}</span>
-                      <span className="text-[12px] text-text-tertiary">
-                        {account.last_sync_at ? `Lue ${timeAgo(account.last_sync_at, new Date())}` : "Jamais lue"} ·{" "}
-                        {account.messages} mail{account.messages > 1 ? "s" : ""}
-                      </span>
-                      {account.last_error && (
-                        <span className="flex items-start gap-1 text-[12px] text-danger">
-                          <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                          {account.last_error}
-                        </span>
-                      )}
-                      <SendSettings
-                        account={account}
-                        onChange={(updated) => setAccounts((all) => all?.map((item) => (item.id === updated.id ? updated : item)) ?? all)}
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 hover:text-danger"
-                      aria-label={`Déconnecter ${account.email}`}
-                      title="Déconnecter"
-                      onClick={() => removeAccount(account.id)}
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-              {adding ? (
-                <AccountForm
-                  onAdded={() => {
-                    setAdding(false);
-                    load();
-                  }}
-                  onCancel={() => setAdding(false)}
-                />
-              ) : (
-                <Button variant="secondary" size="sm" className="self-start" onClick={() => setAdding(true)}>
-                  <Plus aria-hidden />
-                  Ajouter une boîte
-                </Button>
-              )}
-        </section>
-      </Modal>
     </>
   );
 }

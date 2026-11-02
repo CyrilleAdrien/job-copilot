@@ -40,6 +40,9 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:${GATEWAY_PORT:-8000}:8000"
+    environment:
+      <<: *env
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
     depends_on: [profile, jobs, documents, applications, mail, calendar]
     networks: [internal]
 
@@ -52,6 +55,7 @@ services:
     build: { context: ., dockerfile: services/Dockerfile, args: { SERVICE: jobs } }
     environment:
       <<: *env
+      SECRET_KEY: ${SECRET_KEY:?Lance make secret pour créer la clé de chiffrement}
       FRANCE_TRAVAIL_CLIENT_ID: ${FRANCE_TRAVAIL_CLIENT_ID:-}
       FRANCE_TRAVAIL_CLIENT_SECRET: ${FRANCE_TRAVAIL_CLIENT_SECRET:-}
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}

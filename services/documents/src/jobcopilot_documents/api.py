@@ -239,4 +239,6 @@ async def llm_status() -> LLMStatus:
     if provider == "demo":
         return LLMStatus(provider="demo", model="démonstration", ready=True)
     llm = get_llm()
-    return LLMStatus(provider=provider, model=llm.model, ready=await llm.available())
+    return LLMStatus(
+        provider=provider, model=await llm.current_model(), ready=await llm.available()
+    )

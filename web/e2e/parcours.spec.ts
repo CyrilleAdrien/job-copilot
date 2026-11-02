@@ -176,8 +176,13 @@ test("parcours complet, du profil à la suppression des données", async ({ page
 
   await test.step("l'export contient tout, sans aucun secret", async () => {
     await page.goto("/reglages");
+    // Les réglages suivent l'ordre des dépendances : chaque étape prête affiche son état.
+    await expect(page.getByRole("button", { name: /Système.*Prêt/s })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Profil.*Prêt/s })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Boîte mail.*Prêt/s })).toBeVisible();
+    await page.getByRole("button", { name: /Mes données/ }).click();
     const started = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Exporter" }).click();
+    await page.getByRole("button", { name: "Exporter", exact: true }).click();
     const download = await started;
     expect(download.suggestedFilename()).toMatch(/^job-copilot-\d{4}-\d{2}-\d{2}\.zip$/);
     const file = await download.path();
@@ -204,14 +209,14 @@ test("parcours complet, du profil à la suppression des données", async ({ page
   });
 
   await test.step("la suppression demande confirmation puis efface tout", async () => {
-    await page.getByRole("button", { name: "Tout supprimer" }).click();
+    await page.getByRole("button", { name: "Tout supprimer", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Tout supprimer ?" });
     await dialog.getByRole("button", { name: "Annuler" }).click();
     await expect(dialog).toHaveCount(0);
     expect(await read(request, "/api/applications/applications")).toHaveLength(1);
 
-    await page.getByRole("button", { name: "Tout supprimer" }).click();
-    await dialog.getByRole("button", { name: "Tout supprimer" }).click();
+    await page.getByRole("button", { name: "Tout supprimer", exact: true }).click();
+    await dialog.getByRole("button", { name: "Tout supprimer", exact: true }).click();
     await expect(page).toHaveURL(/\/bienvenue$/);
     await expect(page.getByRole("link", { name: "Mon profil" })).not.toContainText("Alex Martin");
     await expect(page.getByRole("link", { name: "Mon profil" }).getByRole("img")).toHaveCount(0);
