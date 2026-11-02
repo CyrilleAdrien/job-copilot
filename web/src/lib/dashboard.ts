@@ -74,63 +74,114 @@ const dayMonth = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "shor
 const fullDay = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 const monthYear = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" });
 const shortMonth = new Intl.DateTimeFormat("fr-FR", { month: "short" });
+const stripDay = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric" });
+const clockTime = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
 const clean = (text: string) => text.replace(".", "");
 
 /** Le nom de la période affichée : « novembre 2026 », « 2 – 8 nov ». */
-export function periodLabel(granularity: Granularity, anchor: Date) {
+export function periodLabel(granularity: Granularity, anchor: Date, now?: Date) {
   const bounds = periodBounds(granularity, anchor);
   if (!bounds) return "Depuis le début";
   if (granularity === "year") return String(anchor.getFullYear());
   if (granularity === "month") return monthYear.format(anchor);
-  if (granularity === "day") return fullDay.format(anchor);
+  if (granularity === "day") {
+    const isToday = now && anchor.toDateString() === now.toDateString();
+    return isToday ? `${fullDay.format(anchor)} · ${clockTime.format(now)}` : fullDay.format(anchor);
+  }
   const last = new Date(bounds.to.getFullYear(), bounds.to.getMonth(), bounds.to.getDate() - 1);
   return `${clean(dayMonth.format(bounds.from))} – ${clean(dayMonth.format(last))}`;
 }
 
-export type ChartBar = { key: string; label: string; detail: string; value: number };
+export type ChartBar = {
+  key: string;
+  label: string;
+  detail: string;
+  value: number;
+  /** La tranche qui contient le moment présent. */
+  current: boolean;
+};
 
-/** Les envois regroupés selon la période, en heure locale : tout depuis 12 semaines, ou chaque unité de la période. */
+/** Les envois regroupés selon la période, en heure locale : 12 semaines, 12 mois, les 4 semaines du mois, 7 jours ou 24 heures. */
 export function sentBars(granularity: Granularity, anchor: Date, dates: string[], now: Date = new Date()): ChartBar[] {
   const moments = dates.map((date) => new Date(date));
-  const count = (from: Date, to: Date) => moments.filter((moment) => moment >= from && moment < to).length;
-  const bounds = periodBounds(granularity, anchor);
+  const slice = (from: Date, to: Date, label: string, detail: string): ChartBar => ({
+    key: from.toISOString(),
+    label,
+    detail,
+    value: moments.filter((moment) => moment >= from && moment < to).length,
+    current: now >= from && now < to,
+  });
+  const year = anchor.getFullYear();
+  const month = anchor.getMonth();
+  const date = anchor.getDate();
 
-  if (!bounds) {
+  if (granularity === "all") {
     const thisWeek = periodBounds("week", now)!.from;
     return Array.from({ length: 12 }, (_, index) => {
       const from = new Date(thisWeek.getFullYear(), thisWeek.getMonth(), thisWeek.getDate() - (11 - index) * 7);
       const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7);
       const label = clean(dayMonth.format(from));
-      return { key: from.toISOString(), label, detail: `Semaine du ${label}`, value: count(from, to) };
+      return slice(from, to, label, `Semaine du ${label}`);
     });
   }
   if (granularity === "year") {
-    return Array.from({ length: 12 }, (_, month) => {
-      const from = new Date(anchor.getFullYear(), month, 1);
-      return { key: from.toISOString(), label: clean(shortMonth.format(from)), detail: monthYear.format(from), value: count(from, new Date(anchor.getFullYear(), month + 1, 1)) };
+    return Array.from({ length: 12 }, (_, index) => {
+      const from = new Date(year, index, 1);
+      return slice(from, new Date(year, index + 1, 1), clean(shortMonth.format(from)), monthYear.format(from));
     });
   }
-  if (granularity === "day") {
-    return Array.from({ length: 24 }, (_, hour) => {
-      const from = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), hour);
-      const to = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), hour + 1);
-      return { key: from.toISOString(), label: `${hour} h`, detail: `De ${hour} h à ${hour + 1} h`, value: count(from, to) };
+  if (granularity === "month") {
+    // Quatre tranches de 7 jours à partir du 1er ; la dernière va jusqu'à la fin du mois.
+    const end = new Date(year, month + 1, 1);
+    return Array.from({ length: 4 }, (_, index) => {
+      const from = new Date(year, month, 1 + index * 7);
+      const to = index === 3 ? end : new Date(year, month, 8 + index * 7);
+      const lastDay = new Date(to.getFullYear(), to.getMonth(), to.getDate() - 1);
+      const label = `${from.getDate()} – ${clean(dayMonth.format(lastDay))}`;
+      return slice(from, to, label, `Semaine ${index + 1}, du ${label}`);
     });
   }
-  const bars: ChartBar[] = [];
-  for (let from = bounds.from; from < bounds.to; from = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1)) {
-    const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
-    const label = clean(dayMonth.format(from));
-    bars.push({ key: from.toISOString(), label, detail: fullDay.format(from), value: count(from, to) });
+  if (granularity === "week") {
+    const monday = periodBounds("week", anchor)!.from;
+    return Array.from({ length: 7 }, (_, index) => {
+      const from = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index);
+      const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
+      return slice(from, to, clean(stripDay.format(from)), fullDay.format(from));
+    });
   }
-  return bars;
+  return Array.from({ length: 24 }, (_, hour) =>
+    slice(new Date(year, month, date, hour), new Date(year, month, date, hour + 1), `${hour}h`, `De ${hour} h à ${hour + 1} h`),
+  );
+}
+
+/** Sept jours autour du jour choisi, pour le bandeau qu'on fait glisser. Les jours à venir restent visibles, sans être choisis. */
+export function dayStrip(anchor: Date, now: Date = new Date()) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + index - 3);
+    return {
+      day,
+      label: clean(stripDay.format(day)),
+      full: fullDay.format(day),
+      selected: index === 3,
+      today: day.getTime() === today.getTime(),
+      future: day > today,
+    };
+  });
+}
+
+/** Le jour atteint en glissant : vers la gauche, le lendemain. Rien au-delà d'aujourd'hui. */
+export function swipedDay(anchor: Date, distance: number, threshold: number, now: Date = new Date()) {
+  if (Math.abs(distance) < threshold) return null;
+  const next = shiftPeriod("day", anchor, distance < 0 ? 1 : -1);
+  return next > now ? null : next;
 }
 
 export const chartTitles: Record<Granularity, { title: string; description: string }> = {
   all: { title: "Envois par semaine", description: "Les 12 dernières semaines, d'après la date d'envoi." },
-  year: { title: "Envois par mois", description: "Chaque mois de l'année, d'après la date d'envoi." },
-  month: { title: "Envois par jour", description: "Chaque jour du mois, d'après la date d'envoi." },
-  week: { title: "Envois par jour", description: "Chaque jour de la semaine, d'après la date d'envoi." },
+  year: { title: "Envois par mois", description: "Les mois actifs ressortent sur l'axe." },
+  month: { title: "Envois par semaine", description: "Les 4 semaines du mois, d'après la date d'envoi." },
+  week: { title: "Envois par jour", description: "Les 7 jours de la semaine, d'après la date d'envoi." },
   day: { title: "Envois par heure", description: "Chaque heure de la journée, d'après la date d'envoi." },
 };
 

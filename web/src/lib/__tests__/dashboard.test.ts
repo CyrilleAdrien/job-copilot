@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchStats, focusedCount, periodBounds, periodLabel, sentBars, shiftPeriod } from "@/lib/dashboard";
+import { dayStrip, fetchStats, focusedCount, periodBounds, periodLabel, sentBars, shiftPeriod, swipedDay } from "@/lib/dashboard";
 
 // Un mercredi.
 const anchor = new Date(2026, 10, 4, 15, 30);
@@ -46,10 +46,26 @@ describe("sentBars", () => {
   it("uses months, days or hours according to the period", () => {
     expect(sentBars("year", anchor, dates)).toHaveLength(12);
     expect(values(sentBars("year", anchor, dates))[10]).toBe(2);
-    expect(sentBars("month", anchor, dates)).toHaveLength(30);
+    expect(sentBars("month", anchor, dates)).toHaveLength(4);
     expect(sentBars("week", anchor, dates)).toHaveLength(7);
     expect(values(sentBars("week", anchor, dates))[2]).toBe(2);
     expect(values(sentBars("day", anchor, dates))[9]).toBe(2);
+  });
+
+  it("splits any month into four weeks, the last one running to its end", () => {
+    const november = sentBars("month", anchor, dates, anchor);
+    expect(november.map((bar) => bar.label)).toEqual(["1 – 7 nov", "8 – 14 nov", "15 – 21 nov", "22 – 30 nov"]);
+    expect(values(november)).toEqual([2, 0, 0, 0]);
+    const lateDate = [new Date(2026, 0, 31, 12).toISOString()];
+    expect(values(sentBars("month", new Date(2026, 0, 10), lateDate))).toEqual([0, 0, 0, 1]);
+  });
+
+  it("marks the slice holding the present moment only", () => {
+    const hours = sentBars("day", anchor, [], anchor);
+    expect(hours.filter((bar) => bar.current).map((bar) => bar.label)).toEqual(["15h"]);
+    expect(sentBars("week", anchor, [], anchor).findIndex((bar) => bar.current)).toBe(2);
+    expect(sentBars("year", anchor, [], anchor).findIndex((bar) => bar.current)).toBe(10);
+    expect(sentBars("day", new Date(2026, 9, 1), [], anchor).some((bar) => bar.current)).toBe(false);
   });
 
   it("shows the last twelve weeks without a period", () => {
@@ -58,6 +74,29 @@ describe("sentBars", () => {
     expect(bars[11].value).toBe(2);
     expect(bars[11].detail).toBe("Semaine du 2 nov");
     expect(bars.reduce((sum, bar) => sum + bar.value, 0)).toBe(3);
+  });
+});
+
+describe("day navigation", () => {
+  it("shows the time on today only", () => {
+    expect(periodLabel("day", anchor, anchor)).toMatch(/^4 novembre 2026 · 15:30$/);
+    expect(periodLabel("day", new Date(2026, 10, 3), anchor)).toBe("3 novembre 2026");
+  });
+
+  it("lists seven days around the chosen one and flags today and later days", () => {
+    const strip = dayStrip(anchor, anchor);
+    expect(strip).toHaveLength(7);
+    expect(strip[3]).toMatchObject({ selected: true, today: true, future: false });
+    expect(strip[4].future).toBe(true);
+    expect(strip[0].future).toBe(false);
+  });
+
+  it("swipes to the next or previous day, never past today", () => {
+    const yesterday = new Date(2026, 10, 3, 12);
+    expect(swipedDay(yesterday, -80, 40, anchor)?.getDate()).toBe(4);
+    expect(swipedDay(yesterday, 80, 40, anchor)?.getDate()).toBe(2);
+    expect(swipedDay(yesterday, 10, 40, anchor)).toBeNull();
+    expect(swipedDay(anchor, -80, 40, anchor)).toBeNull();
   });
 });
 

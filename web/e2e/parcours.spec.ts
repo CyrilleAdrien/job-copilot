@@ -191,6 +191,13 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await expect(sentCount).toHaveText("1");
     await page.getByRole("button", { name: "Période précédente" }).click();
     await expect(sentCount).toHaveText("0");
+    await expect(page.getByRole("button", { name: /^Aller au/ })).toHaveCount(7);
+    await page.getByRole("radio", { name: "Courbe" }).click();
+    await page.reload();
+    await expect(page.getByRole("radio", { name: "Courbe" })).toBeChecked();
+    await page.getByRole("radio", { name: "Bandes" }).click();
+    await page.getByRole("radio", { name: "Mois" }).click();
+    await expect(page.getByRole("button", { name: /^Semaine \d, du/ })).toHaveCount(4);
     await page.getByRole("radio", { name: "Tout" }).click();
     await expect(sentCount).toHaveText("1");
     // Aucune candidature n'a ce statut ici : le filtre fait tomber le compte à zéro.

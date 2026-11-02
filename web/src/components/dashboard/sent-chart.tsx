@@ -4,10 +4,14 @@ import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
 import { ticks, type ChartBar } from "@/lib/dashboard";
+import { cn } from "@/lib/utils";
 
-const HEIGHT = 420;
-const PAD = { top: 20, right: 8, bottom: 28, left: 28 };
+export type ChartKind = "bar" | "line";
+
+const HEIGHT = 344;
+const PAD = { top: 20, right: 8, bottom: 32, left: 28 };
 const RADIUS = 4;
+const MIN_LABEL_WIDTH = 44;
 
 /** Barre au sommet arrondi, posée sur la ligne de base. */
 function barPath(x: number, y: number, width: number, height: number) {
@@ -17,7 +21,7 @@ function barPath(x: number, y: number, width: number, height: number) {
 }
 
 /** Candidatures envoyées dans le temps : une série, survol et clavier pour lire chaque barre. */
-export function SentChart({ bars }: { bars: ChartBar[] }) {
+export function SentChart({ bars, kind }: { bars: ChartBar[]; kind: ChartKind }) {
   const root = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [active, setActive] = useState<number | null>(null);
@@ -38,13 +42,22 @@ export function SentChart({ bars }: { bars: ChartBar[] }) {
   const plotHeight = HEIGHT - PAD.top - PAD.bottom;
   const slot = plotWidth / bars.length;
   const barWidth = Math.max(2, Math.min(28, slot - 4));
-  // Pas plus de 8 dates sur l'axe : au-delà, elles se chevauchent.
-  const labelEvery = Math.max(1, Math.ceil(bars.length / 8));
+  // Autant de dates que la largeur en permet, pour ne jamais les faire se chevaucher.
+  const labelEvery = Math.max(1, Math.ceil(bars.length / Math.max(1, Math.floor(plotWidth / MIN_LABEL_WIDTH))));
   const y = (value: number) => PAD.top + plotHeight - (value / top) * plotHeight;
   const peak = bars.findIndex((bar) => bar.value === max && max > 0);
   const last = bars.length - 1;
   const labelled = new Set([peak, last].filter((index) => index >= 0 && bars[index].value > 0));
   const shown = active ?? null;
+  const center = (index: number) => PAD.left + slot * index + slot / 2;
+  const baseline = PAD.top + plotHeight;
+  // La courbe s'arrête au moment présent : l'avenir n'est pas un zéro.
+  const nowIndex = bars.findIndex((bar) => bar.current);
+  const pastBars = nowIndex >= 0 ? bars.slice(0, nowIndex + 1) : bars;
+  const linePath = pastBars.map((bar, index) => `${index === 0 ? "M" : "L"}${center(index)},${y(bar.value)}`).join("");
+  // Une tranche active garde toujours sa date. Quand la place manque, ses voisines s'effacent.
+  const showsLabel = (index: number) =>
+    bars[index].value > 0 || labelEvery === 1 || (index % labelEvery === last % labelEvery && !(bars[index - 1]?.value > 0) && !(bars[index + 1]?.value > 0));
 
   return (
     <div ref={root} className="relative w-full">
@@ -64,36 +77,56 @@ export function SentChart({ bars }: { bars: ChartBar[] }) {
             </text>
           </g>
         ))}
+        {bars.map(
+          (bar, index) =>
+            bar.current && <rect key="now" x={PAD.left + slot * index + 1} y={PAD.top} width={Math.max(slot - 2, 1)} height={plotHeight} rx={6} className="fill-accent-soft" />,
+        )}
+        {kind === "line" && (
+          <motion.path
+            d={linePath}
+            fill="none"
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            initial={reduceMotion ? false : { pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: reduceMotion ? 0 : 0.6, ease: "easeOut" }}
+            className="stroke-accent-strong"
+          />
+        )}
         {bars.map((bar, index) => {
-          const x = PAD.left + slot * index + (slot - barWidth) / 2;
+          const x = center(index) - barWidth / 2;
           const barTop = y(bar.value);
-          const height = PAD.top + plotHeight - barTop;
+          const height = baseline - barTop;
           const isActive = shown === index;
+          const hasActivity = bar.value > 0;
           return (
             <g key={bar.key}>
-              <motion.path
-                d={barPath(x, barTop, barWidth, height)}
-                initial={reduceMotion ? false : { opacity: 0, scaleY: 0 }}
-                animate={{ opacity: 1, scaleY: 1 }}
-                transition={{ delay: reduceMotion ? 0 : index * 0.03, type: "spring", stiffness: 260, damping: 30 }}
-                style={{ transformOrigin: `0px ${PAD.top + plotHeight}px` }}
-                className={isActive ? "fill-accent" : "fill-accent-strong"}
-              />
+              {kind === "bar" ? (
+                <motion.path
+                  d={barPath(x, barTop, barWidth, height)}
+                  initial={reduceMotion ? false : { opacity: 0, scaleY: 0 }}
+                  animate={{ opacity: 1, scaleY: 1 }}
+                  transition={{ delay: reduceMotion ? 0 : index * 0.03, type: "spring", stiffness: 260, damping: 30 }}
+                  style={{ transformOrigin: `0px ${baseline}px` }}
+                  className={isActive ? "fill-accent" : "fill-accent-strong"}
+                />
+              ) : (
+                (hasActivity || isActive) && (
+                  <circle cx={center(index)} cy={barTop} r={isActive ? 6 : 4.5} strokeWidth={2} className={cn("stroke-surface transition-[r] duration-150", isActive ? "fill-accent" : "fill-accent-strong")} />
+                )
+              )}
               {labelled.has(index) && (
-                <text
-                  x={x + barWidth / 2}
-                  y={barTop - 6}
-                  textAnchor="middle"
-                  className="fill-text-secondary text-[11px] font-medium tabular-nums"
-                >
+                <text x={center(index)} y={barTop - (kind === "line" ? 11 : 6)} textAnchor="middle" className="fill-text-secondary text-[11px] font-medium tabular-nums">
                   {bar.value}
                 </text>
               )}
-              {index % labelEvery === last % labelEvery && (
-                <text x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle" className="fill-text-tertiary text-[11px]">
+              {showsLabel(index) && (
+                <text x={center(index)} y={HEIGHT - 12} textAnchor="middle" className={cn("text-[11px]", hasActivity || bar.current ? "fill-text font-medium" : "fill-text-tertiary")}>
                   {bar.label}
                 </text>
               )}
+              {hasActivity && <rect aria-hidden x={center(index) - 9} y={HEIGHT - 6} width={18} height={3} rx={1.5} className="fill-accent" />}
               {/* Zone de survol plus large que la barre, focusable au clavier. */}
               <rect
                 x={PAD.left + slot * index}

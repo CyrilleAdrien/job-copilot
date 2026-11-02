@@ -7,7 +7,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 import { EventItem } from "@/components/calendar/event-item";
 import { Donut } from "@/components/dashboard/donut";
-import { SentChart } from "@/components/dashboard/sent-chart";
+import { DayStrip } from "@/components/dashboard/day-strip";
+import { SentChart, type ChartKind } from "@/components/dashboard/sent-chart";
 import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { AnimatedNumber } from "@/components/ui/animated-number";
@@ -49,6 +50,11 @@ const GRANULARITIES: { value: Granularity; label: string }[] = [
   { value: "week", label: "Semaine" },
   { value: "day", label: "Jour" },
 ];
+const CHART_KIND_KEY = "jobcopilot.dashboard.chart";
+const CHART_KINDS: { value: ChartKind; label: string }[] = [
+  { value: "bar", label: "Bandes" },
+  { value: "line", label: "Courbe" },
+];
 const PROGRESSED: ApplicationStatus[] = ["technical_test", "interview", "offer"];
 
 export function DashboardScreen() {
@@ -62,7 +68,26 @@ export function DashboardScreen() {
   const [granularity, setGranularity] = useState<Granularity>("all");
   const [anchor, setAnchor] = useState(() => new Date());
   const [focus, setFocus] = useState<ApplicationStatus | null>(null);
+  const [chartKind, setChartKind] = useState<ChartKind>("bar");
+  // Pour afficher l'heure du jour et marquer la tranche en cours.
+  const [now, setNow] = useState(() => new Date());
   const latest = useRef(0);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(CHART_KIND_KEY);
+      if (stored === "bar" || stored === "line") setChartKind(stored);
+    } catch {}
+    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  function chooseChartKind(next: ChartKind) {
+    setChartKind(next);
+    try {
+      window.localStorage.setItem(CHART_KIND_KEY, next);
+    } catch {}
+  }
 
   const load = useCallback(() => {
     const call = ++latest.current;
@@ -99,7 +124,7 @@ export function DashboardScreen() {
 
   const nextAnchor = shiftPeriod(granularity, anchor, 1);
   const nextStart = periodBounds(granularity, nextAnchor)?.from;
-  const canGoForward = nextStart !== undefined && nextStart <= new Date();
+  const canGoForward = nextStart !== undefined && nextStart <= now;
 
   /** La relance enregistrée change le statut : la candidature quitte la liste et les chiffres se recalculent. */
   async function markFollowedUp(item: FollowUp) {
@@ -154,14 +179,15 @@ export function DashboardScreen() {
                 <Button variant="ghost" size="icon" className="size-9" aria-label="Période précédente" onClick={() => setAnchor(shiftPeriod(granularity, anchor, -1))}>
                   <ChevronLeft aria-hidden />
                 </Button>
-                <span role="status" className="min-w-36 text-center text-sm first-letter:uppercase">
-                  {periodLabel(granularity, anchor)}
+                <span role="status" className="min-w-36 whitespace-nowrap text-center text-sm first-letter:uppercase">
+                  {periodLabel(granularity, anchor, now)}
                 </span>
                 <Button variant="ghost" size="icon" className="size-9" aria-label="Période suivante" disabled={!canGoForward} onClick={() => setAnchor(nextAnchor)}>
                   <ChevronRight aria-hidden />
                 </Button>
               </div>
             )}
+            {granularity === "day" && <DayStrip anchor={anchor} now={now} onChange={setAnchor} />}
             {focus && (
               <Button variant="secondary" size="sm" className="ml-auto" onClick={() => setFocus(null)}>
                 Statut : {applicationStatuses[focus].label}
@@ -199,12 +225,15 @@ export function DashboardScreen() {
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <Card>
-              <CardHeader>
-                <CardTitle>{chartTitles[granularity].title}</CardTitle>
-                <CardDescription>{chartTitles[granularity].description}</CardDescription>
+              <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  <CardTitle>{chartTitles[granularity].title}</CardTitle>
+                  <CardDescription>{chartTitles[granularity].description}</CardDescription>
+                </div>
+                <SegmentedControl label="Type de graphique" segments={CHART_KINDS} value={chartKind} onChange={chooseChartKind} />
               </CardHeader>
               <CardContent className="pt-4">
-                <SentChart bars={sentBars(granularity, anchor, stats.sent_dates)} />
+                <SentChart bars={sentBars(granularity, anchor, stats.sent_dates, now)} kind={chartKind} />
               </CardContent>
             </Card>
 
@@ -227,7 +256,7 @@ export function DashboardScreen() {
                       aria-pressed={focus === status}
                       onClick={() => setFocus(focus === status ? null : status)}
                       className={cn(
-                        "group flex flex-col gap-1.5 rounded-[12px] px-2.5 py-2 text-left transition-[background-color,opacity] duration-150",
+                        "group flex flex-col gap-1.5 rounded-[12px] px-2.5 py-1.5 text-left transition-[background-color,opacity] duration-150",
                         focus === status ? "bg-accent-soft" : "hover:bg-surface-hover",
                         focus && focus !== status && "opacity-55 hover:opacity-100",
                       )}
