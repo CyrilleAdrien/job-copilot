@@ -44,7 +44,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.locator('input[type="file"]').first().setInputFiles(PROFILE_YAML);
     await expect(page).toHaveURL(/\/profil$/);
     const avatar = page.getByRole("link", { name: "Mon profil" });
-    await expect(avatar).toHaveAttribute("title", "Alex Martin");
+    await expect(avatar).toContainText("Alex Martin");
 
     await page.getByLabel("Choisir une photo de profil").setInputFiles({
       name: "photo.png",
@@ -245,7 +245,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.getByRole("button", { name: "Tout supprimer", exact: true }).click();
     await dialog.getByRole("button", { name: "Tout supprimer", exact: true }).click();
     await expect(page).toHaveURL(/\/bienvenue$/);
-    await expect(page.getByRole("link", { name: "Mon profil" })).toHaveAttribute("title", "Mon profil");
+    await expect(page.getByRole("link", { name: "Mon profil" })).not.toContainText("Alex Martin");
     await expect(page.getByRole("link", { name: "Mon profil" }).getByRole("img")).toHaveCount(0);
     expect(await page.evaluate(() => window.localStorage.length)).toBe(0);
 

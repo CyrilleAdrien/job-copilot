@@ -7,7 +7,6 @@ import { TopBar } from "@/components/layout/top-bar";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), useSearchParams: () => new URLSearchParams("q=data") }));
-vi.mock("@/components/profile/profile-identity", () => ({ useProfileIdentity: () => ({ name: null }), ProfileAvatar: () => null }));
 vi.mock("@/components/ui/theme-toggle", () => ({ ThemeToggle: () => null }));
 
 describe("TopBar", () => {
