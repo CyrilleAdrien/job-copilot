@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanBullet, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
+import { cleanBullet, previewGroups, experienceDuration, isWebLink, skillGroups, totalExperience, type Experience } from "@/lib/profile";
 
 const now = new Date(2026, 10, 2);
 const job = (start: string, end: string | null = null, technologies: string[] = []) => ({ start, end, technologies }) as Experience;
@@ -53,5 +53,18 @@ describe("cleanBullet", () => {
     expect(cleanBullet("• Centralized flows")).toBe("Centralized flows");
     expect(cleanBullet("- Built - and shipped")).toBe("Built - and shipped");
     expect(cleanBullet("Reduced costs by 10%")).toBe("Reduced costs by 10%");
+  });
+});
+
+describe("previewGroups", () => {
+  const groups = [{ title: "A", bullets: ["1", "2"] }, { title: "B", bullets: ["3", "4"] }, { title: "C", bullets: ["5"] }];
+
+  it("keeps the first bullets, across groups, and counts the rest", () => {
+    expect(previewGroups(groups)).toEqual({ groups: [{ title: "A", bullets: ["1", "2"] }, { title: "B", bullets: ["3"] }], hidden: 2 });
+  });
+
+  it("hides nothing when everything fits", () => {
+    expect(previewGroups(groups, 5).hidden).toBe(0);
+    expect(previewGroups([]).groups).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProfilePhotoCard } from "@/components/profile/profile-photo-card";
@@ -53,6 +54,24 @@ describe("profile overview", () => {
     expect(screen.getByRole("heading", { name: "Pipelines" })).toBeInTheDocument();
     expect(screen.getByText("Migré les flux")).toBeInTheDocument();
     expect(screen.getByText("Réduit les coûts")).toBeInTheDocument();
+  });
+
+  it("shows part of a long job, then the rest on demand", async () => {
+    const user = userEvent.setup();
+    const bullets = ["Un", "Deux", "Trois", "Quatre", "Cinq"];
+    const [job] = profile.experiences;
+    render(<ProfileOverview profile={{ ...profile, experiences: [{ ...job, groups: [{ bullets }] }] }} />);
+    expect(screen.getByText("Trois")).toBeInTheDocument();
+    expect(screen.queryByText("Quatre")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Voir plus (2)" }));
+    expect(screen.getByText("Cinq")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Voir moins" }));
+    expect(screen.queryByText("Cinq")).not.toBeInTheDocument();
+  });
+
+  it("needs no button when a job is short", () => {
+    render(<ProfileOverview profile={profile} />);
+    expect(screen.queryByRole("button", { name: /Voir plus/ })).not.toBeInTheDocument();
   });
 
   it("shows a technology once when skills are deduced from the jobs", () => {

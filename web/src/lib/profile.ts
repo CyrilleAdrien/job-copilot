@@ -339,3 +339,16 @@ export function isWebLink(url: string) {
 export function cleanBullet(text: string) {
   return text.replace(/^[\s•·▪*–—-]+/, "");
 }
+
+/** Le début des réalisations d'un poste : les groupes tronqués, et le nombre de puces restantes. */
+export function previewGroups(groups: ExperienceGroup[], limit = 3) {
+  let left = limit;
+  const shown: ExperienceGroup[] = [];
+  for (const group of groups) {
+    if (left <= 0) break;
+    shown.push({ ...group, bullets: group.bullets.slice(0, left) });
+    left -= group.bullets.length;
+  }
+  const total = groups.reduce((count, group) => count + group.bullets.length, 0);
+  return { groups: shown, hidden: Math.max(0, total - limit) };
+}

@@ -1,8 +1,12 @@
-import { Award, BookOpen, Briefcase, FolderGit2, GraduationCap, HandHeart, Heart, Languages, Sparkles, Target, Wrench } from "lucide-react";
+"use client";
+
+import { Award, BookOpen, Briefcase, ChevronDown, FolderGit2, GraduationCap, HandHeart, Heart, Languages, Sparkles, Target, Wrench } from "lucide-react";
+import { useState } from "react";
 
 import { Entries, formatMonth, Section } from "@/components/profile/profile-view";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { cleanBullet, contractLabels, experienceDuration, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Profile } from "@/lib/profile";
+import { cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type Profile } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 const Chip = ({ children }: { children: string }) => (
@@ -17,6 +21,35 @@ function Figure({ label, value }: { label: string; value: string | number }) {
         <span className="text-2xl font-normal tabular-nums">{value}</span>
       </CardContent>
     </Card>
+  );
+}
+
+/** Le contexte et le début des réalisations d'un poste ; le reste s'ouvre à la demande. */
+function JobDetails({ experience }: { experience: Experience }) {
+  const [open, setOpen] = useState(false);
+  const { groups: preview, hidden } = previewGroups(experience.groups);
+  const groups = open ? experience.groups : preview;
+
+  return (
+    <>
+      {experience.context && <p className={cn("text-sm leading-relaxed text-text-secondary", !open && "line-clamp-2")}>{experience.context}</p>}
+      {groups.map((group, groupIndex) => (
+        <div key={groupIndex} className="flex flex-col gap-1 pt-1.5">
+          {group.title && <h5 className="text-[13px] font-medium">{group.title}</h5>}
+          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm leading-relaxed text-text-secondary marker:text-border-strong">
+            {group.bullets.map((bullet, bulletIndex) => (
+              <li key={bulletIndex}>{cleanBullet(bullet)}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {(hidden > 0 || (experience.context?.length ?? 0) > 160) && (
+        <Button variant="ghost" size="sm" className="-ml-3 self-start" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+          {open ? "Voir moins" : hidden > 0 ? `Voir plus (${hidden})` : "Voir plus"}
+          <ChevronDown className={cn("transition-transform duration-150", open && "rotate-180")} aria-hidden />
+        </Button>
+      )}
+    </>
   );
 }
 
@@ -56,17 +89,7 @@ export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date
                       {(experience.location || experience.contract) && (
                         <p className="text-[13px] text-text-secondary">{[experience.location, experience.contract].filter(Boolean).join(" · ")}</p>
                       )}
-                      {experience.context && <p className="text-sm leading-relaxed text-text-secondary">{experience.context}</p>}
-                      {experience.groups.map((group, groupIndex) => (
-                        <div key={groupIndex} className="flex flex-col gap-1 pt-1.5">
-                          {group.title && <h5 className="text-[13px] font-medium">{group.title}</h5>}
-                          <ul className="flex list-disc flex-col gap-1 pl-4 text-sm leading-relaxed text-text-secondary marker:text-border-strong">
-                            {group.bullets.map((bullet, bulletIndex) => (
-                              <li key={bulletIndex}>{cleanBullet(bullet)}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
+                      <JobDetails experience={experience} />
                       {/* Sans compétences saisies, ces technologies remplissent déjà la carte Compétences. */}
                       {profile.skills.length > 0 && experience.technologies.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 pt-0.5">
