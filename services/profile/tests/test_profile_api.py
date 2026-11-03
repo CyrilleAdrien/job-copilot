@@ -399,6 +399,7 @@ async def test_private_details_are_hidden_by_default(client):
         "hidden": ["address", "birth_date", "nationality", "referees"],
         "order": [],
         "labels": {},
+        "font": None,
     }
 
 
@@ -408,6 +409,7 @@ async def test_layout_is_saved_per_search(client):
         "hidden": ["photo"],
         "order": ["projects", "experience"],
         "labels": {"skills": {"fr": "Savoir-faire", "en": "Know-how"}},
+        "font": "Lato",
     }
     response = await client.put("/searches/data-engineer/layout", json=layout)
     assert response.status_code == 200
