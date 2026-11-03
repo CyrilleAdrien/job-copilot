@@ -28,6 +28,7 @@ class Identity(Loose):
     email: str | None = None
     phone: str | None = None
     location: str | None = None
+    driving_licence: str | None = None
     availability: str | None = None
     summary: str | None = None
     links: list[Link] = []
@@ -54,6 +55,9 @@ class Education(Loose):
     degree: str
     school: str
     year: int | None = None
+    location: str | None = None
+    start: str | None = None
+    end: str | None = None
     details: str | None = None
 
 
@@ -102,6 +106,24 @@ class Publication(Loose):
     url: str | None = None
 
 
+class Award(Loose):
+    title: str
+    issuer: str | None = None
+    year: int | None = None
+    description: str | None = None
+
+
+class Course(Loose):
+    name: str
+    institution: str | None = None
+    year: int | None = None
+
+
+class CustomSection(Loose):
+    title: str
+    items: list[str] = []
+
+
 class Profile(Loose):
     identity: Identity
     searches: list[Search] = []
@@ -112,6 +134,9 @@ class Profile(Loose):
     projects: list[Project] = []
     volunteering: list[Volunteering] = []
     publications: list[Publication] = []
+    awards: list[Award] = []
+    courses: list[Course] = []
+    custom_sections: list[CustomSection] = []
     languages: list[SpokenLanguage] = []
     soft_skills: list[str] = []
     interests: list[str] = []
@@ -144,11 +169,15 @@ class CvEducation(BaseModel):
     degree: str
     school: str
     year: int | None = None
+    period: str | None = None
+    location: str | None = None
+    details: str | None = None
 
 
 class ContactItem(BaseModel):
     text: str
     url: str | None = None
+    kind: str | None = Field(default=None, description="Choisit l'icône affichée par le template")
 
 
 class LabeledLine(BaseModel):
@@ -167,13 +196,17 @@ class CvEntry(BaseModel):
 
 class CvSection(BaseModel):
     title: str
-    entries: list[CvEntry]
+    entries: list[CvEntry] = []
+    bullets: list[str] = []
 
 
 class CvContent(BaseModel):
     language: Language
     name: str
     headline: str
+    show_photo: bool = Field(
+        default=False, description="La photo est lue au rendu, pas stockée ici"
+    )
     contact: list[ContactItem] = []
     details: list[str] = []
     highlight: str | None = None
@@ -188,6 +221,8 @@ class CvContent(BaseModel):
 class LetterContent(BaseModel):
     language: Language
     sender: list[str]
+    headline: str | None = None
+    contact: list[ContactItem] = []
     recipient: list[str]
     place_date: str
     subject: str

@@ -14,9 +14,9 @@ from jobcopilot_documents.compose import build_cv, build_letter
 from jobcopilot_documents.language import detect_language
 from jobcopilot_documents.models import DocumentRow, GenerationRow
 from jobcopilot_documents.render import RenderError, render
-from jobcopilot_documents.schemas import GenerationRequest, Kind, Language
+from jobcopilot_documents.schemas import CvContent, GenerationRequest, Kind, Language
 from jobcopilot_documents.storage import Storage
-from jobcopilot_documents.upstream import UpstreamError, fetch_offer, fetch_profile
+from jobcopilot_documents.upstream import UpstreamError, fetch_offer, fetch_photo, fetch_profile
 from jobcopilot_documents.veracity import check_cv, check_letter
 from jobcopilot_documents.writer import Writer
 
@@ -43,10 +43,17 @@ def s3_key(generation_id: uuid.UUID, kind: Kind, version: int) -> str:
     return f"{generation_id}/{kind}-v{version}.pdf"
 
 
+async def photo_for(ctx: Context, content) -> bytes | None:
+    """Seul un CV qui l'affiche a besoin de la photo."""
+    if isinstance(content, CvContent) and content.show_photo:
+        return await fetch_photo(ctx.http)
+    return None
+
+
 async def store_document(
     ctx: Context, session: AsyncSession, row: GenerationRow, kind: Kind, content, language: Language
 ) -> None:
-    pdf, pages = await render(TEMPLATES[kind], content)
+    pdf, pages = await render(TEMPLATES[kind], content, await photo_for(ctx, content))
     key = s3_key(row.id, kind, 1)
     await ctx.storage.put(key, pdf)
     session.add(

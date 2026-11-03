@@ -22,6 +22,23 @@ async def fetch_profile(client: httpx.AsyncClient) -> Profile:
     return Profile.model_validate(response.json())
 
 
+def is_image(data: bytes) -> bool:
+    return data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")) or (
+        data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    )
+
+
+async def fetch_photo(client: httpx.AsyncClient) -> bytes | None:
+    """La photo de profil. Facultative : absente ou illisible, le CV reste valable."""
+    try:
+        response = await client.get(f"{get_documents_settings().profile_url}/photo")
+    except httpx.HTTPError:
+        return None
+    if response.status_code != 200 or not is_image(response.content):
+        return None
+    return response.content
+
+
 async def fetch_offer(client: httpx.AsyncClient, offer_id: int, search: str | None = None) -> Offer:
     params = {"search": search} if search else {}
     try:

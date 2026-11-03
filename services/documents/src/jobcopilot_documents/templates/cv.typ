@@ -1,101 +1,108 @@
-// CV « classique » : une colonne, en-tête centré, titres de section bleus soulignés,
-// compétences par catégorie, missions groupées par thème.
+// CV sur une colonne. Le contenu vient du service, ce fichier ne décide que de la mise en page.
+#import "theme.typ": *
+
 #let data = json(bytes(sys.inputs.data))
-#let blue = rgb("#1f4e79")
+#let photo = if "photo" in sys.inputs { bytes(json(bytes(sys.inputs.photo))) } else { none }
 #let labels = if data.language == "en" {
-  (profile: "Profile", skills: "Technical skills", experience: "Professional experience",
-   education: "Education", extras: "Soft skills, languages and interests")
+  (profile: "Profile", skills: "Skills", experience: "Professional experience",
+   education: "Education", extras: "Additional information", available: "Availability")
 } else {
-  (profile: "Profil", skills: "Compétences techniques", experience: "Expérience professionnelle",
-   education: "Formation", extras: "Savoir-être, langues et intérêts")
+  (profile: "Profil", skills: "Compétences", experience: "Expérience professionnelle",
+   education: "Formation", extras: "Informations complémentaires", available: "Disponibilité")
 }
 
 #set document(title: data.name + " - CV", author: data.name)
-#set page(paper: "a4", margin: (x: 1.5cm, top: 1.1cm, bottom: 1cm))
-#set text(font: "Carlito", size: 10pt, lang: data.language)
-#set par(justify: true, leading: 0.55em, spacing: 0.65em)
-#set list(indent: 0.35em, body-indent: 0.5em, spacing: 0.6em, marker: text(size: 7pt, baseline: -0.1em)[●])
+#set page(paper: "a4", margin: (x: 1.6cm, top: 1.3cm, bottom: 1.2cm))
+#set text(font: "Carlito", size: 10pt, fill: ink, lang: data.language)
+#set par(leading: 0.5em, spacing: 0.6em)
+#set list(indent: 0.2em, body-indent: 0.5em, spacing: 0.5em, marker: text(fill: gold, size: 8pt, baseline: -0.05em)[●])
 
-#let section(title) = {
-  v(0.9em)
-  block(below: 0.45em, stroke: (bottom: 0.7pt + blue), inset: (bottom: 2.5pt), width: 100%)[
-    #text(fill: blue, weight: "bold", size: 10.5pt, upper(title))
-  ]
+#let sep = text(fill: muted)[ · ]
+#let secondary(body) = text(fill: muted, body)
+// Une ligne avec les dates à droite.
+#let line-with-date(left, right) = grid(columns: (1fr, auto), column-gutter: 1em, left, secondary(right))
+
+#{
+  let notes = data.details
+  if data.highlight != none { notes.push(labels.available + " : " + data.highlight) }
+  header(
+    data.name,
+    data.headline,
+    data.contact,
+    photo: if data.at("show_photo", default: false) { photo },
+    note: if notes.len() > 0 { notes.join(" · ") },
+  )
 }
-#let sep = h(0.5em) + text(fill: luma(140))[|] + h(0.5em)
-
-#align(center)[
-  #text(size: 19pt, weight: "bold", fill: blue, upper(data.name)) \
-  #v(-0.2em)
-  #text(size: 12pt, weight: "bold", data.headline) \
-  #v(0.15em)
-  #text(size: 9pt)[
-    #data.contact.map(item => if item.url != none { link(item.url, item.text) } else { item.text }).join(sep) \
-    #{
-      let parts = data.details
-      if data.highlight != none { parts.push(strong(data.highlight)) }
-      parts.join(sep)
-    }
-  ]
-]
 
 #if data.summary != none and data.summary != "" [
   #section(labels.profile)
-  #data.summary
+  #for part in data.summary.split("\n").filter(x => x.trim() != "") {
+    par(part)
+  }
 ]
 
 #if data.skills.len() > 0 [
   #section(labels.skills)
-  #for category in data.skills [
-    - *#category.name :* #category.items.join(", ")
-  ]
+  #for category in data.skills {
+    block(above: 0.5em, below: 0.5em)[*#category.name :* #category.items.join(", ")]
+  }
 ]
 
 #if data.experiences.len() > 0 [
   #section(labels.experience)
-  #for (i, exp) in data.experiences.enumerate() [
-    #if i > 0 { v(0.5em) }
-    #block(below: 0.35em)[
-      *#exp.title* #sep #text(fill: blue, weight: "bold", exp.company) \
-      #text(style: "italic")[#{ (exp.location, exp.period).filter(x => x != none).join(sep) }]
-      #if exp.context != none and exp.context != "" [ \ #emph(exp.context) ]
-    ]
-    #for group in exp.groups [
-      #if group.title != none [
-        #block(above: 0.5em, below: 0.35em, text(fill: blue, weight: "bold", style: "italic", group.title))
-      ]
-      #for bullet in group.bullets [
+  #for (i, exp) in data.experiences.enumerate() {
+    if i > 0 { v(0.7em) }
+    block(sticky: true, below: 0.5em, stack(
+      spacing: 5pt,
+      line-with-date(strong(exp.title), exp.period),
+      secondary((exp.company, exp.location).filter(x => x != none).join(" · ")),
+    ))
+    if exp.context != none and exp.context != "" {
+      block(above: 0.5em, below: 0.5em, exp.context)
+    }
+    for group in exp.groups {
+      if group.title != none {
+        block(sticky: true, above: 0.9em, below: 0.5em, text(weight: "bold", group.title))
+      }
+      for bullet in group.bullets [
         - #bullet
       ]
-    ]
-  ]
+    }
+  }
 ]
 
 #if data.education.len() > 0 [
   #section(labels.education)
-  #for item in data.education [
-    #{
-      let parts = (strong(item.degree), item.school)
-      if item.year != none { parts.push(str(item.year)) }
-      parts.join(sep)
-    } \
-  ]
+  #for item in data.education {
+    let when = item.at("period", default: none)
+    if when == none and item.year != none { when = str(item.year) }
+    let details = item.at("details", default: none)
+    let lines = (
+      line-with-date(strong(item.degree), if when != none { when } else { "" }),
+      secondary((item.school, item.at("location", default: none)).filter(x => x != none).join(" · ")),
+    )
+    if details != none and details != "" { lines.push(par(details)) }
+    block(above: 0.7em, below: 0.7em, breakable: false, stack(spacing: 5pt, ..lines))
+  }
 ]
 
 #for part in data.sections [
   #section(part.title)
-  #for entry in part.entries [
-    - #{
-        let title = if entry.url != none { link(entry.url, strong(entry.title)) } else { strong(entry.title) }
-        (title, ..entry.meta).join(sep)
-      }
-      #if entry.text != none and entry.text != "" [ \ #entry.text ]
+  #for entry in part.entries {
+    block(above: 0.6em, below: 0.6em, breakable: false, {
+      let title = if entry.url != none { link(entry.url, strong(entry.title)) } else { strong(entry.title) }
+      (title, ..entry.meta.map(secondary)).join(sep)
+      if entry.text != none and entry.text != "" { block(above: 0.45em, below: 0pt, entry.text) }
+    })
+  }
+  #for bullet in part.at("bullets", default: ()) [
+    - #bullet
   ]
 ]
 
 #if data.extras.len() > 0 [
   #section(labels.extras)
-  #for line in data.extras [
-    - *#line.label :* #line.text
-  ]
+  #for line in data.extras {
+    block(above: 0.5em, below: 0.5em)[*#line.label :* #line.text]
+  }
 ]

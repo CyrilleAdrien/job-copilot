@@ -1,6 +1,8 @@
 """Assemble le contenu du CV et de la lettre à partir du profil et des propositions du LLM."""
 
+import re
 from datetime import date
+from urllib.parse import urlparse
 
 from jobcopilot_documents.schemas import (
     ContactItem,
@@ -39,8 +41,12 @@ MONTHS = {
 WORDS = {
     "fr": {
         "now": "aujourd'hui",
-        "soft": "Savoir-être",
-        "languages": "Langues et intérêts",
+        "soft": "Qualités",
+        "languages": "Langues",
+        "interests": "Centres d'intérêt",
+        "licence": "Permis",
+        "courses": "Formations suivies",
+        "awards": "Récompenses",
         "projects": "Projets",
         "certifications": "Certifications",
         "volunteering": "Bénévolat",
@@ -49,7 +55,11 @@ WORDS = {
     "en": {
         "now": "present",
         "soft": "Soft skills",
-        "languages": "Languages and interests",
+        "languages": "Languages",
+        "interests": "Interests",
+        "licence": "Driving licence",
+        "courses": "Courses",
+        "awards": "Awards",
         "projects": "Projects",
         "certifications": "Certifications",
         "volunteering": "Volunteering",
@@ -66,11 +76,46 @@ def period(start: str, end: str | None, language: Language) -> str:
     return f"{month(start)} – {month(end) if end else WORDS[language]['now']}"
 
 
-def contact(profile: Profile) -> list[ContactItem]:
+def link_kind(url: str) -> str:
+    host = urlparse(url).hostname or ""
+    for site in ("github", "linkedin"):
+        if host == f"{site}.com" or host.endswith(f".{site}.com"):
+            return site
+    return "link"
+
+
+def contact(profile: Profile, language: Language) -> list[ContactItem]:
+    """Les coordonnées de l'en-tête. L'adresse complète n'y figure pas par défaut."""
     identity = profile.identity
-    items = [ContactItem(text=value) for value in (identity.phone, identity.email) if value]
-    items += [ContactItem(text=link.label, url=link.url) for link in identity.links]
+    items = []
+    if identity.location:
+        items.append(ContactItem(text=identity.location, kind="location"))
+    if identity.email:
+        items.append(ContactItem(text=identity.email, url=f"mailto:{identity.email}", kind="email"))
+    if identity.phone:
+        number = identity.phone.replace(" ", "")
+        items.append(ContactItem(text=identity.phone, url=f"tel:{number}", kind="phone"))
+    for link in identity.links:
+        web = link.url.lower().startswith(("http://", "https://"))
+        items.append(
+            ContactItem(
+                text=link.label,
+                url=link.url if web else None,
+                kind=link_kind(link.url) if web else "link",
+            )
+        )
+    if identity.driving_licence:
+        label = f"{WORDS[language]['licence']} {identity.driving_licence}"
+        items.append(ContactItem(text=label, kind="licence"))
     return items
+
+
+def education_period(start: str | None, end: str | None) -> str | None:
+    def month(value: str) -> str:
+        year, number = value.split("-")
+        return f"{number}/{year}"
+
+    return " – ".join(month(value) for value in (start, end) if value) or None
 
 
 def experience(source: Experience, language: Language, groups=None) -> CvExperience:
@@ -133,8 +178,32 @@ def sections(profile: Profile, language: Language) -> list[CvSection]:
                 for item in profile.publications
             ],
         ),
+        (
+            words["courses"],
+            [
+                CvEntry(title=item.name, meta=present(item.institution, item.year))
+                for item in profile.courses
+            ],
+        ),
+        (
+            words["awards"],
+            [
+                CvEntry(
+                    title=item.title,
+                    meta=present(item.issuer, item.year),
+                    text=item.description,
+                )
+                for item in profile.awards
+            ],
+        ),
     ]
-    return [CvSection(title=title, entries=entries) for title, entries in found if entries]
+    result = [CvSection(title=title, entries=entries) for title, entries in found if entries]
+    result += [
+        CvSection(title=item.title, bullets=item.items)
+        for item in profile.custom_sections
+        if item.items
+    ]
+    return result
 
 
 def contract_types(profile: Profile, search: str | None) -> list[str]:
@@ -158,30 +227,36 @@ def build_cv(
         for index, source in enumerate(profile.experiences)
         if index in selected
     ]
-    extras = []
-    if profile.soft_skills:
-        extras.append(
-            LabeledLine(label=WORDS[language]["soft"], text=", ".join(profile.soft_skills))
-        )
-    spoken = ", ".join(f"{item.name} ({item.level})" for item in profile.languages)
-    languages = " ; ".join(part for part in (spoken, ", ".join(profile.interests)) if part)
-    if languages:
-        extras.append(LabeledLine(label=WORDS[language]["languages"], text=languages))
+    words = WORDS[language]
+    spoken = ", ".join(f"{item.name} – {item.level}" for item in profile.languages)
+    lines = (
+        (words["languages"], spoken),
+        (words["soft"], ", ".join(profile.soft_skills)),
+        (words["interests"], ", ".join(profile.interests)),
+    )
+    extras = [LabeledLine(label=label, text=text) for label, text in lines if text]
 
-    details = [identity.location] if identity.location else []
-    details += [CONTRACTS.get(c, c) for c in contract_types(profile, search)[:2]]
+    details = [CONTRACTS.get(c, c) for c in contract_types(profile, search)[:2]]
     return CvContent(
         language=language,
         name=identity.full_name,
         headline=(draft.headline if draft else None) or identity.headline,
-        contact=contact(profile),
+        show_photo=True,
+        contact=contact(profile, language),
         details=details,
         highlight=identity.availability,
         summary=(draft.summary if draft else None) or identity.summary,
         skills=profile.skills,
         experiences=experiences,
         education=[
-            CvEducation(degree=item.degree, school=item.school, year=item.year)
+            CvEducation(
+                degree=item.degree,
+                school=item.school,
+                year=item.year,
+                period=education_period(item.start, item.end),
+                location=item.location,
+                details=item.details,
+            )
             for item in profile.education
         ],
         sections=sections(profile, language),
@@ -203,13 +278,15 @@ def build_letter(
     profile: Profile, offer: Offer, draft: LetterDraft, language: Language, today: date
 ) -> LetterContent:
     identity = profile.identity
-    city = identity.location.split("/")[0].strip() if identity.location else None
+    city = re.split(r"[/,]", identity.location)[0].strip() if identity.location else None
     sender = [identity.full_name]
     sender += [value for value in (identity.location, identity.phone, identity.email) if value]
     recipient = [value for value in (offer.company, offer.location) if value]
     return LetterContent(
         language=language,
         sender=sender,
+        headline=identity.headline,
+        contact=contact(profile, language),
         recipient=recipient,
         place_date=place_date(city, language, today),
         subject=draft.subject,
