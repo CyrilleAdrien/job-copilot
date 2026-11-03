@@ -140,4 +140,12 @@ describe("SearchPicker", () => {
     await user.click(screen.getByRole("button", { name: "Vente" }));
     expect(onChange).toHaveBeenCalledWith(2);
   });
+
+  it("names the group without showing the label, unless asked", () => {
+    const { rerender } = render(<SearchPicker label="CV de la recherche" searches={searches} value={0} onChange={vi.fn()} />);
+    expect(screen.getByRole("group", { name: "CV de la recherche" })).toBeInTheDocument();
+    expect(screen.queryByText("CV de la recherche")).not.toBeInTheDocument();
+    rerender(<SearchPicker label="CV de la recherche" showLabel searches={searches} value={0} onChange={vi.fn()} />);
+    expect(screen.getByText("CV de la recherche")).toBeInTheDocument();
+  });
 });

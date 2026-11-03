@@ -9,11 +9,15 @@ import type { SearchProfile } from "@/lib/profile";
  */
 export function SearchPicker({
   label,
+  showLabel = false,
   searches,
   value,
   onChange,
 }: {
+  /** Nomme le groupe pour les lecteurs d'écran. */
   label: string;
+  /** L'affiche aussi à l'écran, quand rien autour ne dit à quoi servent ces boutons. */
+  showLabel?: boolean;
   searches: Pick<SearchProfile, "name" | "archived">[];
   value: number;
   onChange: (index: number) => void;
@@ -22,7 +26,7 @@ export function SearchPicker({
   if (active.length < 2) return null;
   return (
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
-      <span className="text-[13px] font-medium text-text-secondary">{label}</span>
+      {showLabel && <span className="text-[13px] font-medium text-text-secondary">{label}</span>}
       {active.map(({ search, index }) => (
         <button
           key={index}
