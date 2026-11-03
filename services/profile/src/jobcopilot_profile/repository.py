@@ -3,14 +3,13 @@ from datetime import UTC, datetime
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from jobcopilot_profile.models import ExperienceRow, PhotoRow, ProfileRow
+from jobcopilot_profile.models import PhotoRow, ProfileRow
 from jobcopilot_profile.schemas import Profile
 
 PROFILE_ID = 1
 
 IDENTITY_FIELDS = (
     "full_name",
-    "headline",
     "email",
     "phone",
     "location",
@@ -19,24 +18,8 @@ IDENTITY_FIELDS = (
     "nationality",
     "driving_licence",
     "availability",
-    "summary",
 )
-LIST_FIELDS = (
-    "searches",
-    "education",
-    "skills",
-    "certifications",
-    "projects",
-    "volunteering",
-    "publications",
-    "awards",
-    "courses",
-    "referees",
-    "custom_sections",
-    "languages",
-    "soft_skills",
-    "interests",
-)
+LIST_FIELDS = ("searches", "languages")
 
 
 async def get_profile(session: AsyncSession) -> Profile | None:
@@ -47,20 +30,6 @@ async def get_profile(session: AsyncSession) -> Profile | None:
         {
             "identity": {field: getattr(row, field) for field in IDENTITY_FIELDS}
             | {"links": row.links},
-            "experiences": [
-                {
-                    "title": e.title,
-                    "company": e.company,
-                    "location": e.location,
-                    "contract": e.contract,
-                    "start": e.start,
-                    "end": e.end,
-                    "context": e.context,
-                    "groups": e.groups,
-                    "technologies": e.technologies,
-                }
-                for e in row.experiences
-            ],
         }
         | {field: getattr(row, field) for field in LIST_FIELDS}
     )
@@ -80,11 +49,6 @@ async def save_profile(session: AsyncSession, profile: Profile) -> Profile:
     row.links = identity["links"]
     for field in LIST_FIELDS:
         setattr(row, field, data[field])
-
-    row.experiences = [
-        ExperienceRow(position=index, **experience)
-        for index, experience in enumerate(data["experiences"])
-    ]
 
     await session.commit()
     await session.refresh(row)
@@ -123,6 +87,10 @@ class SearchNotFound(LookupError):
     pass
 
 
+class ArchivedSearch(Exception):
+    pass
+
+
 class LastSearch(ValueError):
     """Un profil garde toujours au moins une recherche active."""
 
@@ -139,6 +107,18 @@ async def update_search(session: AsyncSession, search_id: str, *, archived: bool
     for search in profile.searches:
         if search.id == search_id:
             search.archived = archived
+    return await save_profile(session, profile)
+
+
+async def set_primary_search(session: AsyncSession, search_id: str) -> Profile:
+    profile = await get_profile(session)
+    chosen = next((s for s in profile.searches if s.id == search_id), None) if profile else None
+    if chosen is None:
+        raise SearchNotFound
+    if chosen.archived:
+        raise ArchivedSearch
+    for search in profile.searches:
+        search.primary = search is chosen
     return await save_profile(session, profile)
 
 

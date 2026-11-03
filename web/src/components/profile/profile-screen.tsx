@@ -19,7 +19,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, fetchProfile, profileExportUrl } from "@/lib/api";
 import { fadeUp, spring } from "@/lib/motion";
-import type { Profile } from "@/lib/profile";
+import { cvView, mainSearch, type Profile } from "@/lib/profile";
 
 type View = "overview" | "searches" | "cv";
 const views: { value: View; label: string }[] = [
@@ -40,6 +40,9 @@ export function ProfileScreen() {
       setProfile(null);
     });
   }, []);
+
+  // La page montre le CV de la recherche principale. Les autres se regardent dans l'onglet CV.
+  const main = profile ? cvView(profile, mainSearch(profile)) : null;
 
   const actions = profile ? (
     <>
@@ -112,16 +115,16 @@ export function ProfileScreen() {
         />
       ) : (
         <div className="flex flex-col gap-4">
-          <ProfilePhotoCard profile={profile} />
+          <ProfilePhotoCard profile={main!} />
           <SegmentedControl label="Affichage du profil" segments={views} value={view} onChange={setView} />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={view} {...fadeUp} transition={spring.smooth}>
               {view === "cv" ? (
-                <CvPreview stamp={stamp} />
+                <CvPreview stamp={stamp} searches={profile.searches} />
               ) : view === "searches" ? (
                 <SearchManager profile={profile} onChange={setProfile} onError={setError} />
               ) : (
-                <ProfileOverview profile={profile} />
+                <ProfileOverview profile={main!} />
               )}
             </motion.div>
           </AnimatePresence>

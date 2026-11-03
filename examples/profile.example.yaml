@@ -2,26 +2,23 @@
 # puis importe-le depuis l'écran Profil. Les dates d'expérience sont au format AAAA-MM.
 identity:
   full_name: Alex Martin
-  headline: Ingénieur DevOps / SRE
   email: alex.martin@example.com
   phone: "+33 6 00 00 00 00"
   location: Paris / Île-de-France
   availability: Disponible immédiatement
-  summary: >-
-    Ingénieur diplômé avec 2 ans d'expérience en production et DevOps sur des applications
-    critiques. J'automatise les tâches récurrentes en Python et Bash et j'orchestre les chaînes
-    CI/CD sur Docker et Kubernetes.
   links:
     - label: GitHub
       url: https://github.com/alex-martin
     - label: LinkedIn
       url: https://www.linkedin.com/in/alex-martin
 
-# Un ou plusieurs profils de recherche : chacun a sa propre liste d'offres.
+# Une ou plusieurs recherches : chacune a ses offres et son propre CV.
 # match_mode « domain » garde toutes les offres du métier ; « skills » ne garde que celles
 # qui citent au moins min_skills compétences de focus_skills (ou de technologies si vide).
 searches:
   - name: DevOps
+    # Son CV est celui de la page Profil. Sans ce champ : la première recherche active.
+    primary: true
     roles: [Ingénieur SRE, Ingénieur DevOps, Platform Engineer]
     technologies: [Kubernetes, Docker, Python, Terraform, GitLab CI]
     excluded_keywords: [Stage]
@@ -33,6 +30,84 @@ searches:
     salary_min: 45000
     max_age_days: 7
     match_mode: domain
+    cv:
+      headline: Ingénieur DevOps / SRE
+      summary: >-
+        Ingénieur diplômé avec 2 ans d'expérience en production et DevOps sur des applications
+        critiques. J'automatise les tâches récurrentes en Python et Bash et j'orchestre les chaînes
+        CI/CD sur Docker et Kubernetes.
+      experiences:
+        - title: Ingénieur de Production / DevOps
+          company: Banque Exemple
+          location: Paris
+          contract: Alternance
+          start: 2024-09
+          end: 2026-09
+          context: Exploitation d'applications critiques et migration d'un socle de transfert de fichiers.
+          groups:
+            - title: Disponibilité et stabilité
+              bullets:
+                - Résolu plus de 50 incidents N2/N3 en menant l'analyse de causes racines sous Linux.
+                - Automatisé la création de tickets d'incident au premier échec d'un batch.
+            - title: Automatisation et CI/CD
+              bullets:
+                - Ramené les mises en production à 20 min en refondant les pipelines Jenkins.
+          technologies: [Linux, Python, Bash, Jenkins, Kubernetes]
+
+      education:
+        - degree: Diplôme d'ingénieur, Big Data et IA
+          school: École d'ingénieurs Exemple
+          year: 2026
+
+      skills:
+        - name: CI/CD et automatisation
+          items: [Jenkins, GitLab CI, Git, Infrastructure as Code]
+        - name: Conteneurs et cloud
+          items: [Docker, Kubernetes, GCP]
+        - name: Supervision
+          items: [ELK, Grafana, Zabbix]
+
+      certifications:
+        - name: Certified Kubernetes Administrator (CKA)
+          issuer: CNCF
+          year: 2025
+
+      projects:
+        - name: Homelab Kubernetes
+          description: Cluster k3s sur trois Raspberry Pi, déployé avec Ansible et Argo CD.
+          technologies: [k3s, Ansible, Argo CD]
+          url: https://github.com/alex-martin/homelab
+
+      volunteering:
+        - role: Mentor
+          organization: Association Exemple
+          start: 2023-01
+          description: Accompagnement de deux étudiants en reconversion vers le DevOps.
+
+      publications: []
+
+      awards:
+        - title: Prix de l'innovation interne
+          issuer: Nimbus Data
+          year: 2025
+
+      courses:
+        - name: Kubernetes avancé
+          institution: Linux Foundation
+          year: 2025
+
+      referees:
+        - name: Sam Durand
+          role: Responsable de la production
+          company: Nimbus Data
+          email: sam.durand@example.com
+
+      custom_sections:
+        - title: Conférences
+          items:
+            - DevOps Days Paris 2025
+      soft_skills: [Rigueur, Calme en incident, Travail en équipe]
+      interests: [Football, Veille SRE]
   - name: Data Engineer
     roles: [Data Engineer]
     technologies: [Python, SQL, Airflow, Spark, dbt]
@@ -43,83 +118,24 @@ searches:
     match_mode: skills
     focus_skills: [Python, Airflow, dbt]
     min_skills: 2
+    cv:
+      headline: Data Engineer
+      summary: Ingénieur diplômé, je construis des chaînes de données fiables en Python et SQL.
+      experiences:
+        - title: Data Engineer
+          company: Banque Exemple
+          start: 2024-09
+          end: 2026-09
+          groups:
+            - bullets:
+                - Construit des chaînes de données en Python et SQL, planifiées avec Airflow.
+      skills:
+        - name: Données
+          items: [Python, SQL, Airflow, dbt]
 
-experiences:
-  - title: Ingénieur de Production / DevOps
-    company: Banque Exemple
-    location: Paris
-    contract: Alternance
-    start: 2024-09
-    end: 2026-09
-    context: Exploitation d'applications critiques et migration d'un socle de transfert de fichiers.
-    groups:
-      - title: Disponibilité et stabilité
-        bullets:
-          - Résolu plus de 50 incidents N2/N3 en menant l'analyse de causes racines sous Linux.
-          - Automatisé la création de tickets d'incident au premier échec d'un batch.
-      - title: Automatisation et CI/CD
-        bullets:
-          - Ramené les mises en production à 20 min en refondant les pipelines Jenkins.
-    technologies: [Linux, Python, Bash, Jenkins, Kubernetes]
-
-education:
-  - degree: Diplôme d'ingénieur, Big Data et IA
-    school: École d'ingénieurs Exemple
-    year: 2026
-
-skills:
-  - name: CI/CD et automatisation
-    items: [Jenkins, GitLab CI, Git, Infrastructure as Code]
-  - name: Conteneurs et cloud
-    items: [Docker, Kubernetes, GCP]
-  - name: Supervision
-    items: [ELK, Grafana, Zabbix]
-
-certifications:
-  - name: Certified Kubernetes Administrator (CKA)
-    issuer: CNCF
-    year: 2025
-
-projects:
-  - name: Homelab Kubernetes
-    description: Cluster k3s sur trois Raspberry Pi, déployé avec Ansible et Argo CD.
-    technologies: [k3s, Ansible, Argo CD]
-    url: https://github.com/alex-martin/homelab
-
-volunteering:
-  - role: Mentor
-    organization: Association Exemple
-    start: 2023-01
-    description: Accompagnement de deux étudiants en reconversion vers le DevOps.
-
-publications: []
-
-awards:
-  - title: Prix de l'innovation interne
-    issuer: Nimbus Data
-    year: 2025
-
-courses:
-  - name: Kubernetes avancé
-    institution: Linux Foundation
-    year: 2025
-
-referees:
-  - name: Sam Durand
-    role: Responsable de la production
-    company: Nimbus Data
-    email: sam.durand@example.com
-
-custom_sections:
-  - title: Conférences
-    items:
-      - DevOps Days Paris 2025
-
+# Communes à toutes les recherches.
 languages:
   - name: Français
     level: Natif
   - name: Anglais
     level: B2 (TOEIC 830)
-
-soft_skills: [Rigueur, Calme en incident, Travail en équipe]
-interests: [Football, Veille SRE]

@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, Copy, PenLine, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, PenLine, Star, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { archiveSearch, deleteSearch, restoreSearch, type ApiError } from "@/lib/api";
+import { archiveSearch, deleteSearch, makeSearchPrimary, restoreSearch, type ApiError } from "@/lib/api";
 import { fadeUp, spring } from "@/lib/motion";
 import { matchModeLabels, seniorityLabels, type Profile, type SearchProfile } from "@/lib/profile";
 import { cn } from "@/lib/utils";
@@ -54,10 +54,17 @@ export function SearchManager({
                         {search.name}
                       </h3>
                       {search.archived && <Badge>Archivée</Badge>}
+                      {search.primary && !search.archived && <Badge tone="accent">Principale</Badge>}
                     </div>
                     <p className="text-sm text-text-secondary">{summary(search)}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
+                    {!search.primary && !search.archived && (
+                      <Button variant="ghost" size="sm" loading={busy === search.id} onClick={() => run(search.id, makeSearchPrimary)}>
+                        <Star aria-hidden />
+                        Définir comme principale
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/bienvenue?modifier=${encodeURIComponent(search.id)}`}>
                         <PenLine aria-hidden />

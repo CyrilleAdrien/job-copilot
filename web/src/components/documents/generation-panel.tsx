@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StepProgress } from "@/components/ui/step-progress";
+import { SearchPicker } from "@/components/profile/search-picker";
 import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/lib/api";
 import {
@@ -25,6 +26,8 @@ import {
   type LLMStatus,
 } from "@/lib/documents";
 import { fadeUp, spring } from "@/lib/motion";
+import { fetchProfile } from "@/lib/api";
+import { mainSearch, type SearchProfile } from "@/lib/profile";
 import { storedSearch } from "@/lib/search-choice";
 
 type LanguageChoice = "auto" | Language;
@@ -49,6 +52,8 @@ export function GenerationPanel({
   const [llm, setLlm] = useState<LLMStatus | null>(null);
   const [withLetter, setWithLetter] = useState(true);
   const [language, setLanguage] = useState<LanguageChoice>("auto");
+  const [searches, setSearches] = useState<SearchProfile[]>([]);
+  const [searchIndex, setSearchIndex] = useState(0);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [previousError, setPreviousError] = useState<string | null>(null);
@@ -94,6 +99,19 @@ export function GenerationPanel({
     return () => source.close();
   }, [runningId]);
 
+  useEffect(() => {
+    fetchProfile()
+      .then((profile) => {
+        const active = (profile?.searches ?? []).filter((search) => !search.archived);
+        setSearches(active);
+        // La recherche ouverte sur l'écran Offres, sinon la principale.
+        const stored = storedSearch();
+        const wanted = active.findIndex((search) => search.id === stored);
+        setSearchIndex(wanted >= 0 ? wanted : mainSearch({ searches: active }));
+      })
+      .catch(() => setSearches([]));
+  }, []);
+
   async function generate() {
     setStarting(true);
     setError(null);
@@ -101,7 +119,7 @@ export function GenerationPanel({
       const started = await startGeneration(offerId, {
         letter: withLetter,
         language: language === "auto" ? null : language,
-        search: storedSearch() ?? undefined,
+        search: searches[searchIndex]?.id ?? storedSearch() ?? undefined,
       });
       setGeneration(started);
       setConfiguring(false);
@@ -149,6 +167,7 @@ export function GenerationPanel({
 
           {view === "options" && (
             <>
+              <SearchPicker label="CV de la recherche" searches={searches} value={searchIndex} onChange={setSearchIndex} />
               <Switch
                 checked={withLetter}
                 onChange={setWithLetter}

@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { ImportButton } from "@/components/profile/import-button";
 import { ProfileView } from "@/components/profile/profile-view";
+import { SearchPicker } from "@/components/profile/search-picker";
 import {
   BackgroundStep,
   ExperiencesStep,
@@ -24,12 +25,16 @@ import { ApiError, fetchProfile, saveProfile } from "@/lib/api";
 import { spring } from "@/lib/motion";
 import {
   addSearch,
+  applyCvView,
+  cvView,
   emptyProfile,
+  mainSearch,
   toPayload,
   validateBackground,
   validateExperiences,
   validateIdentity,
   validateSearch,
+  type CvView,
   type Profile,
   type StepErrors,
 } from "@/lib/profile";
@@ -40,17 +45,19 @@ type Step = {
   label: string;
   title: string;
   description: string;
-  Component?: (props: StepProps) => React.ReactNode;
+  /** Une étape du CV : elle agit sur la recherche choisie. */
+  Cv?: (props: StepProps) => React.ReactNode;
   validate?: (profile: Profile) => StepErrors;
+  validateCv?: (view: CvView) => StepErrors;
 };
 
 const steps: Step[] = [
-  { id: "identity", label: "Identité", title: "Qui es-tu ?", description: "Ces informations forment l'en-tête de tes CV.", Component: IdentityStep, validate: validateIdentity },
-  { id: "search", label: "Recherches", title: "Ce que tu recherches", description: "Une ou plusieurs recherches : les offres sont filtrées et classées avec leurs critères.", Component: SearchStep, validate: validateSearch },
-  { id: "experiences", label: "Expériences", title: "Tes expériences", description: "L'IA choisit et reformule parmi elles, sans jamais rien inventer.", Component: ExperiencesStep, validate: validateExperiences },
-  { id: "skills", label: "Compétences", title: "Compétences et langues", description: "Les compétences par catégorie, les langues, le savoir-être.", Component: SkillsStep },
-  { id: "background", label: "Parcours", title: "Formation et parcours", description: "Formation, certifications, projets, bénévolat, publications, récompenses, références et sections libres. Tout est facultatif.", Component: BackgroundStep, validate: validateBackground },
-  { id: "review", label: "Récapitulatif", title: "Tout est prêt", description: "Vérifie ton profil avant de l'enregistrer." },
+  { id: "identity", label: "Identité", title: "Qui es-tu ?", description: "Commun à tous tes CV : ton nom, tes coordonnées et tes liens.", validate: validateIdentity },
+  { id: "search", label: "Recherches", title: "Ce que tu recherches", description: "Une ou plusieurs recherches : chacune a ses offres et son propre CV. Une nouvelle recherche part de zéro ou d'une copie.", validate: validateSearch },
+  { id: "experiences", label: "Expériences", title: "Le CV de cette recherche", description: "Son titre, son résumé et ses expériences. L'IA choisit et reformule parmi elles, sans jamais rien inventer.", Cv: ExperiencesStep, validateCv: validateExperiences },
+  { id: "skills", label: "Compétences", title: "Compétences et langues", description: "Les compétences par catégorie et le savoir-être de ce CV. Les langues sont communes à tous tes CV.", Cv: SkillsStep },
+  { id: "background", label: "Parcours", title: "Formation et parcours", description: "Formation, certifications, projets, bénévolat, publications, récompenses, références et sections libres de ce CV. Tout est facultatif.", Cv: BackgroundStep, validateCv: validateBackground },
+  { id: "review", label: "Récapitulatif", title: "Tout est prêt", description: "Vérifie chaque CV avant de l'enregistrer." },
 ];
 
 export function ProfileWizard() {
@@ -65,6 +72,7 @@ export function ProfileWizard() {
   const [saving, setSaving] = useState(false);
   // Profil déjà enregistré : on navigue librement entre les étapes et on peut enregistrer à tout moment.
   const [editing, setEditing] = useState(false);
+  const [active, setActive] = useState(0);
 
   useEffect(() => {
     // Liens de la page Profil : ?recherche=nouvelle ou ?recherche=<id> ouvrent l'étape Recherches
@@ -72,14 +80,17 @@ export function ProfileWizard() {
     const params = new URLSearchParams(window.location.search);
     const wanted = params.get("recherche");
     const edited = params.get("modifier");
+    const shown = params.get("cv");
     fetchProfile()
       .then((existing) => {
         const loaded = existing ?? emptyProfile();
+        const position = (id: string | null) => loaded.searches.findIndex((search) => search.id === id);
+        setActive(position(shown) >= 0 ? position(shown) : mainSearch(loaded));
         if (existing && wanted) {
           setFocus(addSearch(loaded, wanted === "nouvelle" ? undefined : wanted));
           setCurrent(steps.findIndex((step) => step.id === "search"));
         } else if (existing && edited) {
-          setFocus(Math.max(0, existing.searches.findIndex((search) => search.id === edited)));
+          setFocus(Math.max(0, position(edited)));
           setCurrent(steps.findIndex((step) => step.id === "search"));
         }
         setProfile(loaded);
@@ -94,16 +105,27 @@ export function ProfileWizard() {
 
   if (!profile) return <WizardSkeleton />;
 
-  const update: StepProps["update"] = (recipe) =>
+  const update: StepProps<Profile>["update"] = (recipe) =>
     setProfile((previous) => {
       const draft = structuredClone(previous!);
       recipe(draft);
       return draft;
     });
 
+  const searchIndex = Math.min(active, profile.searches.length - 1);
+  const updateCv: StepProps["update"] = (recipe) =>
+    setProfile((previous) => {
+      const draft = cvView(structuredClone(previous!), searchIndex);
+      recipe(draft);
+      return applyCvView(draft, searchIndex);
+    });
+
+  const stepErrorsFor = (item: Step, index: number) =>
+    item.validateCv?.(cvView(profile, index)) ?? item.validate?.(profile) ?? {};
+
   const go = (target: number) => {
     if (target > current && !editing) {
-      const stepErrors = steps[current].validate?.(profile) ?? {};
+      const stepErrors = stepErrorsFor(steps[current], searchIndex);
       setErrors(stepErrors);
       if (Object.keys(stepErrors).length) return;
     }
@@ -115,13 +137,18 @@ export function ProfileWizard() {
   const save = async () => {
     // Toutes les étapes sont vérifiées : on ouvre la première qui a une erreur.
     for (const [index, item] of steps.entries()) {
-      const stepErrors = item.validate?.(profile) ?? {};
-      if (Object.keys(stepErrors).length) {
-        setErrors(stepErrors);
-        setDirection(index > current ? 1 : -1);
-        setCurrent(index);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
+      // Les étapes du CV sont vérifiées pour chaque recherche : on ouvre celle qui a une erreur.
+      const targets = item.validateCv ? profile.searches.map((_, position) => position) : [searchIndex];
+      for (const target of targets) {
+        const stepErrors = stepErrorsFor(item, target);
+        if (Object.keys(stepErrors).length) {
+          setErrors(stepErrors);
+          setActive(target);
+          setDirection(index > current ? 1 : -1);
+          setCurrent(index);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
       }
     }
     setErrors({});
@@ -172,7 +199,18 @@ export function ProfileWizard() {
             <h1 className="text-[28px] font-medium leading-tight">{step.title}</h1>
             <p className="text-[15px] text-text-secondary">{step.description}</p>
           </header>
-          {step.Component ? <step.Component profile={profile} update={update} errors={errors} focus={focus} /> : <ProfileView profile={toPayload(profile)} />}
+          {(step.Cv || step.id === "review") && (
+            <SearchPicker label="CV de la recherche" searches={profile.searches} value={searchIndex} onChange={setActive} />
+          )}
+          {step.id === "identity" ? (
+            <IdentityStep profile={profile} update={update} errors={errors} />
+          ) : step.id === "search" ? (
+            <SearchStep profile={profile} update={update} errors={errors} focus={focus ?? searchIndex} onSelect={setActive} />
+          ) : step.Cv ? (
+            <step.Cv key={searchIndex} profile={cvView(profile, searchIndex)} update={updateCv} errors={errors} />
+          ) : (
+            <ProfileView profile={cvView(toPayload(profile), searchIndex)} />
+          )}
         </motion.section>
       </AnimatePresence>
 

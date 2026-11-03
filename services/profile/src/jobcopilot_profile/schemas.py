@@ -26,8 +26,9 @@ class Link(Schema):
 
 
 class Identity(Schema):
+    """Ce qui est commun à toutes les recherches."""
+
     full_name: str = Field(min_length=1, max_length=120)
-    headline: str = Field(min_length=1, max_length=160, description="Titre affiché sous le nom")
     email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     phone: str | None = Field(default=None, max_length=40)
     location: str | None = Field(default=None, max_length=120)
@@ -40,7 +41,6 @@ class Identity(Schema):
         default=None, max_length=40, description="Catégories, ex. B"
     )
     availability: str | None = Field(default=None, max_length=120)
-    summary: str | None = Field(default=None, max_length=2000)
     links: list[Link] = []
 
 
@@ -147,6 +147,29 @@ class CustomSection(Schema):
     items: list[str] = Field(default=[], max_length=30)
 
 
+class SearchCv(Schema):
+    """Le CV d'une recherche : deux recherches peuvent viser des métiers sans rapport."""
+
+    headline: str = Field(default="", max_length=160, description="Titre affiché sous le nom")
+    summary: str | None = Field(default=None, max_length=2000)
+    experiences: list[Experience] = []
+    education: list[Education] = []
+    skills: list[SkillCategory] = []
+    certifications: list[Certification] = []
+    projects: list[Project] = []
+    volunteering: list[Volunteering] = []
+    publications: list[Publication] = []
+    awards: list[Award] = []
+    courses: list[Course] = []
+    referees: list[Referee] = []
+    custom_sections: list[CustomSection] = []
+    soft_skills: list[str] = []
+    interests: list[str] = []
+
+
+CV_SECTIONS = tuple(name for name in SearchCv.model_fields if name not in ("headline", "summary"))
+
+
 def slugify(text: str) -> str:
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40] or "recherche"
@@ -177,33 +200,34 @@ class SearchProfile(Schema):
     )
     min_skills: int = Field(default=2, ge=1, le=10, description="Compétences citées au minimum")
     archived: bool = Field(default=False, description="Masquée de l'écran Offres, gardée au profil")
+    primary: bool = Field(default=False, description="Son CV est celui de la page Profil")
+    cv: SearchCv = Field(default_factory=SearchCv)
 
 
 class Profile(Schema):
     identity: Identity
     searches: list[SearchProfile] = Field(min_length=1, max_length=10)
-    experiences: list[Experience] = []
-    education: list[Education] = []
-    skills: list[SkillCategory] = []
-    certifications: list[Certification] = []
-    projects: list[Project] = []
-    volunteering: list[Volunteering] = []
-    publications: list[Publication] = []
-    awards: list[Award] = []
-    courses: list[Course] = []
-    referees: list[Referee] = []
-    custom_sections: list[CustomSection] = []
     languages: list[Language] = []
-    soft_skills: list[str] = []
-    interests: list[str] = []
 
     @model_validator(mode="before")
     @classmethod
-    def single_search(cls, data: Any) -> Any:
-        """Les fichiers d'avant les profils multiples ont une seule section `search`."""
-        if isinstance(data, dict) and "search" in data and "searches" not in data:
-            data = {**data, "searches": [{"name": "Principal", **(data["search"] or {})}]}
-            del data["search"]
+    def older_files(cls, data: Any) -> Any:
+        """Les anciens fichiers : une section `search`, ou un CV commun à toutes les recherches."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        if "search" in data and "searches" not in data:
+            data["searches"] = [{"name": "Principal", **(data.pop("search") or {})}]
+        cv = {name: data.pop(name) for name in CV_SECTIONS if name in data}
+        if isinstance(data.get("identity"), dict):
+            identity = dict(data["identity"])
+            cv |= {name: identity.pop(name) for name in ("headline", "summary") if name in identity}
+            data["identity"] = identity
+        if cv and isinstance(data.get("searches"), list):
+            data["searches"] = [
+                {"cv": cv, **search} if isinstance(search, dict) else search
+                for search in data["searches"]
+            ]
         return data
 
     @model_validator(mode="after")
@@ -223,4 +247,13 @@ class Profile(Schema):
     def one_active_search(self) -> "Profile":
         if all(search.archived for search in self.searches):
             raise ValueError("Garde au moins une recherche active.")
+        return self
+
+    @model_validator(mode="after")
+    def one_primary_search(self) -> "Profile":
+        """Toujours une seule recherche principale, active : la première active par défaut."""
+        active = [search for search in self.searches if not search.archived]
+        chosen = next((search for search in active if search.primary), active[0])
+        for search in self.searches:
+            search.primary = search is chosen
         return self

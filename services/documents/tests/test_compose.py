@@ -19,7 +19,7 @@ from jobcopilot_documents.schemas import (
     Link,
     Profile,
 )
-from jobcopilot_documents.upstream import fetch_photo
+from jobcopilot_documents.upstream import fetch_photo, search_view
 from jobcopilot_documents.word import cv_to_docx, letter_to_docx
 
 
@@ -230,3 +230,38 @@ def test_word_letter_holds_its_paragraphs(profile, offer):
     text = word_text(letter_to_docx(letter))
     for expected in ("Objet : Candidature", "Madame,", "Un.", "Fin", "Helio", letter.signature):
         assert expected in text
+
+
+def test_search_view_uses_the_cv_of_the_chosen_search():
+    data = {
+        "identity": {"full_name": "Alex"},
+        "languages": [{"name": "Français", "level": "Natif"}],
+        "searches": [
+            {"id": "old", "archived": True, "name": "Old", "cv": {"headline": "Ancien"}},
+            {
+                "id": "nurse",
+                "name": "Soins",
+                "cv": {"headline": "Infirmière", "summary": "Soins.", "skills": [{"name": "A"}]},
+            },
+            {
+                "id": "sales",
+                "name": "Vente",
+                "cv": {"headline": "", "experiences": [{"title": "V"}]},
+            },
+        ],
+    }
+    nurse = search_view(data, "nurse")
+    assert nurse["identity"] == {"full_name": "Alex", "headline": "Infirmière", "summary": "Soins."}
+    assert nurse["skills"] == [{"name": "A"}]
+    assert nurse["languages"] == data["languages"]
+    sales = search_view(data, "sales")
+    assert sales["identity"]["headline"] == "Vente"
+    assert sales["experiences"] == [{"title": "V"}]
+    assert "skills" not in sales
+    # Recherche inconnue ou absente : la première active, jamais une archivée.
+    assert search_view(data, "inconnue")["identity"]["headline"] == "Infirmière"
+    assert search_view(data)["identity"]["headline"] == "Infirmière"
+    # La recherche principale passe avant l'ordre de la liste.
+    data["searches"][2]["primary"] = True
+    assert search_view(data)["identity"]["headline"] == "Vente"
+    assert search_view(data, "nurse")["identity"]["headline"] == "Infirmière"

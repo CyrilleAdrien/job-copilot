@@ -89,6 +89,7 @@ async def remove_photo(session: Session) -> None:
 
 NO_SEARCH = "Recherche introuvable."
 LAST_SEARCH = "Garde au moins une recherche active : crée-en une autre avant."
+ARCHIVED_SEARCH = "Restaure cette recherche avant d'en faire la principale."
 
 
 async def change_search(action) -> Profile:
@@ -98,6 +99,8 @@ async def change_search(action) -> Profile:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NO_SEARCH) from exc
     except repository.LastSearch as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, LAST_SEARCH) from exc
+    except repository.ArchivedSearch as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, ARCHIVED_SEARCH) from exc
 
 
 @router.post("/searches/{search_id}/archive", response_model=Profile)
@@ -109,6 +112,12 @@ async def archive_search(search_id: str, session: Session) -> Profile:
 @router.post("/searches/{search_id}/restore", response_model=Profile)
 async def restore_search(search_id: str, session: Session) -> Profile:
     return await change_search(repository.update_search(session, search_id, archived=False))
+
+
+@router.post("/searches/{search_id}/primary", response_model=Profile)
+async def make_search_primary(search_id: str, session: Session) -> Profile:
+    """Le CV de cette recherche devient celui de la page Profil."""
+    return await change_search(repository.set_primary_search(session, search_id))
 
 
 @router.delete("/searches/{search_id}", response_model=Profile)

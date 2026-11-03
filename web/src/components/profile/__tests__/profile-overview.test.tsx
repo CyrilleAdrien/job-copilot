@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ProfilePhotoCard } from "@/components/profile/profile-photo-card";
 import { ProfileOverview } from "@/components/profile/profile-overview";
-import type { Profile } from "@/lib/profile";
+import { SearchPicker } from "@/components/profile/search-picker";
+import type { CvView } from "@/lib/profile";
 
 vi.mock("@/components/profile/profile-identity", () => ({
   ProfileAvatar: () => null,
@@ -31,7 +32,7 @@ const profile = {
   languages: [{ name: "Anglais", level: "C1" }],
   soft_skills: ["Rigueur"],
   interests: ["Lecture"],
-} as unknown as Profile;
+} as unknown as CvView;
 
 describe("profile overview", () => {
   it("shows the identity and only opens web links", () => {
@@ -115,5 +116,28 @@ describe("CV details", () => {
     expect(screen.getByText("Sam Durand")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Conférences" })).toBeInTheDocument();
     expect(screen.getByText("DevOps Days")).toBeInTheDocument();
+  });
+});
+
+describe("SearchPicker", () => {
+  const searches = [
+    { name: "Soins", archived: false },
+    { name: "Ancienne", archived: true },
+    { name: "Vente", archived: false },
+  ];
+
+  it("is hidden when a single search is active", () => {
+    const { container } = render(<SearchPicker label="CV" searches={searches.slice(0, 2)} value={0} onChange={vi.fn()} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("leaves out archived searches and reports the position in the full list", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<SearchPicker label="CV" searches={searches} value={0} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: "Soins" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: /Ancienne/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Vente" }));
+    expect(onChange).toHaveBeenCalledWith(2);
   });
 });

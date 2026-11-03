@@ -80,13 +80,18 @@ async def test_save_then_read_keeps_order_and_nested_fields(client):
 
     profile = (await client.get("/")).json()
     assert profile["identity"]["full_name"] == "Alex Martin"
-    assert [e["company"] for e in profile["experiences"]] == ["Banque Exemple", "Startup"]
-    assert profile["experiences"][0]["groups"][0]["bullets"] == ["Pipelines CI/CD refondus"]
+    assert [e["company"] for e in profile["searches"][0]["cv"]["experiences"]] == [
+        "Banque Exemple",
+        "Startup",
+    ]
+    assert profile["searches"][0]["cv"]["experiences"][0]["groups"][0]["bullets"] == [
+        "Pipelines CI/CD refondus"
+    ]
     assert [s["id"] for s in profile["searches"]] == ["devops", "data-engineer"]
     assert profile["searches"][1]["match_mode"] == "skills"
     assert profile["searches"][0]["min_skills"] == 2
-    assert profile["certifications"][0]["issuer"] == "CNCF"
-    assert profile["volunteering"][0]["organization"] == "Asso"
+    assert profile["searches"][0]["cv"]["certifications"][0]["issuer"] == "CNCF"
+    assert profile["searches"][1]["cv"]["volunteering"][0]["organization"] == "Asso"
 
 
 async def test_single_search_section_is_still_accepted(client):
@@ -118,7 +123,7 @@ async def test_save_replaces_experiences(client):
     updated = PROFILE | {"experiences": PROFILE["experiences"][1:]}
     await client.put("/", json=updated)
     profile = (await client.get("/")).json()
-    assert [e["company"] for e in profile["experiences"]] == ["Startup"]
+    assert [e["company"] for e in profile["searches"][0]["cv"]["experiences"]] == ["Startup"]
 
 
 async def test_rejects_end_before_start(client):
@@ -139,7 +144,9 @@ async def test_export_then_import_round_trip(client):
     original = (await client.put("/", json=PROFILE)).json()
     exported = await client.get("/export")
     assert exported.headers["content-type"].startswith("application/yaml")
-    assert yaml.safe_load(exported.text)["identity"]["headline"] == "Ingénieur DevOps / SRE"
+    assert (
+        yaml.safe_load(exported.text)["searches"][0]["cv"]["headline"] == "Ingénieur DevOps / SRE"
+    )
 
     await client.delete("/")
     imported = await client.post(
@@ -150,13 +157,13 @@ async def test_export_then_import_round_trip(client):
 
 
 async def test_import_reports_invalid_fields(client):
-    content = yaml.safe_dump({"identity": {"full_name": "A"}, "search": {"roles": []}})
+    content = yaml.safe_dump({"identity": {"email": "faux"}, "search": {"roles": []}})
     response = await client.post(
         "/import", content=content, headers={"content-type": "application/yaml"}
     )
     assert response.status_code == 422
     locations = {error["loc"] for error in response.json()["detail"]["errors"]}
-    assert "identity.headline" in locations
+    assert "identity.full_name" in locations
     assert "searches.0.roles" in locations
 
 
@@ -275,10 +282,11 @@ async def test_cv_details_round_trip(client):
     profile = (await client.get("/")).json()
     assert profile["identity"]["driving_licence"] == "B"
     assert profile["identity"]["birth_date"] == "1998-03-14"
-    assert profile["awards"][0]["title"] == "Prix de l'innovation"
-    assert profile["courses"][0]["institution"] == "Linux Foundation"
-    assert profile["referees"][0]["name"] == "Sam Durand"
-    assert profile["custom_sections"][0]["items"] == ["DevOps Days 2025"]
+    cv = profile["searches"][0]["cv"]
+    assert cv["awards"][0]["title"] == "Prix de l'innovation"
+    assert cv["courses"][0]["institution"] == "Linux Foundation"
+    assert cv["referees"][0]["name"] == "Sam Durand"
+    assert cv["custom_sections"][0]["items"] == ["DevOps Days 2025"]
 
 
 async def test_education_keeps_place_and_dates(client):
@@ -293,11 +301,93 @@ async def test_education_keeps_place_and_dates(client):
     ]
     response = await client.put("/", json={**PROFILE, "education": education})
     assert response.status_code == 200
-    assert response.json()["education"][0]["location"] == "Paris"
-    assert response.json()["education"][0]["end"] == "2026-08"
+    education = response.json()["searches"][0]["cv"]["education"]
+    assert education[0]["location"] == "Paris"
+    assert education[0]["end"] == "2026-08"
 
 
 async def test_invalid_birth_date_is_refused(client):
     identity = {**PROFILE["identity"], "birth_date": "14/03/1998"}
     response = await client.put("/", json={**PROFILE, "identity": identity})
     assert response.status_code == 422
+
+
+async def test_older_shared_cv_is_copied_into_each_search(client):
+    response = await client.put("/", json=PROFILE)
+    assert response.status_code == 200
+    first, second = response.json()["searches"]
+    assert first["cv"] == second["cv"]
+    assert first["cv"]["headline"] == "Ingénieur DevOps / SRE"
+    assert "headline" not in response.json()["identity"]
+    assert "experiences" not in response.json()
+
+
+async def test_each_search_keeps_its_own_cv(client):
+    saved = (await client.put("/", json=PROFILE)).json()
+    saved["searches"][1]["cv"] = {
+        "headline": "Infirmière",
+        "experiences": [{"title": "Infirmière", "company": "CHU", "start": "2020-01"}],
+    }
+    profile = (await client.put("/", json=saved)).json()
+    first, second = profile["searches"]
+    assert second["cv"]["headline"] == "Infirmière"
+    assert second["cv"]["skills"] == []
+    assert first["cv"]["headline"] == "Ingénieur DevOps / SRE"
+    assert [e["company"] for e in first["cv"]["experiences"]] != ["CHU"]
+
+
+async def test_export_then_import_keeps_every_cv(client):
+    saved = (await client.put("/", json=PROFILE)).json()
+    saved["searches"][1]["cv"]["headline"] = "Data Engineer"
+    await client.put("/", json=saved)
+    exported = await client.get("/export")
+    imported = await client.post(
+        "/import", content=exported.text, headers={"content-type": "application/yaml"}
+    )
+    assert imported.status_code == 200
+    assert [s["cv"]["headline"] for s in imported.json()["searches"]] == [
+        "Ingénieur DevOps / SRE",
+        "Data Engineer",
+    ]
+
+
+def primary_ids(profile: dict) -> list[str]:
+    return [search["id"] for search in profile["searches"] if search["primary"]]
+
+
+async def test_first_active_search_is_primary_by_default(client):
+    profile = (await client.put("/", json=PROFILE)).json()
+    assert primary_ids(profile) == ["devops"]
+
+
+async def test_primary_search_can_be_chosen(client):
+    await client.put("/", json=PROFILE)
+    response = await client.post("/searches/data-engineer/primary")
+    assert response.status_code == 200
+    assert primary_ids(response.json()) == ["data-engineer"]
+    assert primary_ids((await client.get("/")).json()) == ["data-engineer"]
+    assert (await client.post("/searches/inconnue/primary")).status_code == 404
+
+
+async def test_archiving_the_primary_search_moves_it_to_an_active_one(client):
+    await client.put("/", json=PROFILE)
+    await client.post("/searches/data-engineer/primary")
+    profile = (await client.post("/searches/data-engineer/archive")).json()
+    assert primary_ids(profile) == ["devops"]
+    # La restaurer ne lui rend pas sa place : le choix reste à la personne.
+    assert primary_ids((await client.post("/searches/data-engineer/restore")).json()) == ["devops"]
+
+
+async def test_archived_search_cannot_be_primary(client):
+    await client.put("/", json=PROFILE)
+    await client.post("/searches/data-engineer/archive")
+    response = await client.post("/searches/data-engineer/primary")
+    assert response.status_code == 409
+    assert "Restaure" in response.json()["detail"]
+
+
+async def test_deleting_the_primary_search_moves_it(client):
+    await client.put("/", json=PROFILE)
+    await client.post("/searches/data-engineer/primary")
+    profile = (await client.delete("/searches/data-engineer")).json()
+    assert primary_ids(profile) == ["devops"]

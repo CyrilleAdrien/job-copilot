@@ -30,7 +30,7 @@ import {
   maxAgeLabels,
   remoteLabels,
   seniorityLabels,
-  type Profile,
+  type CvView,
   formatBirthDate,
   isWebLink,
   type Education,
@@ -52,7 +52,7 @@ export function ProfileView({
   onRestore,
   manageSearches = false,
 }: {
-  profile: Profile;
+  profile: CvView;
   onRestore?: (id: string) => void;
   /** Affiche le bouton « + » pour créer une recherche, vide ou copiée d'une autre. */
   manageSearches?: boolean;
@@ -260,7 +260,7 @@ export function educationPeriod(entry: Education) {
 }
 
 /** Récompenses, formations suivies, références et sections libres : communes aux deux vues du profil. */
-export function ExtraSections({ profile }: { profile: Profile }) {
+export function ExtraSections({ profile }: { profile: CvView }) {
   return (
     <>
       <Entries icon={Trophy} title="Récompenses" items={profile.awards.map((item) => ({ title: item.title, meta: [item.issuer, item.year], description: item.description }))} />
