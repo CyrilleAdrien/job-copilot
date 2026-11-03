@@ -81,7 +81,7 @@ async def run(ctx: Context, generation_id: uuid.UUID, request: GenerationRequest
 
         try:
             offer = await fetch_offer(ctx.http, request.offer_id, request.search)
-            profile = await fetch_profile(ctx.http)
+            profile = await fetch_profile(ctx.http, request.search)
             language = request.language or detect_language(f"{offer.title} {offer.description}")
             row.offer_title, row.company, row.language = offer.title, offer.company, language
             await advance(1)

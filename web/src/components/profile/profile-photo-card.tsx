@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiError, deletePhoto, uploadPhoto } from "@/lib/api";
 import { prepareAvatar } from "@/lib/avatar";
-import { formatBirthDate, paragraphs, isWebLink, type Profile } from "@/lib/profile";
+import { formatBirthDate, paragraphs, isWebLink, type CvView } from "@/lib/profile";
 
 function Contact({ icon: Icon, children }: { icon: ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>; children: ReactNode }) {
   return (
@@ -22,7 +22,7 @@ function Contact({ icon: Icon, children }: { icon: ComponentType<{ className?: s
 }
 
 /** En-tête du profil : photo, identité et coordonnées. La photo s'affiche ensuite sur tout le site. */
-export function ProfilePhotoCard({ profile }: { profile: Profile }) {
+export function ProfilePhotoCard({ profile }: { profile: CvView }) {
   const { identity } = profile;
   const { photoUrl, refresh } = useProfileIdentity();
   const input = useRef<HTMLInputElement>(null);

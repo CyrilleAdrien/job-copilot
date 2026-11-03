@@ -133,13 +133,18 @@ export async function fetchLLMStatus(): Promise<LLMStatus> {
   return json(await fetch(`${BASE}/llm`, { cache: "no-store" }));
 }
 
-/** Le profil entier mis en page comme un CV, sans LLM. `stamp` force un nouveau rendu. */
-export async function fetchProfilePreview(language: Language): Promise<{ pages: number }> {
-  return json(await fetch(`${BASE}/profile-preview?language=${language}`, { cache: "no-store" }));
+const previewQuery = (language: Language, search: string) =>
+  `language=${language}&search=${encodeURIComponent(search)}`;
+
+/** Le CV entier d'une recherche, mis en page sans LLM. `stamp` force un nouveau rendu. */
+export async function fetchProfilePreview(language: Language, search: string): Promise<{ pages: number }> {
+  return json(await fetch(`${BASE}/profile-preview?${previewQuery(language, search)}`, { cache: "no-store" }));
 }
 
-export const profilePreviewPageUrl = (language: Language, page: number, stamp: number) =>
-  `${BASE}/profile-preview/pages/${page}?language=${language}&v=${stamp}`;
+export const profilePreviewPageUrl = (language: Language, page: number, stamp: number, search: string) =>
+  `${BASE}/profile-preview/pages/${page}?${previewQuery(language, search)}&v=${stamp}`;
 
-export const profilePreviewPdfUrl = (language: Language) => `${BASE}/profile-preview/pdf?language=${language}`;
-export const profilePreviewWordUrl = (language: Language) => `${BASE}/profile-preview/docx?language=${language}`;
+export const profilePreviewPdfUrl = (language: Language, search: string) =>
+  `${BASE}/profile-preview/pdf?${previewQuery(language, search)}`;
+export const profilePreviewWordUrl = (language: Language, search: string) =>
+  `${BASE}/profile-preview/docx?${previewQuery(language, search)}`;

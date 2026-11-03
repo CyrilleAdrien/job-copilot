@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
+from sqlalchemy import JSON, DateTime, Integer, LargeBinary, String, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 SCHEMA = "profile"
 Json = JSON().with_variant(JSONB(), "postgresql")
@@ -20,7 +20,6 @@ class ProfileRow(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     full_name: Mapped[str] = mapped_column(String(120))
-    headline: Mapped[str] = mapped_column(String(160))
     email: Mapped[str | None] = mapped_column(String(254))
     phone: Mapped[str | None] = mapped_column(String(40))
     location: Mapped[str | None] = mapped_column(String(120))
@@ -29,29 +28,12 @@ class ProfileRow(Base):
     nationality: Mapped[str | None] = mapped_column(String(60))
     driving_licence: Mapped[str | None] = mapped_column(String(40))
     availability: Mapped[str | None] = mapped_column(String(120))
-    summary: Mapped[str | None] = mapped_column(Text)
     links: Mapped[list] = mapped_column(Json, default=list)
-    education: Mapped[list] = mapped_column(Json, default=list)
-    skills: Mapped[list] = mapped_column(Json, default=list)
     languages: Mapped[list] = mapped_column(Json, default=list)
-    soft_skills: Mapped[list] = mapped_column(Json, default=list)
-    interests: Mapped[list] = mapped_column(Json, default=list)
-    certifications: Mapped[list] = mapped_column(Json, default=list)
-    projects: Mapped[list] = mapped_column(Json, default=list)
-    volunteering: Mapped[list] = mapped_column(Json, default=list)
-    publications: Mapped[list] = mapped_column(Json, default=list)
-    awards: Mapped[list] = mapped_column(Json, default=list)
-    courses: Mapped[list] = mapped_column(Json, default=list)
-    referees: Mapped[list] = mapped_column(Json, default=list)
-    custom_sections: Mapped[list] = mapped_column(Json, default=list)
-    # Profils de recherche, dans l'ordre choisi : lus et écrits toujours ensemble.
+    # Recherches et leur CV, dans l'ordre choisi : lus et écrits toujours ensemble.
     searches: Mapped[list] = mapped_column(Json, default=list)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-    experiences: Mapped[list["ExperienceRow"]] = relationship(
-        order_by="ExperienceRow.position", cascade="all, delete-orphan", lazy="selectin"
     )
 
 
@@ -65,21 +47,3 @@ class PhotoRow(Base):
     data: Mapped[bytes] = mapped_column(LargeBinary)
     content_type: Mapped[str] = mapped_column(String(20))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-
-
-class ExperienceRow(Base):
-    __tablename__ = "experiences"
-    __table_args__ = {"schema": SCHEMA}
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    profile_id: Mapped[int] = mapped_column(ForeignKey(f"{SCHEMA}.profiles.id", ondelete="CASCADE"))
-    position: Mapped[int] = mapped_column(Integer)
-    title: Mapped[str] = mapped_column(String(160))
-    company: Mapped[str] = mapped_column(String(160))
-    location: Mapped[str | None] = mapped_column(String(120))
-    contract: Mapped[str | None] = mapped_column(String(60))
-    start: Mapped[str] = mapped_column(String(7))
-    end: Mapped[str | None] = mapped_column(String(7))
-    context: Mapped[str | None] = mapped_column(Text)
-    groups: Mapped[list] = mapped_column(Json, default=list)
-    technologies: Mapped[list] = mapped_column(Json, default=list)

@@ -238,3 +238,52 @@ async def test_erase_keeps_rows_when_storage_fails(client, storage, monkeypatch)
         await client.delete("/data")
     document = generation["documents"][0]
     assert (await client.get(f"/documents/{document['id']}")).status_code == 200
+
+
+async def two_cvs(upstream, profile_data):
+    """Le service profil renvoie un CV par recherche, pour des métiers sans rapport."""
+    shared = {"identity": profile_data["identity"], "languages": profile_data.get("languages", [])}
+    experience = profile_data["experiences"][0]
+    data = shared | {
+        "searches": [
+            {
+                "id": "soins",
+                "name": "Soins",
+                "contract_types": ["cdi"],
+                "cv": {"headline": "Infirmière", "summary": "Soins.", "experiences": [experience]},
+            },
+            {
+                "id": "vente",
+                "name": "Vente",
+                "contract_types": ["cdd"],
+                "cv": {"headline": "Commerciale", "summary": "Vente.", "experiences": []},
+            },
+        ]
+    }
+    previous = upstream["client"]._transport.handler
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/offers/"):
+            return previous(request)
+        return httpx.Response(200, json=data)
+
+    upstream["client"]._transport.handler = handler
+
+
+async def test_preview_shows_the_cv_of_the_chosen_search(client, upstream, profile_data):
+    await two_cvs(upstream, profile_data)
+    chosen = await client.get("/profile-preview/docx", params={"search": "vente"})
+    assert "Commerciale" in docx_text(chosen.content)
+    assert "Infirmière" not in docx_text(chosen.content)
+    default = await client.get("/profile-preview/docx")
+    assert "Infirmière" in docx_text(default.content)
+
+
+async def test_generation_uses_the_cv_of_the_chosen_search(client, upstream, profile_data):
+    await two_cvs(upstream, profile_data)
+    generation = await generate(client, search="vente")
+    cv = next(item for item in generation["documents"] if item["kind"] == "cv")
+    content = (await client.get(f"/documents/{cv['id']}")).json()["content"]
+    assert content["headline"] == "Commerciale"
+    assert content["experiences"] == []
+    assert content["details"] == ["CDD"]

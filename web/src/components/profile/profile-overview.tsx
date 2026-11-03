@@ -6,7 +6,7 @@ import { useState } from "react";
 import { educationPeriod, Entries, ExtraSections, formatMonth, Section } from "@/components/profile/profile-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { paragraphs, cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type Profile } from "@/lib/profile";
+import { paragraphs, cleanBullet, contractLabels, experienceDuration, previewGroups, remoteLabels, seniorityLabels, skillGroups, totalExperience, type Experience, type CvView } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 const Chip = ({ children }: { children: string }) => (
@@ -61,7 +61,7 @@ function JobDetails({ experience }: { experience: Experience }) {
 }
 
 /** L'essentiel du profil, en un coup d'œil. Le CV complet reste dans son onglet. */
-export function ProfileOverview({ profile, now }: { profile: Profile; now?: Date }) {
+export function ProfileOverview({ profile, now }: { profile: CvView; now?: Date }) {
   const active = profile.searches.filter((search) => !search.archived);
   const skills = skillGroups(profile);
   const skillCount = new Set(skills.flatMap((group) => group.items)).size;

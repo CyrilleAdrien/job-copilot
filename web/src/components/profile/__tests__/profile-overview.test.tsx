@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ProfilePhotoCard } from "@/components/profile/profile-photo-card";
 import { ProfileOverview } from "@/components/profile/profile-overview";
-import type { Profile } from "@/lib/profile";
+import { SearchPicker } from "@/components/profile/search-picker";
+import type { CvView } from "@/lib/profile";
 
 vi.mock("@/components/profile/profile-identity", () => ({
   ProfileAvatar: () => null,
@@ -31,7 +32,7 @@ const profile = {
   languages: [{ name: "Anglais", level: "C1" }],
   soft_skills: ["Rigueur"],
   interests: ["Lecture"],
-} as unknown as Profile;
+} as unknown as CvView;
 
 describe("profile overview", () => {
   it("shows the identity and only opens web links", () => {
@@ -115,5 +116,23 @@ describe("CV details", () => {
     expect(screen.getByText("Sam Durand")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Conférences" })).toBeInTheDocument();
     expect(screen.getByText("DevOps Days")).toBeInTheDocument();
+  });
+});
+
+describe("SearchPicker", () => {
+  const searches = [{ name: "Soins", archived: false }, { name: "Vente", archived: true }];
+
+  it("is hidden with a single search", () => {
+    const { container } = render(<SearchPicker label="CV" searches={[searches[0]]} value={0} onChange={vi.fn()} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("marks the chosen search and reports a new choice", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<SearchPicker label="CV" searches={searches} value={0} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: "Soins" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: /Vente.*archivée/ }));
+    expect(onChange).toHaveBeenCalledWith(1);
   });
 });

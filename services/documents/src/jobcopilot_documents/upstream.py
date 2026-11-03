@@ -10,7 +10,25 @@ class UpstreamError(Exception):
     pass
 
 
-async def fetch_profile(client: httpx.AsyncClient) -> Profile:
+def search_view(data: dict, search: str | None = None) -> dict:
+    """Le profil vu depuis une recherche : les parties communes et le CV de cette recherche."""
+    searches = data.get("searches") or []
+    active = [item for item in searches if not item.get("archived")]
+    chosen = next((item for item in searches if item.get("id") == search), None)
+    chosen = chosen or next(iter(active or searches), None)
+    if chosen is None or "cv" not in chosen:
+        return data
+    cv = dict(chosen["cv"])
+    headline, summary = cv.pop("headline", ""), cv.pop("summary", None)
+    identity = {
+        **data["identity"],
+        "headline": headline or chosen.get("name", ""),
+        "summary": summary,
+    }
+    return {**data, **cv, "identity": identity}
+
+
+async def fetch_profile(client: httpx.AsyncClient, search: str | None = None) -> Profile:
     try:
         response = await client.get(f"{get_documents_settings().profile_url}/")
     except httpx.HTTPError as exc:
@@ -19,7 +37,7 @@ async def fetch_profile(client: httpx.AsyncClient) -> Profile:
         raise UpstreamError("Configure ton profil avant de générer un CV.")
     if response.status_code != 200:
         raise UpstreamError("Service profil indisponible.")
-    return Profile.model_validate(response.json())
+    return Profile.model_validate(search_view(response.json(), search))
 
 
 def is_image(data: bytes) -> bool:

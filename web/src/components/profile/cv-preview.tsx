@@ -21,8 +21,8 @@ const languages: { value: Language; label: string }[] = [
   { value: "en", label: "English" },
 ];
 
-/** Le profil enregistré, mis en page avec le template de CV, tel qu'il sortirait sans ciblage. */
-export function CvPreview({ stamp }: { stamp: number }) {
+/** Le CV enregistré d'une recherche, mis en page avec le template, tel qu'il sortirait sans ciblage. */
+export function CvPreview({ stamp, search }: { stamp: number; search: string }) {
   const [language, setLanguage] = useState<Language>("fr");
   const [pages, setPages] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -30,10 +30,10 @@ export function CvPreview({ stamp }: { stamp: number }) {
   useEffect(() => {
     setPages(null);
     setFailed(false);
-    fetchProfilePreview(language)
+    fetchProfilePreview(language, search)
       .then((preview) => setPages(preview.pages))
       .catch(() => setFailed(true));
-  }, [language, stamp]);
+  }, [language, stamp, search]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,13 +41,13 @@ export function CvPreview({ stamp }: { stamp: number }) {
         <SegmentedControl label="Langue des titres" segments={languages} value={language} onChange={setLanguage} />
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" size="sm" asChild>
-            <a href={profilePreviewPdfUrl(language)} download="CV.pdf">
+            <a href={profilePreviewPdfUrl(language, search)} download="CV.pdf">
               <Download aria-hidden />
               Télécharger le PDF
             </a>
           </Button>
           <Button variant="secondary" size="sm" asChild>
-            <a href={profilePreviewWordUrl(language)} download="CV.docx">
+            <a href={profilePreviewWordUrl(language, search)} download="CV.docx">
               <Download aria-hidden />
               Télécharger le Word
             </a>
@@ -67,7 +67,7 @@ export function CvPreview({ stamp }: { stamp: number }) {
           {Array.from({ length: pages }, (_, index) => (
             <Page
               key={`${language}-${stamp}-${index}`}
-              src={profilePreviewPageUrl(language, index + 1, stamp)}
+              src={profilePreviewPageUrl(language, index + 1, stamp, search)}
               label={`CV, page ${index + 1}`}
             />
           ))}

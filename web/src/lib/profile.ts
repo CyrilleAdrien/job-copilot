@@ -70,24 +70,13 @@ export type SearchProfile = {
   min_skills: number;
   /** Masquée de l'écran Offres, gardée au profil. */
   archived: boolean;
+  cv: SearchCv;
 };
 
-export type Profile = {
-  identity: {
-    full_name: string;
-    headline: string;
-    email?: string | null;
-    phone?: string | null;
-    location?: string | null;
-    address?: string | null;
-    birth_date?: string | null;
-    nationality?: string | null;
-    driving_licence?: string | null;
-    availability?: string | null;
-    summary?: string | null;
-    links: Link[];
-  };
-  searches: SearchProfile[];
+/** Le CV d'une recherche : deux recherches peuvent viser des métiers sans rapport. */
+export type SearchCv = {
+  headline: string;
+  summary?: string | null;
   experiences: Experience[];
   education: Education[];
   skills: SkillCategory[];
@@ -99,9 +88,35 @@ export type Profile = {
   courses: Course[];
   referees: Referee[];
   custom_sections: CustomSection[];
-  languages: Language[];
   soft_skills: string[];
   interests: string[];
+};
+
+/** Ce qui est commun à toutes les recherches. */
+export type Identity = {
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  address?: string | null;
+  birth_date?: string | null;
+  nationality?: string | null;
+  driving_licence?: string | null;
+  availability?: string | null;
+  links: Link[];
+};
+
+export type Profile = {
+  identity: Identity;
+  searches: SearchProfile[];
+  languages: Language[];
+};
+
+/** Le profil vu depuis une recherche : les parties communes et le CV de cette recherche. */
+export type CvView = Omit<SearchCv, "headline" | "summary"> & {
+  identity: Identity & Pick<SearchCv, "headline" | "summary">;
+  searches: SearchProfile[];
+  languages: Language[];
 };
 
 export const seniorityLabels: Record<Seniority, string> = {
@@ -139,10 +154,10 @@ export const maxAgeLabels: Record<MaxAgeDays, string> = {
   30: "30 j",
 };
 
-export function emptyProfile(): Profile {
+export function emptyCv(): SearchCv {
   return {
-    identity: { full_name: "", headline: "", email: "", phone: "", location: "", address: "", birth_date: "", nationality: "", driving_licence: "", availability: "", summary: "", links: [] },
-    searches: [emptySearch("Principal")],
+    headline: "",
+    summary: "",
     experiences: [],
     education: [],
     skills: [],
@@ -154,9 +169,46 @@ export function emptyProfile(): Profile {
     courses: [],
     referees: [],
     custom_sections: [],
-    languages: [],
     soft_skills: [],
     interests: [],
+  };
+}
+
+export function emptyProfile(): Profile {
+  return {
+    identity: { full_name: "", email: "", phone: "", location: "", address: "", birth_date: "", nationality: "", driving_licence: "", availability: "", links: [] },
+    searches: [emptySearch("Principal")],
+    languages: [],
+  };
+}
+
+/** La position de la première recherche active : celle qu'on affiche par défaut. */
+export function firstActiveSearch(profile: Pick<Profile, "searches">) {
+  return Math.max(0, profile.searches.findIndex((search) => !search.archived));
+}
+
+export function cvView(profile: Profile, index: number): CvView {
+  const search = profile.searches[Math.min(index, profile.searches.length - 1)];
+  const { headline, summary, ...sections } = search.cv;
+  return {
+    ...sections,
+    identity: { ...profile.identity, headline, summary },
+    searches: profile.searches,
+    languages: profile.languages,
+  };
+}
+
+/** Reporte une vue modifiée dans le profil : le CV dans sa recherche, le reste dans les parties communes. */
+export function applyCvView(view: CvView, index: number): Profile {
+  const { identity, searches, languages, ...sections } = view;
+  const { headline, summary, ...common } = identity;
+  const target = Math.min(index, searches.length - 1);
+  return {
+    identity: common,
+    languages,
+    searches: searches.map((search, position) =>
+      position === target ? { ...search, cv: { ...sections, headline, summary } } : search,
+    ),
   };
 }
 
@@ -179,6 +231,7 @@ export function emptySearch(name = ""): SearchProfile {
     focus_skills: [],
     min_skills: 2,
     archived: false,
+    cv: emptyCv(),
   };
 }
 
@@ -197,8 +250,8 @@ export function addSearch(profile: Profile, from?: string | number): number {
 }
 
 /** Compétences proposées pour le mode « Mes compétences » : technos de la recherche et du profil. */
-export function skillPool(profile: Profile, search: SearchProfile): string[] {
-  const all = [...search.technologies, ...profile.skills.flatMap((category) => category.items)];
+export function skillPool(search: SearchProfile): string[] {
+  const all = [...search.technologies, ...search.cv.skills.flatMap((category) => category.items)];
   return all.filter((item, index) => all.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index);
 }
 
@@ -209,6 +262,51 @@ export function emptyExperience(): Experience {
 const blank = (value: string | null | undefined) => (value && value.trim() ? value.trim() : null);
 
 /** Nettoie le formulaire avant envoi : chaînes vides en null, lignes vides retirées. */
+function cleanCv(cv: SearchCv): SearchCv {
+  return {
+    ...cv,
+    summary: blank(cv.summary),
+    experiences: cv.experiences.map((experience) => ({
+      ...experience,
+      location: blank(experience.location),
+      contract: blank(experience.contract),
+      end: blank(experience.end),
+      context: blank(experience.context),
+      groups: experience.groups
+        .map((group) => ({ title: blank(group.title), bullets: joinBullets(group.bullets) }))
+        .filter((group) => group.title || group.bullets.length),
+    })),
+    education: cv.education
+      .filter((entry) => entry.degree.trim() && entry.school.trim())
+      .map((entry) => ({ ...entry, location: blank(entry.location), start: blank(entry.start), end: blank(entry.end), details: blank(entry.details) })),
+    certifications: cv.certifications
+      .filter((item) => item.name.trim())
+      .map((item) => ({ ...item, issuer: blank(item.issuer), url: blank(item.url) })),
+    projects: cv.projects
+      .filter((item) => item.name.trim())
+      .map((item) => ({ ...item, description: blank(item.description), url: blank(item.url) })),
+    volunteering: cv.volunteering
+      .filter((item) => item.role.trim() && item.organization.trim())
+      .map((item) => ({ ...item, start: blank(item.start), end: blank(item.end), description: blank(item.description) })),
+    publications: cv.publications
+      .filter((item) => item.title.trim())
+      .map((item) => ({ ...item, publisher: blank(item.publisher), url: blank(item.url) })),
+    awards: cv.awards
+      .filter((item) => item.title.trim())
+      .map((item) => ({ ...item, issuer: blank(item.issuer), description: blank(item.description) })),
+    courses: cv.courses
+      .filter((item) => item.name.trim())
+      .map((item) => ({ ...item, institution: blank(item.institution) })),
+    referees: cv.referees
+      .filter((item) => item.name.trim())
+      .map((item) => ({ ...item, role: blank(item.role), company: blank(item.company), email: blank(item.email), phone: blank(item.phone) })),
+    custom_sections: cv.custom_sections
+      .map((section) => ({ title: section.title.trim(), items: section.items.map((item) => item.trim()).filter(Boolean) }))
+      .filter((section) => section.title),
+    skills: cv.skills.filter((category) => category.name.trim() && category.items.length),
+  };
+}
+
 export function toPayload(profile: Profile): Profile {
   const { identity } = profile;
   return {
@@ -223,52 +321,14 @@ export function toPayload(profile: Profile): Profile {
       nationality: blank(identity.nationality),
       driving_licence: blank(identity.driving_licence),
       availability: blank(identity.availability),
-      summary: blank(identity.summary),
       links: identity.links.filter((link) => link.label.trim() && link.url.trim()),
     },
-    experiences: profile.experiences.map((experience) => ({
-      ...experience,
-      location: blank(experience.location),
-      contract: blank(experience.contract),
-      end: blank(experience.end),
-      context: blank(experience.context),
-      groups: experience.groups
-        .map((group) => ({ title: blank(group.title), bullets: joinBullets(group.bullets) }))
-        .filter((group) => group.title || group.bullets.length),
-    })),
     searches: profile.searches.map((search) => ({
       ...search,
       name: search.name.trim() || "Recherche",
       min_skills: Math.max(1, Math.min(search.min_skills, 10)),
+      cv: cleanCv(search.cv),
     })),
-    education: profile.education
-      .filter((entry) => entry.degree.trim() && entry.school.trim())
-      .map((entry) => ({ ...entry, location: blank(entry.location), start: blank(entry.start), end: blank(entry.end), details: blank(entry.details) })),
-    certifications: profile.certifications
-      .filter((item) => item.name.trim())
-      .map((item) => ({ ...item, issuer: blank(item.issuer), url: blank(item.url) })),
-    projects: profile.projects
-      .filter((item) => item.name.trim())
-      .map((item) => ({ ...item, description: blank(item.description), url: blank(item.url) })),
-    volunteering: profile.volunteering
-      .filter((item) => item.role.trim() && item.organization.trim())
-      .map((item) => ({ ...item, start: blank(item.start), end: blank(item.end), description: blank(item.description) })),
-    publications: profile.publications
-      .filter((item) => item.title.trim())
-      .map((item) => ({ ...item, publisher: blank(item.publisher), url: blank(item.url) })),
-    awards: profile.awards
-      .filter((item) => item.title.trim())
-      .map((item) => ({ ...item, issuer: blank(item.issuer), description: blank(item.description) })),
-    courses: profile.courses
-      .filter((item) => item.name.trim())
-      .map((item) => ({ ...item, institution: blank(item.institution) })),
-    referees: profile.referees
-      .filter((item) => item.name.trim())
-      .map((item) => ({ ...item, role: blank(item.role), company: blank(item.company), email: blank(item.email), phone: blank(item.phone) })),
-    custom_sections: profile.custom_sections
-      .map((section) => ({ title: section.title.trim(), items: section.items.map((item) => item.trim()).filter(Boolean) }))
-      .filter((section) => section.title),
-    skills: profile.skills.filter((category) => category.name.trim() && category.items.length),
     languages: profile.languages.filter((language) => language.name.trim() && language.level.trim()),
   };
 }
@@ -280,7 +340,6 @@ const yearMonth = /^\d{4}-(0[1-9]|1[0-2])$/;
 export function validateIdentity(profile: Profile): StepErrors {
   const errors: StepErrors = {};
   if (!profile.identity.full_name.trim()) errors.full_name = "Indique ton nom.";
-  if (!profile.identity.headline.trim()) errors.headline = "Indique le titre qui apparaîtra sur ton CV.";
   const email = profile.identity.email?.trim();
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) errors.email = "Adresse e-mail invalide.";
   return errors;
@@ -301,7 +360,7 @@ export function validateSearch(profile: Profile): StepErrors {
   return errors;
 }
 
-export function validateBackground(profile: Profile): StepErrors {
+export function validateBackground(profile: CvView): StepErrors {
   const errors: StepErrors = {};
   const checkDates = (section: "volunteering" | "education") =>
     profile[section].forEach((item, index) => {
@@ -319,8 +378,9 @@ export function validateBackground(profile: Profile): StepErrors {
   return errors;
 }
 
-export function validateExperiences(profile: Profile): StepErrors {
+export function validateExperiences(profile: CvView): StepErrors {
   const errors: StepErrors = {};
+  if (!profile.identity.headline.trim()) errors.headline = "Indique le titre qui apparaîtra sur ce CV.";
   profile.experiences.forEach((experience, index) => {
     if (!experience.title.trim()) errors[`${index}.title`] = "Poste requis.";
     if (!experience.company.trim()) errors[`${index}.company`] = "Entreprise requise.";
@@ -373,7 +433,7 @@ export function totalExperience(experiences: Pick<Experience, "start" | "end">[]
 }
 
 /** Compétences à montrer : celles du profil ; à défaut, les technologies citées dans les expériences. */
-export function skillGroups(profile: Pick<Profile, "skills" | "experiences">) {
+export function skillGroups(profile: Pick<CvView, "skills" | "experiences">) {
   if (profile.skills.length > 0) return profile.skills;
   const items = [...new Set(profile.experiences.flatMap((experience) => experience.technologies))];
   return items.length ? [{ name: "Technologies", items }] : [];

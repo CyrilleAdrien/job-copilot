@@ -31,22 +31,25 @@ import {
   type Seniority,
   type StepErrors,
   joinBullets,
+  type CvView,
 } from "@/lib/profile";
 import * as suggestions from "@/lib/suggestions";
 import { cn } from "@/lib/utils";
 
-export type StepProps = {
-  profile: Profile;
-  update: (recipe: (draft: Profile) => void) => void;
+export type StepProps<P = CvView> = {
+  profile: P;
+  update: (recipe: (draft: P) => void) => void;
   errors: StepErrors;
   /** Recherche à ouvrir d'emblée (étape Recherches). */
   focus?: number;
+  /** Signale la recherche ouverte : ses étapes de CV s'ouvrent ensuite sur elle. */
+  onSelect?: (index: number) => void;
 };
 
 const options = <T extends string | number>(labels: Record<T, string>) =>
   (Object.entries(labels) as [string, string][]).map(([value, label]) => ({ value: value as `${T}`, label }));
 
-export function IdentityStep({ profile, update, errors }: StepProps) {
+export function IdentityStep({ profile, update, errors }: StepProps<Profile>) {
   const { identity } = profile;
   const set = (field: keyof Profile["identity"]) => (event: { target: { value: string } }) =>
     update((draft) => {
@@ -56,13 +59,6 @@ export function IdentityStep({ profile, update, errors }: StepProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Input label="Nom complet" value={identity.full_name} onChange={set("full_name")} error={errors.full_name} autoComplete="name" />
-      <Input
-        label="Titre du CV"
-        value={identity.headline}
-        onChange={set("headline")}
-        error={errors.headline}
-        placeholder="Ingénieur DevOps / SRE"
-      />
       <Input label="E-mail" type="email" value={identity.email ?? ""} onChange={set("email")} error={errors.email} autoComplete="email" />
       <Input label="Téléphone" value={identity.phone ?? ""} onChange={set("phone")} autoComplete="tel" />
       <Combobox
@@ -77,14 +73,6 @@ export function IdentityStep({ profile, update, errors }: StepProps) {
       <Input label="Permis de conduire" value={identity.driving_licence ?? ""} onChange={set("driving_licence")} placeholder="B (vide si aucun)" />
       <Input label="Date de naissance" type="date" value={identity.birth_date ?? ""} onChange={set("birth_date")} autoComplete="bday" />
       <Input label="Nationalité" value={identity.nationality ?? ""} onChange={set("nationality")} placeholder="Facultatif" />
-      <div className="md:col-span-2">
-        <Textarea
-          label="Résumé du profil"
-          value={identity.summary ?? ""}
-          onChange={set("summary")}
-          hint="Trois à cinq phrases. Il sert de base au paragraphe « Profil » du CV."
-        />
-      </div>
       <div className="flex flex-col gap-3 md:col-span-2">
         <span className="text-[13px] font-medium">Liens</span>
         <AnimatePresence initial={false}>
@@ -120,7 +108,7 @@ export function IdentityStep({ profile, update, errors }: StepProps) {
   );
 }
 
-export function SearchStep({ profile, update, errors, focus }: StepProps) {
+export function SearchStep({ profile, update, errors, focus, onSelect }: StepProps<Profile>) {
   const [selected, setSelected] = useState(focus ?? 0);
   const firstError = Object.keys(errors)[0];
 
@@ -130,7 +118,12 @@ export function SearchStep({ profile, update, errors, focus }: StepProps) {
 
   const index = Math.min(selected, profile.searches.length - 1);
   const search = profile.searches[index];
-  const pool = skillPool(profile, search);
+  const pool = skillPool(search);
+
+  useEffect(() => {
+    onSelect?.(index);
+  }, [index, onSelect]);
+
   const set = (recipe: (draft: SearchProfile) => void) => update((draft) => recipe(draft.searches[index]));
   const error = (field: string) => errors[`${index}.${field}`];
 
@@ -412,8 +405,22 @@ function MatchSettings({
 }
 
 export function ExperiencesStep({ profile, update, errors }: StepProps) {
+  const { identity } = profile;
   return (
     <div className="flex flex-col gap-4">
+      <Input
+        label="Titre du CV"
+        value={identity.headline}
+        onChange={(event) => update((draft) => void (draft.identity.headline = event.target.value))}
+        error={errors.headline}
+        placeholder="Le poste que vise ce CV"
+      />
+      <Textarea
+        label="Résumé du profil"
+        value={identity.summary ?? ""}
+        onChange={(event) => update((draft) => void (draft.identity.summary = event.target.value))}
+        hint="Trois à cinq phrases. Il sert de base au paragraphe « Profil » de ce CV."
+      />
       <AnimatePresence initial={false}>
         {profile.experiences.map((experience, index) => (
           <motion.div

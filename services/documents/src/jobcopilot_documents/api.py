@@ -220,32 +220,38 @@ async def update_content(
     return DocumentDetail.model_validate(row, from_attributes=True)
 
 
-async def profile_cv(ctx: Ctx, language: Language) -> CvContent:
-    """Le profil complet mis en page comme un CV, sans LLM ni offre."""
+async def profile_cv(ctx: Ctx, language: Language, search: str | None = None) -> CvContent:
+    """Le CV complet d'une recherche, mis en page sans LLM ni offre."""
     try:
-        profile = await fetch_profile(ctx.http)
+        profile = await fetch_profile(ctx.http, search)
     except UpstreamError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-    return build_cv(profile, list(range(len(profile.experiences))), None, language)
+    return build_cv(profile, list(range(len(profile.experiences))), None, language, search)
 
 
 @router.get("/profile-preview", response_model=ProfilePreview)
-async def profile_preview(ctx: Ctx, language: Language = "fr") -> ProfilePreview:
-    cv = await profile_cv(ctx, language)
+async def profile_preview(
+    ctx: Ctx, language: Language = "fr", search: str | None = None
+) -> ProfilePreview:
+    cv = await profile_cv(ctx, language, search)
     _, pages = await render(pipeline.TEMPLATES["cv"], cv, await pipeline.photo_for(ctx, cv))
     return ProfilePreview(pages=pages)
 
 
 @router.get("/profile-preview/pdf")
-async def profile_preview_pdf(ctx: Ctx, language: Language = "fr") -> Response:
-    cv = await profile_cv(ctx, language)
+async def profile_preview_pdf(
+    ctx: Ctx, language: Language = "fr", search: str | None = None
+) -> Response:
+    cv = await profile_cv(ctx, language, search)
     pdf, _ = await render(pipeline.TEMPLATES["cv"], cv, await pipeline.photo_for(ctx, cv))
     return Response(pdf, media_type="application/pdf", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/profile-preview/docx")
-async def profile_preview_docx(ctx: Ctx, language: Language = "fr") -> Response:
-    cv = await profile_cv(ctx, language)
+async def profile_preview_docx(
+    ctx: Ctx, language: Language = "fr", search: str | None = None
+) -> Response:
+    cv = await profile_cv(ctx, language, search)
     data = await asyncio.to_thread(cv_to_docx, cv, await pipeline.photo_for(ctx, cv))
     headers = {
         "Content-Disposition": 'attachment; filename="CV.docx"',
@@ -255,8 +261,10 @@ async def profile_preview_docx(ctx: Ctx, language: Language = "fr") -> Response:
 
 
 @router.get("/profile-preview/pages/{page}")
-async def profile_preview_page(ctx: Ctx, page: int, language: Language = "fr") -> Response:
-    cv = await profile_cv(ctx, language)
+async def profile_preview_page(
+    ctx: Ctx, page: int, language: Language = "fr", search: str | None = None
+) -> Response:
+    cv = await profile_cv(ctx, language, search)
     photo = await pipeline.photo_for(ctx, cv)
     image = await render_page(pipeline.TEMPLATES["cv"], cv, page, photo)
     if image is None:
