@@ -17,7 +17,7 @@ from jobcopilot_documents import pipeline
 from jobcopilot_documents.compose import build_cv
 from jobcopilot_documents.deps import Ctx, get_llm
 from jobcopilot_documents.models import DocumentRow, GenerationRow
-from jobcopilot_documents.render import RenderError, render, render_page, render_pages_sync
+from jobcopilot_documents.render import RenderError, render, render_page, render_svg_pages_sync
 from jobcopilot_documents.schemas import (
     CvContent,
     DocumentDetail,
@@ -41,7 +41,11 @@ router = APIRouter(tags=["documents"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 CONTENT = {"cv": CvContent, "letter": LetterContent}
 POLL_SECONDS = 0.4
-PREVIEW_PPI = 120
+# Un SVG servi seul ne doit rien pouvoir exécuter, même ouvert dans un onglet.
+SVG_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+    "X-Content-Type-Options": "nosniff",
+}
 HEARTBEAT_SECONDS = 15
 
 
@@ -185,7 +189,7 @@ async def read_docx(document_id: uuid.UUID, session: Session, ctx: Ctx) -> Respo
 
 @router.get("/documents/{document_id}/pages/{page}")
 async def read_page(document_id: uuid.UUID, page: int, session: Session, ctx: Ctx) -> Response:
-    """Aperçu PNG d'une page, rendu à la volée depuis le contenu enregistré."""
+    """Aperçu SVG d'une page, rendu à la volée depuis le contenu enregistré."""
     row = await load_document(session, document_id)
     model = CONTENT[row.kind].model_validate(row.content)
     photo = await pipeline.photo_for(ctx, model)
@@ -193,7 +197,9 @@ async def read_page(document_id: uuid.UUID, page: int, session: Session, ctx: Ct
     if image is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Page introuvable.")
     return Response(
-        image, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"}
+        image,
+        media_type="image/svg+xml",
+        headers={**SVG_HEADERS, "Cache-Control": "private, max-age=3600"},
     )
 
 
@@ -207,7 +213,7 @@ async def preview_content(
         model = CONTENT[row.kind].model_validate(content)
         photo = await pipeline.photo_for(ctx, model)
         pages = await asyncio.to_thread(
-            render_pages_sync, pipeline.TEMPLATES[row.kind], model, PREVIEW_PPI, photo
+            render_svg_pages_sync, pipeline.TEMPLATES[row.kind], model, photo
         )
     except ValidationError as exc:
         errors = json.loads(exc.json(include_url=False, include_context=False))
@@ -292,7 +298,9 @@ async def profile_preview_page(
     image = await render_page(pipeline.TEMPLATES["cv"], cv, page, photo)
     if image is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Page introuvable.")
-    return Response(image, media_type="image/png", headers={"Cache-Control": "no-store"})
+    return Response(
+        image, media_type="image/svg+xml", headers={**SVG_HEADERS, "Cache-Control": "no-store"}
+    )
 
 
 @router.get("/llm", response_model=LLMStatus)

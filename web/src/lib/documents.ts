@@ -137,7 +137,7 @@ export async function previewCv(id: string, content: CvContent): Promise<string[
       body: JSON.stringify(content),
     }),
   );
-  return preview.pages.map((page) => `data:image/png;base64,${page}`);
+  return preview.pages.map((page) => `data:image/svg+xml;base64,${page}`);
 }
 
 export async function fetchLetter(id: string): Promise<LetterContent> {

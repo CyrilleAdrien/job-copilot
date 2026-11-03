@@ -43,7 +43,7 @@ def render_sync(template: str, content: BaseModel, photo: bytes | None = None) -
 def render_pages_sync(
     template: str, content: BaseModel, ppi: int = 144, photo: bytes | None = None
 ) -> list[bytes]:
-    """Une image PNG par page, pour l'aperçu dans l'application."""
+    """Une image PNG par page : ne sert plus qu'à compter les pages, à très basse définition."""
     pages = compile_typst(template, content, photo, format="png", ppi=ppi)
     return pages if isinstance(pages, list) else [pages]
 
@@ -57,8 +57,16 @@ async def render(
     return pdf, len(pages)
 
 
+def render_svg_pages_sync(
+    template: str, content: BaseModel, photo: bytes | None = None
+) -> list[bytes]:
+    """L'aperçu dans l'application : du vectoriel, net à tous les zooms et sur tous les écrans."""
+    pages = compile_typst(template, content, photo, format="svg")
+    return pages if isinstance(pages, list) else [pages]
+
+
 async def render_page(
     template: str, content: BaseModel, page: int, photo: bytes | None = None
 ) -> bytes | None:
-    pages = await asyncio.to_thread(render_pages_sync, template, content, 144, photo)
+    pages = await asyncio.to_thread(render_svg_pages_sync, template, content, photo)
     return pages[page - 1] if 1 <= page <= len(pages) else None

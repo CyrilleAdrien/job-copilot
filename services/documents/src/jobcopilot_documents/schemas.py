@@ -380,7 +380,7 @@ class Generation(BaseModel):
 
 
 class DocumentPreview(BaseModel):
-    pages: list[str] = Field(description="Une image PNG par page, en base64")
+    pages: list[str] = Field(description="Une image SVG par page, en base64")
 
 
 class DocumentDetail(DocumentInfo):

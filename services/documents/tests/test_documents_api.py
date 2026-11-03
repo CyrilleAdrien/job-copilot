@@ -118,13 +118,14 @@ async def test_word_version_follows_edits(client):
     assert "Paragraphe corrigé à la main." in docx_text(response.content)
 
 
-async def test_pages_are_previewed_as_png(client):
+async def test_pages_are_previewed_as_svg(client):
     generation = await generate(client)
     cv = generation["documents"][0]
     assert cv["pages"] == 1
     response = await client.get(f"/documents/{cv['id']}/pages/1")
-    assert response.headers["content-type"] == "image/png"
-    assert response.content.startswith(b"\x89PNG")
+    assert response.headers["content-type"] == "image/svg+xml"
+    assert response.content.lstrip().startswith(b"<svg")
+    assert "default-src 'none'" in response.headers["content-security-policy"]
     assert (await client.get(f"/documents/{cv['id']}/pages/2")).status_code == 404
 
 
@@ -198,7 +199,7 @@ async def test_profile_preview_renders_the_whole_profile(client):
     pdf = await client.get("/profile-preview/pdf", params={"language": "en"})
     assert pdf.content.startswith(b"%PDF")
     page = await client.get("/profile-preview/pages/1")
-    assert page.headers["content-type"] == "image/png"
+    assert page.headers["content-type"] == "image/svg+xml"
     assert (await client.get("/profile-preview/pages/9")).status_code == 404
     word = await client.get("/profile-preview/docx", params={"language": "en"})
     assert word.headers["content-type"] == WORD_TYPE
@@ -297,7 +298,7 @@ async def test_preview_renders_without_saving(client):
     edited = {**content, "headline": "Titre corrigé", "summary": "Un **résumé** en gras."}
     response = await client.post(f"/documents/{cv['id']}/preview", json=edited)
     assert response.status_code == 200
-    assert base64.b64decode(response.json()["pages"][0]).startswith(b"\x89PNG")
+    assert base64.b64decode(response.json()["pages"][0]).lstrip().startswith(b"<svg")
     detail = (await client.get(f"/documents/{cv['id']}")).json()
     assert detail["version"] == cv["version"]
     assert detail["content"]["headline"] == content["headline"]
