@@ -167,7 +167,7 @@ export function GenerationPanel({
 
           {view === "options" && (
             <>
-              <SearchPicker label="CV de la recherche" searches={searches} value={searchIndex} onChange={setSearchIndex} />
+              <SearchPicker label="CV de la recherche" showLabel searches={searches} value={searchIndex} onChange={setSearchIndex} />
               <Switch
                 checked={withLetter}
                 onChange={setWithLetter}

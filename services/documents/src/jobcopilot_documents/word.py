@@ -16,7 +16,7 @@ from docx.shared import Cm, Pt, RGBColor
 from docx.table import _Cell
 from docx.text.paragraph import Paragraph
 
-from jobcopilot_documents.schemas import ContactItem, CvContent, LetterContent
+from jobcopilot_documents.schemas import ContactItem, CvContent, CvSection, LetterContent
 
 CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 FONT = "Calibri"
@@ -206,6 +206,93 @@ def to_bytes(document) -> bytes:
     return buffer.getvalue()
 
 
+def add_profile(document, cv: CvContent, title: str, _width: float) -> None:
+    if not cv.summary:
+        return
+    add_section(document, title)
+    for part in cv.summary.split("\n"):
+        if part.strip():
+            document.add_paragraph(part.strip())
+
+
+def add_skills(document, cv: CvContent, title: str, _width: float) -> None:
+    if not cv.skills:
+        return
+    add_section(document, title)
+    for category in cv.skills:
+        labeled(document, category.name, ", ".join(category.items))
+
+
+def add_experience(document, cv: CvContent, title: str, width: float) -> None:
+    if not cv.experiences:
+        return
+    add_section(document, title)
+    for experience in cv.experiences:
+        line_with_date(document, experience.title, experience.period, width)
+        where = document.add_paragraph()
+        where.paragraph_format.keep_with_next = True
+        parts = [experience.company, experience.location]
+        add_muted(where, " · ".join(part for part in parts if part))
+        if experience.context:
+            document.add_paragraph(experience.context)
+        for group in experience.groups:
+            if group.title:
+                heading = document.add_paragraph()
+                heading.paragraph_format.keep_with_next = True
+                heading.paragraph_format.space_before = Pt(6)
+                heading.add_run(group.title).bold = True
+            for bullet in group.bullets:
+                document.add_paragraph(bullet, style="List Bullet")
+
+
+def add_education(document, cv: CvContent, title: str, width: float) -> None:
+    if not cv.education:
+        return
+    add_section(document, title)
+    for item in cv.education:
+        when = item.period or (str(item.year) if item.year else None)
+        line_with_date(document, item.degree, when, width)
+        add_muted(
+            document.add_paragraph(),
+            " · ".join(part for part in (item.school, item.location) if part),
+        )
+        if item.details:
+            document.add_paragraph(item.details)
+
+
+def add_extras(document, cv: CvContent, title: str, _width: float) -> None:
+    if not cv.extras:
+        return
+    add_section(document, title)
+    for line in cv.extras:
+        labeled(document, line.label, line.text)
+
+
+MAIN_BLOCKS = {
+    "profile": add_profile,
+    "skills": add_skills,
+    "experience": add_experience,
+    "education": add_education,
+    "extras": add_extras,
+}
+
+
+def add_other_section(document, section: CvSection) -> None:
+    add_section(document, section.title)
+    for entry in section.entries:
+        paragraph = document.add_paragraph()
+        if entry.url:
+            add_link(paragraph, entry.title, entry.url, bold=True)
+        else:
+            paragraph.add_run(entry.title).bold = True
+        if entry.meta:
+            add_muted(paragraph, " · " + " · ".join(entry.meta))
+        if entry.text:
+            document.add_paragraph(entry.text)
+    for bullet in section.bullets:
+        document.add_paragraph(bullet, style="List Bullet")
+
+
 def cv_to_docx(cv: CvContent, photo: bytes | None = None) -> bytes:
     labels = LABELS[cv.language]
     width = 21 - 2 * 1.6
@@ -216,67 +303,25 @@ def cv_to_docx(cv: CvContent, photo: bytes | None = None) -> bytes:
         notes.append(f"{labels['available']} : {cv.highlight}")
     add_cv_header(document, cv, photo, " · ".join(notes) or None)
 
-    if cv.summary:
-        add_section(document, labels["profile"])
-        for part in cv.summary.split("\n"):
-            if part.strip():
-                document.add_paragraph(part.strip())
+    def main_block(key: str) -> None:
+        MAIN_BLOCKS[key](document, cv, cv.titles.get(key, labels[key]), width)
 
-    if cv.skills:
-        add_section(document, labels["skills"])
-        for category in cv.skills:
-            labeled(document, category.name, ", ".join(category.items))
+    if not cv.order:
+        # Les documents enregistrés avant le choix de l'ordre gardent l'ordre classique.
+        for key in ("profile", "skills", "experience", "education"):
+            main_block(key)
+        for section in cv.sections:
+            add_other_section(document, section)
+        main_block("extras")
+        return to_bytes(document)
 
-    if cv.experiences:
-        add_section(document, labels["experience"])
-        for experience in cv.experiences:
-            line_with_date(document, experience.title, experience.period, width)
-            where = document.add_paragraph()
-            where.paragraph_format.keep_with_next = True
-            parts = [experience.company, experience.location]
-            add_muted(where, " · ".join(part for part in parts if part))
-            if experience.context:
-                document.add_paragraph(experience.context)
-            for group in experience.groups:
-                if group.title:
-                    title = document.add_paragraph()
-                    title.paragraph_format.keep_with_next = True
-                    title.paragraph_format.space_before = Pt(6)
-                    title.add_run(group.title).bold = True
-                for bullet in group.bullets:
-                    document.add_paragraph(bullet, style="List Bullet")
-
-    if cv.education:
-        add_section(document, labels["education"])
-        for item in cv.education:
-            when = item.period or (str(item.year) if item.year else None)
-            line_with_date(document, item.degree, when, width)
-            add_muted(
-                document.add_paragraph(),
-                " · ".join(part for part in (item.school, item.location) if part),
-            )
-            if item.details:
-                document.add_paragraph(item.details)
-
-    for section in cv.sections:
-        add_section(document, section.title)
-        for entry in section.entries:
-            paragraph = document.add_paragraph()
-            if entry.url:
-                add_link(paragraph, entry.title, entry.url, bold=True)
-            else:
-                paragraph.add_run(entry.title).bold = True
-            if entry.meta:
-                add_muted(paragraph, " · " + " · ".join(entry.meta))
-            if entry.text:
-                document.add_paragraph(entry.text)
-        for bullet in section.bullets:
-            document.add_paragraph(bullet, style="List Bullet")
-
-    if cv.extras:
-        add_section(document, labels["extras"])
-        for line in cv.extras:
-            labeled(document, line.label, line.text)
+    for key in cv.order:
+        if key in MAIN_BLOCKS:
+            main_block(key)
+        else:
+            for section in cv.sections:
+                if section.key == key:
+                    add_other_section(document, section)
     return to_bytes(document)
 
 

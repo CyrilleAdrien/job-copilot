@@ -4,7 +4,7 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_profile.models import PhotoRow, ProfileRow
-from jobcopilot_profile.schemas import Profile
+from jobcopilot_profile.schemas import CvLayout, Profile
 
 PROFILE_ID = 1
 
@@ -119,6 +119,15 @@ async def set_primary_search(session: AsyncSession, search_id: str) -> Profile:
         raise ArchivedSearch
     for search in profile.searches:
         search.primary = search is chosen
+    return await save_profile(session, profile)
+
+
+async def set_search_layout(session: AsyncSession, search_id: str, layout: CvLayout) -> Profile:
+    profile = await get_profile(session)
+    chosen = next((s for s in profile.searches if s.id == search_id), None) if profile else None
+    if chosen is None:
+        raise SearchNotFound
+    chosen.cv_layout = layout
     return await save_profile(session, profile)
 
 

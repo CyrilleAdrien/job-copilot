@@ -51,6 +51,12 @@ export type Volunteering = {
 };
 export type Publication = { title: string; publisher?: string | null; year?: number | null; url?: string | null };
 
+export type CvLayout = {
+  hidden: string[];
+  order: string[];
+  labels: Record<string, { fr?: string | null; en?: string | null }>;
+};
+
 /** Un profil de recherche : ses postes, ses filtres et sa façon de retenir les offres. */
 export type SearchProfile = {
   id: string;
@@ -73,6 +79,7 @@ export type SearchProfile = {
   /** Son CV est celui de la page Profil. */
   primary: boolean;
   cv: SearchCv;
+  cv_layout: CvLayout;
 };
 
 /** Le CV d'une recherche : deux recherches peuvent viser des métiers sans rapport. */
@@ -236,6 +243,7 @@ export function emptySearch(name = ""): SearchProfile {
     archived: false,
     primary: false,
     cv: emptyCv(),
+    cv_layout: { hidden: ["address", "birth_date", "nationality", "referees"], order: [], labels: {} },
   };
 }
 

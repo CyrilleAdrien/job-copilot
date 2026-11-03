@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StepProgress } from "@/components/ui/step-progress";
+import { Modal } from "@/components/ui/modal";
 import { splitTags, TagInput } from "@/components/ui/tag-input";
 import { isActive } from "@/lib/navigation";
 
@@ -109,5 +110,32 @@ describe("TagInput", () => {
     render(<Demo />);
     await user.type(screen.getByRole("combobox", { name: "Langues" }), "Python (pandas, SQL),");
     expect(screen.getByRole("button", { name: "Retirer Python (pandas, SQL)" })).toBeInTheDocument();
+  });
+});
+
+describe("Modal", () => {
+  it("keeps the focus in a field when the parent renders again", async () => {
+    const user = userEvent.setup();
+    function Parent() {
+      const [count, setCount] = useState(0);
+      return (
+        <Modal open onClose={() => setCount(0)} title="Fenêtre">
+          <input aria-label="Nom" onChange={(event) => setCount(event.target.value.length + count)} />
+        </Modal>
+      );
+    }
+    render(<Parent />);
+    await user.type(screen.getByRole("textbox", { name: "Nom" }), "abc");
+    expect(screen.getByRole("textbox", { name: "Nom" })).toHaveFocus();
+    expect(screen.getByRole("textbox", { name: "Nom" })).toHaveValue("abc");
+  });
+
+  it("closes with Escape using the latest handler", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { rerender } = render(<Modal open onClose={vi.fn()} title="Fenêtre">x</Modal>);
+    rerender(<Modal open onClose={onClose} title="Fenêtre">x</Modal>);
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

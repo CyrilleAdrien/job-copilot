@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common.db import get_session
 from jobcopilot_profile import repository
-from jobcopilot_profile.schemas import Profile
+from jobcopilot_profile.schemas import CvLayout, Profile
 from jobcopilot_profile.yaml_io import ProfileFileError, dump_profile, load_profile
 
 router = APIRouter(tags=["profile"])
@@ -118,6 +118,12 @@ async def restore_search(search_id: str, session: Session) -> Profile:
 async def make_search_primary(search_id: str, session: Session) -> Profile:
     """Le CV de cette recherche devient celui de la page Profil."""
     return await change_search(repository.set_primary_search(session, search_id))
+
+
+@router.put("/searches/{search_id}/layout", response_model=Profile)
+async def replace_search_layout(search_id: str, layout: CvLayout, session: Session) -> Profile:
+    """L'affichage du CV de cette recherche : éléments masqués, ordre et noms des rubriques."""
+    return await change_search(repository.set_search_layout(session, search_id, layout))
 
 
 @router.delete("/searches/{search_id}", response_model=Profile)

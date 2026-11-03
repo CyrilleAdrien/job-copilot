@@ -12,6 +12,8 @@
   linkedin: "icons/linkedin.svg",
   link: "icons/link.svg",
   licence: "icons/car.svg",
+  birth: "icons/cake.svg",
+  nationality: "icons/flag.svg",
 )
 
 // Une coordonnée : son icône, puis son texte, cliquable s'il a une adresse.

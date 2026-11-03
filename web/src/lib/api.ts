@@ -1,4 +1,4 @@
-import type { Profile } from "@/lib/profile";
+import type { CvLayout, Profile } from "@/lib/profile";
 
 export class ApiError extends Error {
   constructor(
@@ -65,6 +65,16 @@ export const archiveSearch = (id: string) => searchAction(id, "archive");
 export const restoreSearch = (id: string) => searchAction(id, "restore");
 export const makeSearchPrimary = (id: string) => searchAction(id, "primary");
 export const deleteSearch = (id: string) => searchAction(id, "delete");
+
+export async function saveSearchLayout(id: string, layout: CvLayout): Promise<Profile> {
+  const response = await fetch(`/api/profile/searches/${encodeURIComponent(id)}/layout`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(layout),
+  });
+  if (!response.ok) throw await parseError(response);
+  return response.json();
+}
 
 export const profileExportUrl = "/api/profile/export";
 

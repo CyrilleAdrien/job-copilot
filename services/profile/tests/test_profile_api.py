@@ -391,3 +391,45 @@ async def test_deleting_the_primary_search_moves_it(client):
     await client.post("/searches/data-engineer/primary")
     profile = (await client.delete("/searches/data-engineer")).json()
     assert primary_ids(profile) == ["devops"]
+
+
+async def test_private_details_are_hidden_by_default(client):
+    profile = (await client.put("/", json=PROFILE)).json()
+    assert profile["searches"][0]["cv_layout"] == {
+        "hidden": ["address", "birth_date", "nationality", "referees"],
+        "order": [],
+        "labels": {},
+    }
+
+
+async def test_layout_is_saved_per_search(client):
+    await client.put("/", json=PROFILE)
+    layout = {
+        "hidden": ["photo"],
+        "order": ["projects", "experience"],
+        "labels": {"skills": {"fr": "Savoir-faire", "en": "Know-how"}},
+    }
+    response = await client.put("/searches/data-engineer/layout", json=layout)
+    assert response.status_code == 200
+    first, second = (await client.get("/")).json()["searches"]
+    assert second["cv_layout"] == layout
+    assert first["cv_layout"]["order"] == []
+    assert second["cv"]["headline"] == first["cv"]["headline"]
+    assert (await client.put("/searches/inconnue/layout", json=layout)).status_code == 404
+
+
+async def test_layout_is_kept_when_exporting(client):
+    await client.put("/", json=PROFILE)
+    layout = {"hidden": [], "order": ["projects"], "labels": {}}
+    await client.put("/searches/devops/layout", json=layout)
+    exported = await client.get("/export")
+    imported = await client.post(
+        "/import", content=exported.text, headers={"content-type": "application/yaml"}
+    )
+    assert imported.json()["searches"][0]["cv_layout"]["order"] == ["projects"]
+
+
+async def test_section_name_length_is_limited(client):
+    await client.put("/", json=PROFILE)
+    layout = {"labels": {"skills": {"fr": "x" * 81}}}
+    assert (await client.put("/searches/devops/layout", json=layout)).status_code == 422

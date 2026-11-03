@@ -28,6 +28,9 @@ class Identity(Loose):
     email: str | None = None
     phone: str | None = None
     location: str | None = None
+    address: str | None = None
+    birth_date: str | None = None
+    nationality: str | None = None
     driving_licence: str | None = None
     availability: str | None = None
     summary: str | None = None
@@ -71,9 +74,20 @@ class SpokenLanguage(Loose):
     level: str
 
 
+class CvLayout(Loose):
+    """L'affichage du CV choisi par la personne. Ne contient aucun texte du CV."""
+
+    hidden: list[str] = ["address", "birth_date", "nationality", "referees"]
+    order: list[str] = []
+    labels: dict[str, dict[str, str | None]] = {}
+
+
 class Search(Loose):
     id: str = "principal"
     contract_types: list[str] = []
+    archived: bool = False
+    primary: bool = False
+    cv_layout: CvLayout = Field(default_factory=CvLayout)
 
 
 class Certification(Loose):
@@ -119,6 +133,14 @@ class Course(Loose):
     year: int | None = None
 
 
+class Referee(Loose):
+    name: str
+    role: str | None = None
+    company: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+
 class CustomSection(Loose):
     title: str
     items: list[str] = []
@@ -136,6 +158,7 @@ class Profile(Loose):
     publications: list[Publication] = []
     awards: list[Award] = []
     courses: list[Course] = []
+    referees: list[Referee] = []
     custom_sections: list[CustomSection] = []
     languages: list[SpokenLanguage] = []
     soft_skills: list[str] = []
@@ -195,6 +218,7 @@ class CvEntry(BaseModel):
 
 
 class CvSection(BaseModel):
+    key: str | None = Field(default=None, description="Sa place dans `order`")
     title: str
     entries: list[CvEntry] = []
     bullets: list[str] = []
@@ -216,6 +240,8 @@ class CvContent(BaseModel):
     education: list[CvEducation] = []
     sections: list[CvSection] = []
     extras: list[LabeledLine] = []
+    order: list[str] = Field(default=[], description="Ordre des rubriques ; vide : ordre classique")
+    titles: dict[str, str] = Field(default={}, description="Noms choisis par la personne")
 
 
 class LetterContent(BaseModel):

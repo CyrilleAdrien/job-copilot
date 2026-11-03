@@ -170,6 +170,25 @@ class SearchCv(Schema):
 CV_SECTIONS = tuple(name for name in SearchCv.model_fields if name not in ("headline", "summary"))
 
 
+class SectionLabel(Schema):
+    """Le nom donné à une rubrique, par langue du CV. Vide : le nom par défaut."""
+
+    fr: str | None = Field(default=None, max_length=80)
+    en: str | None = Field(default=None, max_length=80)
+
+
+# Facultatifs sur un CV : affichés seulement si la personne le demande.
+HIDDEN_BY_DEFAULT = ["address", "birth_date", "nationality", "referees"]
+
+
+class CvLayout(Schema):
+    """L'affichage du CV d'une recherche : ne change que le rendu, jamais le contenu."""
+
+    hidden: list[str] = Field(default_factory=lambda: list(HIDDEN_BY_DEFAULT), max_length=60)
+    order: list[str] = Field(default=[], max_length=40)
+    labels: dict[str, SectionLabel] = {}
+
+
 def slugify(text: str) -> str:
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40] or "recherche"
@@ -202,6 +221,7 @@ class SearchProfile(Schema):
     archived: bool = Field(default=False, description="Masquée de l'écran Offres, gardée au profil")
     primary: bool = Field(default=False, description="Son CV est celui de la page Profil")
     cv: SearchCv = Field(default_factory=SearchCv)
+    cv_layout: CvLayout = Field(default_factory=CvLayout)
 
 
 class Profile(Schema):
