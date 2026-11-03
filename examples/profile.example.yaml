@@ -17,6 +17,8 @@ identity:
 # qui citent au moins min_skills compétences de focus_skills (ou de technologies si vide).
 searches:
   - name: DevOps
+    # Son CV est celui de la page Profil. Sans ce champ : la première recherche active.
+    primary: true
     roles: [Ingénieur SRE, Ingénieur DevOps, Platform Engineer]
     technologies: [Kubernetes, Docker, Python, Terraform, GitLab CI]
     excluded_keywords: [Stage]

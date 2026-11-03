@@ -70,6 +70,8 @@ export type SearchProfile = {
   min_skills: number;
   /** Masquée de l'écran Offres, gardée au profil. */
   archived: boolean;
+  /** Son CV est celui de la page Profil. */
+  primary: boolean;
   cv: SearchCv;
 };
 
@@ -182,9 +184,10 @@ export function emptyProfile(): Profile {
   };
 }
 
-/** La position de la première recherche active : celle qu'on affiche par défaut. */
-export function firstActiveSearch(profile: Pick<Profile, "searches">) {
-  return Math.max(0, profile.searches.findIndex((search) => !search.archived));
+/** La position de la recherche principale, à défaut de la première active. */
+export function mainSearch({ searches }: Pick<Profile, "searches">) {
+  const main = searches.findIndex((search) => search.primary && !search.archived);
+  return main >= 0 ? main : Math.max(0, searches.findIndex((search) => !search.archived));
 }
 
 export function cvView(profile: Profile, index: number): CvView {
@@ -231,6 +234,7 @@ export function emptySearch(name = ""): SearchProfile {
     focus_skills: [],
     min_skills: 2,
     archived: false,
+    primary: false,
     cv: emptyCv(),
   };
 }
@@ -243,7 +247,7 @@ export function addSearch(profile: Profile, from?: string | number): number {
   const source =
     typeof from === "number" ? profile.searches[from] : profile.searches.find((search) => from && search.id === from);
   const search = source
-    ? { ...structuredClone(source), id: "", name: `${source.name} (copie)`, archived: false }
+    ? { ...structuredClone(source), id: "", name: `${source.name} (copie)`, archived: false, primary: false }
     : emptySearch(`Recherche ${profile.searches.length + 1}`);
   profile.searches.push(search);
   return profile.searches.length - 1;

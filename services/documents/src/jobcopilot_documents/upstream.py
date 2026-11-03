@@ -15,7 +15,8 @@ def search_view(data: dict, search: str | None = None) -> dict:
     searches = data.get("searches") or []
     active = [item for item in searches if not item.get("archived")]
     chosen = next((item for item in searches if item.get("id") == search), None)
-    chosen = chosen or next(iter(active or searches), None)
+    main = next((item for item in active if item.get("primary")), None)
+    chosen = chosen or main or next(iter(active or searches), None)
     if chosen is None or "cv" not in chosen:
         return data
     cv = dict(chosen["cv"])

@@ -28,7 +28,7 @@ import {
   applyCvView,
   cvView,
   emptyProfile,
-  firstActiveSearch,
+  mainSearch,
   toPayload,
   validateBackground,
   validateExperiences,
@@ -85,7 +85,7 @@ export function ProfileWizard() {
       .then((existing) => {
         const loaded = existing ?? emptyProfile();
         const position = (id: string | null) => loaded.searches.findIndex((search) => search.id === id);
-        setActive(position(shown) >= 0 ? position(shown) : firstActiveSearch(loaded));
+        setActive(position(shown) >= 0 ? position(shown) : mainSearch(loaded));
         if (existing && wanted) {
           setFocus(addSearch(loaded, wanted === "nouvelle" ? undefined : wanted));
           setCurrent(steps.findIndex((step) => step.id === "search"));

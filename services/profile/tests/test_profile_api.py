@@ -349,3 +349,45 @@ async def test_export_then_import_keeps_every_cv(client):
         "Ingénieur DevOps / SRE",
         "Data Engineer",
     ]
+
+
+def primary_ids(profile: dict) -> list[str]:
+    return [search["id"] for search in profile["searches"] if search["primary"]]
+
+
+async def test_first_active_search_is_primary_by_default(client):
+    profile = (await client.put("/", json=PROFILE)).json()
+    assert primary_ids(profile) == ["devops"]
+
+
+async def test_primary_search_can_be_chosen(client):
+    await client.put("/", json=PROFILE)
+    response = await client.post("/searches/data-engineer/primary")
+    assert response.status_code == 200
+    assert primary_ids(response.json()) == ["data-engineer"]
+    assert primary_ids((await client.get("/")).json()) == ["data-engineer"]
+    assert (await client.post("/searches/inconnue/primary")).status_code == 404
+
+
+async def test_archiving_the_primary_search_moves_it_to_an_active_one(client):
+    await client.put("/", json=PROFILE)
+    await client.post("/searches/data-engineer/primary")
+    profile = (await client.post("/searches/data-engineer/archive")).json()
+    assert primary_ids(profile) == ["devops"]
+    # La restaurer ne lui rend pas sa place : le choix reste à la personne.
+    assert primary_ids((await client.post("/searches/data-engineer/restore")).json()) == ["devops"]
+
+
+async def test_archived_search_cannot_be_primary(client):
+    await client.put("/", json=PROFILE)
+    await client.post("/searches/data-engineer/archive")
+    response = await client.post("/searches/data-engineer/primary")
+    assert response.status_code == 409
+    assert "Restaure" in response.json()["detail"]
+
+
+async def test_deleting_the_primary_search_moves_it(client):
+    await client.put("/", json=PROFILE)
+    await client.post("/searches/data-engineer/primary")
+    profile = (await client.delete("/searches/data-engineer")).json()
+    assert primary_ids(profile) == ["devops"]

@@ -120,19 +120,24 @@ describe("CV details", () => {
 });
 
 describe("SearchPicker", () => {
-  const searches = [{ name: "Soins", archived: false }, { name: "Vente", archived: true }];
+  const searches = [
+    { name: "Soins", archived: false },
+    { name: "Ancienne", archived: true },
+    { name: "Vente", archived: false },
+  ];
 
-  it("is hidden with a single search", () => {
-    const { container } = render(<SearchPicker label="CV" searches={[searches[0]]} value={0} onChange={vi.fn()} />);
+  it("is hidden when a single search is active", () => {
+    const { container } = render(<SearchPicker label="CV" searches={searches.slice(0, 2)} value={0} onChange={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("marks the chosen search and reports a new choice", async () => {
+  it("leaves out archived searches and reports the position in the full list", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<SearchPicker label="CV" searches={searches} value={0} onChange={onChange} />);
     expect(screen.getByRole("button", { name: "Soins" })).toHaveAttribute("aria-pressed", "true");
-    await user.click(screen.getByRole("button", { name: /Vente.*archivée/ }));
-    expect(onChange).toHaveBeenCalledWith(1);
+    expect(screen.queryByRole("button", { name: /Ancienne/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Vente" }));
+    expect(onChange).toHaveBeenCalledWith(2);
   });
 });

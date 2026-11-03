@@ -5,6 +5,7 @@ import {
   emptyExperience,
   emptyProfile,
   emptySearch,
+  mainSearch,
   skillPool,
   toPayload,
   validateBackground,
@@ -136,6 +137,20 @@ describe("recherches", () => {
     expect(copy.cv.headline).toBe("Data Engineer");
     copy.cv.skills[0].items.push("Airflow");
     expect(profile.searches[0].cv.skills[0].items).toEqual(["SQL"]);
+  });
+
+  it("trouve la recherche principale, jamais une archivée", () => {
+    const searches = [{ ...emptySearch("A"), archived: true }, emptySearch("B"), { ...emptySearch("C"), primary: true }];
+    expect(mainSearch({ searches })).toBe(2);
+    searches[2] = { ...searches[2], archived: true };
+    expect(mainSearch({ searches })).toBe(1);
+  });
+
+  it("une copie n'est jamais la recherche principale", () => {
+    const profile = emptyProfile();
+    profile.searches[0] = { ...profile.searches[0], id: "data", primary: true };
+    addSearch(profile, "data");
+    expect(profile.searches[1].primary).toBe(false);
   });
 
   it("montre le CV de la recherche choisie et les parties communes", () => {

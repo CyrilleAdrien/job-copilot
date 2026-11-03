@@ -27,8 +27,8 @@ import {
 } from "@/lib/documents";
 import { fadeUp, spring } from "@/lib/motion";
 import { fetchProfile } from "@/lib/api";
-import type { SearchProfile } from "@/lib/profile";
-import { pickSearch, storedSearch } from "@/lib/search-choice";
+import { mainSearch, type SearchProfile } from "@/lib/profile";
+import { storedSearch } from "@/lib/search-choice";
 
 type LanguageChoice = "auto" | Language;
 
@@ -104,8 +104,10 @@ export function GenerationPanel({
       .then((profile) => {
         const active = (profile?.searches ?? []).filter((search) => !search.archived);
         setSearches(active);
-        const wanted = pickSearch(active.map((search) => search.id), storedSearch());
-        setSearchIndex(Math.max(0, active.findIndex((search) => search.id === wanted)));
+        // La recherche ouverte sur l'écran Offres, sinon la principale.
+        const stored = storedSearch();
+        const wanted = active.findIndex((search) => search.id === stored);
+        setSearchIndex(wanted >= 0 ? wanted : mainSearch({ searches: active }));
       })
       .catch(() => setSearches([]));
   }, []);

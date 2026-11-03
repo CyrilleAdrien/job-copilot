@@ -200,6 +200,7 @@ class SearchProfile(Schema):
     )
     min_skills: int = Field(default=2, ge=1, le=10, description="Compétences citées au minimum")
     archived: bool = Field(default=False, description="Masquée de l'écran Offres, gardée au profil")
+    primary: bool = Field(default=False, description="Son CV est celui de la page Profil")
     cv: SearchCv = Field(default_factory=SearchCv)
 
 
@@ -246,4 +247,13 @@ class Profile(Schema):
     def one_active_search(self) -> "Profile":
         if all(search.archived for search in self.searches):
             raise ValueError("Garde au moins une recherche active.")
+        return self
+
+    @model_validator(mode="after")
+    def one_primary_search(self) -> "Profile":
+        """Toujours une seule recherche principale, active : la première active par défaut."""
+        active = [search for search in self.searches if not search.archived]
+        chosen = next((search for search in active if search.primary), active[0])
+        for search in self.searches:
+            search.primary = search is chosen
         return self

@@ -4,6 +4,7 @@ import { Download, FileWarning } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Page } from "@/components/documents/document-viewer";
+import { SearchPicker } from "@/components/profile/search-picker";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -15,6 +16,7 @@ import {
   profilePreviewPdfUrl,
   type Language,
 } from "@/lib/documents";
+import { mainSearch, type SearchProfile } from "@/lib/profile";
 
 const languages: { value: Language; label: string }[] = [
   { value: "fr", label: "Français" },
@@ -22,7 +24,11 @@ const languages: { value: Language; label: string }[] = [
 ];
 
 /** Le CV enregistré d'une recherche, mis en page avec le template, tel qu'il sortirait sans ciblage. */
-export function CvPreview({ stamp, search }: { stamp: number; search: string }) {
+export function CvPreview({ stamp, searches }: { stamp: number; searches: SearchProfile[] }) {
+  const [chosen, setChosen] = useState<number | null>(null);
+  // Une recherche archivée entre-temps n'est plus proposée : on revient à la principale.
+  const index = chosen !== null && searches[chosen] && !searches[chosen].archived ? chosen : mainSearch({ searches });
+  const search = searches[index].id;
   const [language, setLanguage] = useState<Language>("fr");
   const [pages, setPages] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -37,6 +43,7 @@ export function CvPreview({ stamp, search }: { stamp: number; search: string }) 
 
   return (
     <div className="flex flex-col gap-4">
+      <SearchPicker label="CV de la recherche" searches={searches} value={index} onChange={setChosen} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl label="Langue des titres" segments={languages} value={language} onChange={setLanguage} />
         <div className="flex flex-wrap items-center gap-2">

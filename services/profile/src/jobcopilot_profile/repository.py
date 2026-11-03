@@ -87,6 +87,10 @@ class SearchNotFound(LookupError):
     pass
 
 
+class ArchivedSearch(Exception):
+    pass
+
+
 class LastSearch(ValueError):
     """Un profil garde toujours au moins une recherche active."""
 
@@ -103,6 +107,18 @@ async def update_search(session: AsyncSession, search_id: str, *, archived: bool
     for search in profile.searches:
         if search.id == search_id:
             search.archived = archived
+    return await save_profile(session, profile)
+
+
+async def set_primary_search(session: AsyncSession, search_id: str) -> Profile:
+    profile = await get_profile(session)
+    chosen = next((s for s in profile.searches if s.id == search_id), None) if profile else None
+    if chosen is None:
+        raise SearchNotFound
+    if chosen.archived:
+        raise ArchivedSearch
+    for search in profile.searches:
+        search.primary = search is chosen
     return await save_profile(session, profile)
 
 

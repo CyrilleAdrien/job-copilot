@@ -258,6 +258,10 @@ def test_search_view_uses_the_cv_of_the_chosen_search():
     assert sales["identity"]["headline"] == "Vente"
     assert sales["experiences"] == [{"title": "V"}]
     assert "skills" not in sales
-    # Recherche inconnue ou absente : la première active, pas une archivée.
+    # Recherche inconnue ou absente : la première active, jamais une archivée.
     assert search_view(data, "inconnue")["identity"]["headline"] == "Infirmière"
     assert search_view(data)["identity"]["headline"] == "Infirmière"
+    # La recherche principale passe avant l'ordre de la liste.
+    data["searches"][2]["primary"] = True
+    assert search_view(data)["identity"]["headline"] == "Vente"
+    assert search_view(data, "nurse")["identity"]["headline"] == "Infirmière"

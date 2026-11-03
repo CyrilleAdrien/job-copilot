@@ -52,7 +52,7 @@ export async function importProfile(yaml: string): Promise<Profile> {
   return response.json();
 }
 
-async function searchAction(id: string, action: "archive" | "restore" | "delete"): Promise<Profile> {
+async function searchAction(id: string, action: "archive" | "restore" | "primary" | "delete"): Promise<Profile> {
   const path = `/api/profile/searches/${encodeURIComponent(id)}`;
   const response = await fetch(action === "delete" ? path : `${path}/${action}`, {
     method: action === "delete" ? "DELETE" : "POST",
@@ -63,6 +63,7 @@ async function searchAction(id: string, action: "archive" | "restore" | "delete"
 
 export const archiveSearch = (id: string) => searchAction(id, "archive");
 export const restoreSearch = (id: string) => searchAction(id, "restore");
+export const makeSearchPrimary = (id: string) => searchAction(id, "primary");
 export const deleteSearch = (id: string) => searchAction(id, "delete");
 
 export const profileExportUrl = "/api/profile/export";

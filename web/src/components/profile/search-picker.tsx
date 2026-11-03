@@ -3,7 +3,10 @@
 import { cn } from "@/lib/utils";
 import type { SearchProfile } from "@/lib/profile";
 
-/** Choisit la recherche dont on regarde ou modifie le CV. Inutile avec une seule recherche. */
+/**
+ * Choisit la recherche dont on regarde ou modifie le CV, parmi les recherches actives.
+ * `value` et `onChange` restent des positions dans la liste complète. Masqué sans vrai choix.
+ */
 export function SearchPicker({
   label,
   searches,
@@ -15,11 +18,12 @@ export function SearchPicker({
   value: number;
   onChange: (index: number) => void;
 }) {
-  if (searches.length < 2) return null;
+  const active = searches.map((search, index) => ({ search, index })).filter(({ search }) => !search.archived);
+  if (active.length < 2) return null;
   return (
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
       <span className="text-[13px] font-medium text-text-secondary">{label}</span>
-      {searches.map((search, index) => (
+      {active.map(({ search, index }) => (
         <button
           key={index}
           type="button"
@@ -33,7 +37,6 @@ export function SearchPicker({
           )}
         >
           {search.name || `Recherche ${index + 1}`}
-          {search.archived && <span className="ml-1.5 font-normal opacity-70">(archivée)</span>}
         </button>
       ))}
     </div>
