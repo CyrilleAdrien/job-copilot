@@ -1,8 +1,8 @@
 /** L'affichage du CV d'une recherche : ce qui se voit, l'ordre des rubriques et leur nom. */
 
-import type { CvLayout, CvView, SearchProfile } from "@/lib/profile";
+import type { CvColors, CvLayout, CvView, SearchProfile } from "@/lib/profile";
 
-export type { CvLayout };
+export type { CvColors, CvLayout };
 
 export type CvLanguage = "fr" | "en";
 
@@ -20,11 +20,41 @@ export const CV_FONTS = [
   { value: "Montserrat", label: "Montserrat" },
 ];
 
+export const DEFAULT_COLORS = { background: "#FFFFFF", text: "#1F1F1F", rule: "#FFC412" };
+
+/** Des ensembles prêts à l'emploi : ils restent modifiables couleur par couleur. */
+export const COLOR_THEMES: { name: string; colors: Required<{ [K in keyof CvColors]: string }> }[] = [
+  { name: "Classique", colors: DEFAULT_COLORS },
+  { name: "Crème", colors: { background: "#FBF7EF", text: "#1F1F1F", rule: "#FFC412" } },
+  { name: "Bleu nuit", colors: { background: "#FFFFFF", text: "#1F2A44", rule: "#2F6FED" } },
+  { name: "Forêt", colors: { background: "#FFFFFF", text: "#1E3A2F", rule: "#2E7D5B" } },
+  { name: "Bordeaux", colors: { background: "#FFFFFF", text: "#3A1A22", rule: "#9B2C42" } },
+  { name: "Sombre", colors: { background: "#1F1F1F", text: "#F5F5F5", rule: "#FFC412" } },
+];
+
+export function isHexColor(value: string) {
+  return /^#[0-9a-f]{6}$/i.test(value);
+}
+
+function luminance(hex: string) {
+  const [r, g, b] = [1, 3, 5].map((start) => {
+    const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Le contraste entre deux couleurs, selon le calcul WCAG : de 1 (identiques) à 21. */
+export function contrastRatio(first: string, second: string) {
+  const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (light + 0.05) / (dark + 0.05);
+}
+
 /** Facultatifs sur un CV : affichés seulement si la personne le demande. */
 export const HIDDEN_BY_DEFAULT = ["address", "birth_date", "nationality", "referees"];
 
 export function defaultLayout(): CvLayout {
-  return { hidden: [...HIDDEN_BY_DEFAULT], order: [], labels: {}, font: null };
+  return { hidden: [...HIDDEN_BY_DEFAULT], order: [], labels: {}, font: null, colors: null };
 }
 
 type Element = { key: string; label: string; present: (view: CvView, search: SearchProfile) => boolean };

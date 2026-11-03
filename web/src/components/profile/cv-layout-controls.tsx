@@ -8,11 +8,16 @@ import { Fold } from "@/components/ui/fold";
 import { Input } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
+  COLOR_THEMES,
+  contrastRatio,
   CV_FONTS,
+  DEFAULT_COLORS,
+  isHexColor,
   moveKey,
   setLabel,
   setOrder,
   toggleHidden,
+  type CvColors,
   type CvLanguage,
   type CvLayout,
   type Section,
@@ -61,6 +66,10 @@ export function LayoutControls({
         </p>
       </section>
 
+      <Fold title="Couleurs">
+        <ColorControls colors={layout.colors ?? null} onChange={(colors) => onChange({ ...layout, colors })} />
+      </Fold>
+
       <Fold title="En-tête">
         <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
           {header.map((element) => (
@@ -95,6 +104,86 @@ export function LayoutControls({
         </Reorder.Group>
       </Fold>
     </>
+  );
+}
+
+const COLOR_FIELDS = [
+  { key: "background", label: "Fond" },
+  { key: "text", label: "Texte" },
+  { key: "rule", label: "Traits et puces" },
+] as const;
+
+function ColorControls({ colors, onChange }: { colors: CvColors | null; onChange: (colors: CvColors | null) => void }) {
+  const current = { ...DEFAULT_COLORS, ...Object.fromEntries(Object.entries(colors ?? {}).filter(([, value]) => value)) };
+  const ratio = contrastRatio(current.text, current.background);
+  const same = (theme: CvColors) => COLOR_FIELDS.every(({ key }) => theme[key]?.toLowerCase() === current[key].toLowerCase());
+  return (
+    <>
+      <div role="group" aria-label="Ensembles de couleurs" className="grid grid-cols-3 gap-2">
+        {COLOR_THEMES.map((theme) => (
+          <button
+            key={theme.name}
+            type="button"
+            aria-pressed={same(theme.colors)}
+            onClick={() => onChange(theme.name === "Classique" ? null : theme.colors)}
+            className={cn(
+              "flex flex-col items-start gap-1.5 rounded-[10px] border p-2 text-left text-xs transition-colors hover:border-border-strong",
+              same(theme.colors) ? "border-text" : "border-border",
+            )}
+          >
+            <span className="flex h-6 w-full items-center gap-1.5 rounded-md border border-border px-1.5" style={{ background: theme.colors.background }}>
+              <span className="h-1 flex-1 rounded-full" style={{ background: theme.colors.text }} />
+              <span className="size-2 rounded-full" style={{ background: theme.colors.rule }} />
+            </span>
+            {theme.name}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-col gap-2">
+        {COLOR_FIELDS.map(({ key, label }) => (
+          <ColorField key={key} label={label} value={current[key]} onChange={(value) => onChange({ ...current, [key]: value })} />
+        ))}
+      </div>
+      {ratio < 4.5 && (
+        <p role="status" className="rounded-[10px] bg-warning-soft p-2 text-xs text-warning">
+          Le texte risque d&apos;être difficile à lire sur ce fond : choisis des couleurs plus contrastées.
+        </p>
+      )}
+    </>
+  );
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  // Le champ garde une saisie en cours, comme « #1F2 », tant qu'elle n'est pas une couleur complète.
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? value;
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <input
+        type="color"
+        aria-label={`Choisir la couleur : ${label}`}
+        value={value.toLowerCase()}
+        onChange={(event) => {
+          setDraft(null);
+          onChange(event.target.value.toUpperCase());
+        }}
+        className="size-8 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-0.5"
+      />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <Input
+        aria-label={`Code de la couleur : ${label}`}
+        className="h-8 w-24 font-mono text-xs uppercase"
+        maxLength={7}
+        value={shown}
+        error={draft !== null && !isHexColor(draft) ? " " : undefined}
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+          if (isHexColor(next)) onChange(next.toUpperCase());
+        }}
+        onBlur={() => setDraft(null)}
+      />
+    </div>
   );
 }
 

@@ -369,6 +369,7 @@ def build_cv(
         titles=titles,
         hidden=layout.hidden,
         font=layout.font,
+        colors=layout.colors,
     )
 
 
@@ -403,6 +404,7 @@ def build_letter(
         headline=identity.headline,
         contact=visible_contact(contact(profile, language), layout.hidden),
         font=layout.font,
+        colors=layout.colors,
         recipient=recipient,
         place_date=place_date(city, language, today),
         subject=draft.subject,

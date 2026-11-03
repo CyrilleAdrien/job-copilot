@@ -4,6 +4,8 @@ Le fichier reprend la structure et les couleurs du template, sans les icônes de
 nomme la police choisie : Word la remplace si elle n'est pas installée sur l'ordinateur.
 """
 
+from contextvars import ContextVar
+from dataclasses import dataclass
 from io import BytesIO
 
 from docx import Document
@@ -18,13 +20,56 @@ from docx.text.paragraph import Paragraph
 
 from jobcopilot_documents.compose import visible_cv
 from jobcopilot_documents.rich import parse_blocks, parse_inline
-from jobcopilot_documents.schemas import FONTS, ContactItem, CvContent, CvSection, LetterContent
+from jobcopilot_documents.schemas import (
+    FONTS,
+    ContactItem,
+    CvColors,
+    CvContent,
+    CvSection,
+    LetterContent,
+)
 
 CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 DEFAULT_FONT = "Calibri"
-INK = RGBColor(0x1F, 0x1F, 0x1F)
-MUTED = RGBColor(0x5F, 0x5F, 0x5F)
-GOLD = "FFC412"
+
+
+@dataclass(frozen=True)
+class Palette:
+    """Les couleurs d'un document, avec ses teintes secondaires."""
+
+    ink: RGBColor = RGBColor(0x1F, 0x1F, 0x1F)
+    muted: RGBColor = RGBColor(0x5F, 0x5F, 0x5F)
+    rule: str = "FFC412"
+    background: str | None = None
+
+
+DEFAULT_PALETTE = Palette()
+# Le document en cours : les fonctions d'écriture s'y réfèrent sans la passer partout.
+PALETTE: ContextVar[Palette] = ContextVar("palette", default=DEFAULT_PALETTE)
+
+
+def mix(first: str, second: str, share: float) -> RGBColor:
+    """`share` de la première couleur, le reste de la seconde."""
+    channels = zip(bytes.fromhex(first), bytes.fromhex(second), strict=True)
+    return RGBColor(*(round(a * share + b * (1 - share)) for a, b in channels))
+
+
+def palette_of(colors: CvColors | None) -> Palette:
+    if colors is None:
+        return DEFAULT_PALETTE
+    ink = (colors.text or "#1F1F1F")[1:]
+    paper = (colors.background or "#FFFFFF")[1:]
+    muted = DEFAULT_PALETTE.muted
+    if colors.text or colors.background:
+        muted = mix(ink, paper, 0.65)
+    return Palette(
+        ink=RGBColor.from_string(ink.upper()),
+        muted=muted,
+        rule=(colors.rule or "#FFC412")[1:].upper(),
+        background=paper.upper() if colors.background else None,
+    )
+
+
 SAFE_LINKS = ("http://", "https://", "mailto:", "tel:")
 LABELS = {
     "fr": {
@@ -48,15 +93,13 @@ LABELS = {
 }
 
 
-def set_style_font(
-    style, size: float, font: str = DEFAULT_FONT, *, bold: bool = False, color: RGBColor = INK
-) -> None:
+def set_style_font(style, size: float, font: str = DEFAULT_FONT, *, bold: bool = False) -> None:
     """Fixe la police du style. Les attributs de thème du modèle Word l'emporteraient sinon."""
     style.font.name = font
     style.font.size = Pt(size)
     style.font.bold = bold
     style.font.italic = False
-    style.font.color.rgb = color
+    style.font.color.rgb = PALETTE.get().ink
     fonts = style.element.get_or_add_rPr().get_or_add_rFonts()
     for attribute in ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme"):
         fonts.attrib.pop(qn(f"w:{attribute}"), None)
@@ -64,11 +107,22 @@ def set_style_font(
         fonts.set(qn(f"w:{attribute}"), font)
 
 
+def set_background(document, color: str | None) -> None:
+    """Le fond de page. Word l'affiche, et l'imprime si son option d'impression le permet."""
+    if color is None:
+        return
+    background = OxmlElement("w:background")
+    background.set(qn("w:color"), color)
+    document.element.insert(0, background)
+    document.settings.element.append(OxmlElement("w:displayBackgroundShape"))
+
+
 def new_document(
     title: str, author: str, language: str, margin_x: float, size: float, chosen: str | None = None
 ):
     font = FONTS.get(chosen, DEFAULT_FONT)
     document = Document()
+    set_background(document, PALETTE.get().background)
     properties = document.core_properties
     properties.title, properties.author, properties.last_modified_by = title, author, author
     properties.comments = ""
@@ -113,10 +167,15 @@ def add_link(
     paragraph._p.append(link)
 
 
-def add_rule(paragraph: Paragraph, color: str = GOLD) -> None:
+def add_rule(paragraph: Paragraph) -> None:
     """Le trait sous un titre : le filet doré du template, sur toute la largeur."""
     border = OxmlElement("w:bottom")
-    for name, value in (("val", "single"), ("sz", "6"), ("space", "3"), ("color", color)):
+    for name, value in (
+        ("val", "single"),
+        ("sz", "6"),
+        ("space", "3"),
+        ("color", PALETTE.get().rule),
+    ):
         border.set(qn(f"w:{name}"), value)
     borders = OxmlElement("w:pBdr")
     borders.append(border)
@@ -138,7 +197,7 @@ def add_section(document, title: str) -> None:
 
 def add_muted(paragraph: Paragraph, text: str, size: float | None = None) -> None:
     run = paragraph.add_run(text)
-    run.font.color.rgb = MUTED
+    run.font.color.rgb = PALETTE.get().muted
     if size:
         run.font.size = Pt(size)
 
@@ -329,6 +388,7 @@ def add_other_section(document, section: CvSection) -> None:
 
 def cv_to_docx(cv: CvContent, photo: bytes | None = None) -> bytes:
     cv = visible_cv(cv)
+    PALETTE.set(palette_of(cv.colors))
     labels = LABELS[cv.language]
     width = 21 - 2 * 1.6
     document = new_document(f"{cv.name} - CV", cv.name, cv.language, 1.6, 10, cv.font)
@@ -361,6 +421,7 @@ def cv_to_docx(cv: CvContent, photo: bytes | None = None) -> bytes:
 
 
 def letter_to_docx(letter: LetterContent) -> bytes:
+    PALETTE.set(palette_of(letter.colors))
     labels = LABELS[letter.language]
     document = new_document(letter.subject, letter.signature, letter.language, 2.2, 11, letter.font)
     document.styles["Normal"].paragraph_format.space_after = Pt(8)

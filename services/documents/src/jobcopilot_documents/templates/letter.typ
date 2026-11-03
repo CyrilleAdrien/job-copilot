@@ -4,7 +4,7 @@
 #let data = json(bytes(sys.inputs.data))
 
 #set document(title: data.subject, author: data.signature)
-#set page(paper: "a4", margin: (x: 2.2cm, top: 1.8cm, bottom: 2cm))
+#set page(paper: "a4", margin: (x: 2.2cm, top: 1.8cm, bottom: 2cm), fill: page-fill)
 #set text(font: fonts-for(data), size: 11pt, fill: ink, lang: data.language)
 #set par(leading: 0.68em)
 

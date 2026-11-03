@@ -1,8 +1,19 @@
 // Identité commune au CV et à la lettre : couleurs, contact, titres de section.
-#let ink = rgb("#1F1F1F")
-#let muted = rgb("#5F5F5F")
-#let gold = rgb("#FFC412")
-#let hairline = rgb("#DDDDDD")
+#let chosen-colors = json(bytes(sys.inputs.data)).at("colors", default: none)
+#let chosen-color(key) = if chosen-colors == none { none } else { chosen-colors.at(key, default: none) }
+#let color-of(key, fallback) = {
+  let value = chosen-color(key)
+  if value == none { rgb(fallback) } else { rgb(value) }
+}
+#let ink = color-of("text", "#1F1F1F")
+#let paper = color-of("background", "#FFFFFF")
+#let gold = color-of("rule", "#FFC412")
+// Sans fond choisi, la page reste sans fond : c'est le rendu d'origine.
+#let page-fill = if chosen-color("background") == none { none } else { paper }
+// Les teintes secondaires se déduisent du texte et du fond, pour rester lisibles ensemble.
+#let tinted = chosen-color("background") != none or chosen-color("text") != none
+#let muted = if tinted { color.mix((ink, 65%), (paper, 35%), space: rgb) } else { rgb("#5F5F5F") }
+#let hairline = if tinted { color.mix((ink, 15%), (paper, 85%), space: rgb) } else { rgb("#DDDDDD") }
 
 #let icons = (
   location: "icons/map-pin.svg",
@@ -130,7 +141,9 @@
   let body = if item.url != none { link(item.url, label) } else { label }
   box({
     if kind != none and kind in icons {
-      box(height: 0.85em, baseline: 0.12em, image(icons.at(kind), height: 100%))
+      // Les icônes suivent les couleurs choisies : elles resteraient invisibles sur un fond sombre.
+      let svg = read(icons.at(kind)).replace("#5F5F5F", muted.to-hex()).replace("#1F1F1F", ink.to-hex())
+      box(height: 0.85em, baseline: 0.12em, image(bytes(svg), format: "svg", height: 100%))
       h(0.35em)
     }
     body

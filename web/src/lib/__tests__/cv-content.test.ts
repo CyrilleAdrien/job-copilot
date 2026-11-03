@@ -25,6 +25,7 @@ const base: CvContent = {
   titles: { skills: "Savoir-faire" },
   hidden: ["address"],
   font: "Lato",
+  colors: { background: "#FBF7EF", text: null, rule: "#2F6FED" },
 };
 
 describe("normalizeCv", () => {

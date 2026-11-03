@@ -400,6 +400,7 @@ async def test_private_details_are_hidden_by_default(client):
         "order": [],
         "labels": {},
         "font": None,
+        "colors": None,
     }
 
 
@@ -410,6 +411,7 @@ async def test_layout_is_saved_per_search(client):
         "order": ["projects", "experience"],
         "labels": {"skills": {"fr": "Savoir-faire", "en": "Know-how"}},
         "font": "Lato",
+        "colors": {"background": "#FBF7EF", "text": "#1F2A44", "rule": "#2F6FED"},
     }
     response = await client.put("/searches/data-engineer/layout", json=layout)
     assert response.status_code == 200
@@ -434,4 +436,10 @@ async def test_layout_is_kept_when_exporting(client):
 async def test_section_name_length_is_limited(client):
     await client.put("/", json=PROFILE)
     layout = {"labels": {"skills": {"fr": "x" * 81}}}
+    assert (await client.put("/searches/devops/layout", json=layout)).status_code == 422
+
+
+async def test_invalid_color_is_refused(client):
+    await client.put("/", json=PROFILE)
+    layout = {"colors": {"text": "rouge"}}
     assert (await client.put("/searches/devops/layout", json=layout)).status_code == 422

@@ -179,6 +179,16 @@ test("parcours complet, du profil à la suppression des données", async ({ page
 
     await dialog.getByRole("radio", { name: "Affichage" }).click();
     await dialog.getByLabel("Police").selectOption("Tinos");
+    await dialog.getByRole("button", { name: "Couleurs" }).click();
+    await dialog.getByRole("button", { name: "Bleu nuit" }).click();
+    await expect(dialog.getByRole("textbox", { name: "Code de la couleur : Texte" })).toHaveValue("#1F2A44");
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Fond" }).fill("#FBF7EF");
+    // Un texte illisible sur son fond est signalé.
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Texte" }).fill("#FBF7F0");
+    await expect(dialog.getByText(/difficile à lire/)).toBeVisible();
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Texte" }).fill("#1F2A44");
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Traits et puces" }).press("Tab");
+    await dialog.getByRole("button", { name: "Couleurs" }).click();
     await dialog.getByRole("button", { name: "En-tête" }).click();
     await dialog.getByRole("checkbox", { name: "Afficher Téléphone" }).uncheck();
     await dialog.getByRole("button", { name: "Rubriques" }).click();
@@ -206,6 +216,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     expect(content.headline).toBe("Titre corrigé à la main");
     expect(content.summary).toBe("Un passage **important** et *penché*");
     expect(content.font).toBe("Tinos");
+    expect(content.colors).toEqual({ background: "#FBF7EF", text: "#1F2A44", rule: "#2F6FED" });
     expect(content.hidden).toContain("phone");
     expect(content.titles.skills).toBe("Savoir-faire");
     expect((await request.get(`/api/documents/documents/${cv.id}/docx`)).ok()).toBeTruthy();

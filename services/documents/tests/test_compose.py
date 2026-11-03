@@ -3,6 +3,7 @@ from io import BytesIO
 
 import httpx
 from docx import Document
+from docx.oxml.ns import qn
 
 from jobcopilot_documents.compose import (
     build_cv,
@@ -18,6 +19,7 @@ from jobcopilot_documents.schemas import (
     Award,
     Course,
     CustomSection,
+    CvColors,
     CvDraft,
     DraftExperience,
     Education,
@@ -449,3 +451,53 @@ def test_changing_names_and_hidden_after_generation(profile):
     assert "Idiomes" in [line.label for line in shown.extras]
     assert "phone" not in [item.kind for item in shown.contact]
     assert "Parcours" in word_text(cv_to_docx(edited))
+
+
+def colored(profile, **colors) -> Profile:
+    data = profile.model_dump()
+    data["searches"][0]["cv_layout"] = {"colors": colors}
+    return Profile.model_validate(data)
+
+
+def test_colors_change_the_pdf_of_the_cv_and_letter(profile, offer):
+    plain = build_cv(profile, [0], None, "fr", "devops")
+    dark = colored(profile, background="#101820", text="#F5F5F5", rule="#2F6FED")
+    cv = build_cv(dark, [0], None, "fr", "devops")
+    assert cv.colors.background == "#101820"
+    assert render_sync("cv", cv) != render_sync("cv", plain)
+    draft = LetterDraft(subject="S", greeting="G", paragraphs=["P"], closing="C")
+    letter = build_letter(dark, offer, draft, "fr", date(2026, 11, 3), "devops")
+    assert letter.colors.rule == "#2F6FED"
+    assert render_sync("letter", letter).startswith(b"%PDF")
+
+
+def test_each_color_can_be_set_alone(profile):
+    for colors in ({"background": "#FBF7EF"}, {"text": "#1F2A44"}, {"rule": "#2F6FED"}):
+        cv = build_cv(colored(profile, **colors), [0], None, "fr", "devops")
+        assert render_sync("cv", cv).startswith(b"%PDF")
+
+
+def test_invalid_colors_fall_back(profile):
+    cv = build_cv(colored(profile, text="rouge", rule="#12"), [0], None, "fr", "devops")
+    assert cv.colors.text is None and cv.colors.rule is None
+    assert render_sync("cv", cv).startswith(b"%PDF")
+
+
+def test_default_colors_leave_the_pdf_unchanged(profile):
+    cv = build_cv(profile, [0], None, "fr", "devops")
+    assert cv.colors is None
+    # Aucun fond n'est posé, pour imprimer sans couleur de page.
+    assert render_sync("cv", cv.model_copy(update={"colors": CvColors()})) == render_sync("cv", cv)
+
+
+def test_word_applies_the_colors(profile):
+    dark = colored(profile, background="#101820", text="#F5F5F5", rule="#2F6FED")
+    data = cv_to_docx(build_cv(dark, [0], None, "fr", "devops"))
+    document = Document(BytesIO(data))
+    assert str(document.styles["Normal"].font.color.rgb) == "F5F5F5"
+    assert document.element.find(qn("w:background")).get(qn("w:color")) == "101820"
+    assert 'w:color="2F6FED"' in document.element.xml
+    # Le document suivant repart des couleurs par défaut.
+    default = Document(BytesIO(cv_to_docx(build_cv(profile, [0], None, "fr", "devops"))))
+    assert str(default.styles["Normal"].font.color.rgb) == "1F1F1F"
+    assert default.element.find(qn("w:background")) is None

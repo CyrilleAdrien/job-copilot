@@ -181,6 +181,17 @@ class SectionLabel(Schema):
 HIDDEN_BY_DEFAULT = ["address", "birth_date", "nationality", "referees"]
 
 
+HexColor = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class CvColors(Schema):
+    """Les couleurs du CV et de la lettre. Vide : celles par défaut."""
+
+    background: str | None = HexColor
+    text: str | None = HexColor
+    rule: str | None = HexColor
+
+
 class CvLayout(Schema):
     """L'affichage du CV d'une recherche : ne change que le rendu, jamais le contenu."""
 
@@ -190,6 +201,7 @@ class CvLayout(Schema):
     font: str | None = Field(
         default=None, max_length=60, description="Police du CV et de la lettre"
     )
+    colors: CvColors | None = None
 
 
 def slugify(text: str) -> str:

@@ -14,7 +14,7 @@
 #let title-of(key) = data.at("titles", default: (:)).at(key, default: labels.at(key))
 
 #set document(title: data.name + " - CV", author: data.name)
-#set page(paper: "a4", margin: (x: 1.6cm, top: 1.3cm, bottom: 1.2cm))
+#set page(paper: "a4", margin: (x: 1.6cm, top: 1.3cm, bottom: 1.2cm), fill: page-fill)
 #set text(font: fonts-for(data), size: 10pt, fill: ink, lang: data.language)
 #set par(leading: 0.5em, spacing: 0.6em)
 #set list(indent: 0.2em, body-indent: 0.5em, spacing: 0.5em, marker: text(fill: gold, size: 8pt, baseline: -0.05em)[●])

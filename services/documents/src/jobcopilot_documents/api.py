@@ -41,7 +41,7 @@ router = APIRouter(tags=["documents"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 CONTENT = {"cv": CvContent, "letter": LetterContent}
 POLL_SECONDS = 0.4
-PREVIEW_PPI = 100
+PREVIEW_PPI = 120
 HEARTBEAT_SECONDS = 15
 
 

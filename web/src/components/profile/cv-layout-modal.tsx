@@ -3,6 +3,7 @@
 import { Check, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { CvWorkspace } from "@/components/documents/cv-workspace";
 import { LayoutControls } from "@/components/profile/cv-layout-controls";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
@@ -98,45 +99,45 @@ export function CvLayoutModal({
     <Modal
       open={open}
       onClose={close}
-      size="wide"
+      size="full"
       title="Personnaliser le CV"
-      description={`Recherche « ${search.name} ». Ces choix ne changent que l'affichage : rien n'est supprimé et l'IA n'intervient pas.`}
-    >
-      <div className="grid gap-6 lg:h-[68dvh] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="flex min-h-0 flex-col gap-6 lg:overflow-y-auto lg:pr-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SegmentedControl label="Langue du CV" segments={languages} value={language} onChange={setLanguage} />
-            <div className="flex items-center gap-2">
-              {saved && (
-                <span className="inline-flex items-center gap-1 text-xs text-success" role="status">
-                  <Check className="size-3.5" aria-hidden />
-                  Enregistré
-                </span>
-              )}
-              <Button variant="ghost" size="sm" onClick={() => change(defaultLayout())}>
-                <RotateCcw aria-hidden />
-                Réinitialiser
-              </Button>
-            </div>
-          </div>
-
-          <LayoutControls
-            header={header}
-            sections={sections}
-            lines={EXTRA_LINES.filter((line) => line.present(view))}
-            layout={layout}
-            language={language}
-            onChange={change}
-          />
-
-          {error && <ErrorBanner error={error} />}
+      description={`Recherche « ${search.name} ». Seul l'affichage change : rien n'est supprimé et l'IA n'intervient pas.`}
+      actions={
+        <div className="flex items-center gap-2">
+          {saved && (
+            <span className="inline-flex items-center gap-1 text-xs text-success" role="status">
+              <Check className="size-3.5" aria-hidden />
+              Enregistré
+            </span>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => change(defaultLayout())}>
+            <RotateCcw aria-hidden />
+            Réinitialiser
+          </Button>
+          <Button size="sm" onClick={close}>
+            Terminer
+          </Button>
         </div>
-
+      }
+    >
+      <CvWorkspace
+        panel={
+          <>
+            <SegmentedControl label="Langue du CV" segments={languages} value={language} onChange={setLanguage} />
+            <LayoutControls
+              header={header}
+              sections={sections}
+              lines={EXTRA_LINES.filter((line) => line.present(view))}
+              layout={layout}
+              language={language}
+              onChange={change}
+            />
+            {error && <ErrorBanner error={error} />}
+          </>
+        }
+      >
         <Preview language={language} search={search.id} stamp={stamp} />
-      </div>
-      <div className="flex justify-end">
-        <Button onClick={close}>Terminer</Button>
-      </div>
+      </CvWorkspace>
     </Modal>
   );
 }
@@ -150,7 +151,7 @@ function Preview({ language, search, stamp }: { language: CvLanguage; search: st
       .catch(() => undefined);
   }, [language, search, stamp]);
   return (
-    <div className="flex min-h-0 flex-col gap-3 rounded-[14px] bg-background-subtle p-3 lg:overflow-y-auto">
+    <>
       {Array.from({ length: pages }, (_, page) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -160,6 +161,6 @@ function Preview({ language, search, stamp }: { language: CvLanguage; search: st
           className="aspect-[210/297] w-full rounded-md bg-white shadow-card ring-1 ring-border"
         />
       ))}
-    </div>
+    </>
   );
 }

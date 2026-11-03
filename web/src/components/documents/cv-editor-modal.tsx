@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { CvWorkspace } from "@/components/documents/cv-workspace";
 import { RichEditor } from "@/components/documents/rich-editor";
 import { LayoutControls } from "@/components/profile/cv-layout-controls";
 import { ErrorBanner } from "@/components/profile/error-banner";
@@ -108,63 +109,64 @@ export function CvEditorModal({
     <Modal
       open
       onClose={close}
-      size="wide"
+      size="full"
       title="Modifier le CV"
-      description="Ces modifications ne concernent que ce CV : ton profil et tes autres CV ne changent pas."
+      description="Seul ce CV change : ton profil et tes autres CV restent intacts."
+      actions={
+        leaving ? (
+          <div className="flex flex-wrap items-center gap-2" role="alert">
+            <span className="text-sm text-text-secondary">Tes modifications ne sont pas enregistrées.</span>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Fermer sans enregistrer
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setLeaving(false)}>
+              Continuer
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={close}>
+              Annuler
+            </Button>
+            <Button size="sm" onClick={save} loading={saving} disabled={!dirty}>
+              <Check aria-hidden />
+              Enregistrer
+            </Button>
+          </div>
+        )
+      }
     >
-      <div className="grid gap-6 lg:h-[64dvh] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="flex min-h-0 flex-col gap-5 lg:overflow-y-auto lg:pr-2">
-          <SegmentedControl label="Partie à modifier" segments={tabs} value={tab} onChange={setTab} />
-          {!content ? (
-            <Skeleton className="h-96" />
-          ) : tab === "content" ? (
-            <ContentForm content={content} update={update} />
-          ) : (
-            <LayoutControls
-              header={headerElements(content)}
-              sections={contentSections(content)}
-              lines={contentLines(content)}
-              layout={layoutOf(content)}
-              language={content.language}
-              onChange={(layout) => setContent(withLayout(content, layout))}
-            />
-          )}
-        </div>
-        <div className="flex min-h-0 flex-col gap-3 rounded-[14px] bg-background-subtle p-3 lg:overflow-y-auto">
-          {pages.length === 0 ? (
-            <Skeleton className="aspect-[210/297] w-full rounded-md" />
-          ) : (
-            pages.map((page, index) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={index} src={page} alt={`Aperçu du CV, page ${index + 1}`} className="aspect-[210/297] w-full rounded-md bg-white shadow-card ring-1 ring-border" />
-            ))
-          )}
-        </div>
-      </div>
-
-      {error && <ErrorBanner error={error} />}
-
-      {leaving ? (
-        <div className="flex flex-wrap items-center justify-end gap-2" role="alert">
-          <span className="mr-auto text-sm text-text-secondary">Tes modifications ne sont pas enregistrées.</span>
-          <Button variant="ghost" onClick={onClose}>
-            Fermer sans enregistrer
-          </Button>
-          <Button variant="secondary" onClick={() => setLeaving(false)}>
-            Continuer
-          </Button>
-        </div>
-      ) : (
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={close}>
-            Annuler
-          </Button>
-          <Button onClick={save} loading={saving} disabled={!dirty}>
-            <Check aria-hidden />
-            Enregistrer
-          </Button>
-        </div>
-      )}
+      <CvWorkspace
+        panel={
+          <>
+            <SegmentedControl label="Partie à modifier" segments={tabs} value={tab} onChange={setTab} />
+            {error && <ErrorBanner error={error} />}
+            {!content ? (
+              <Skeleton className="h-96" />
+            ) : tab === "content" ? (
+              <ContentForm content={content} update={update} />
+            ) : (
+              <LayoutControls
+                header={headerElements(content)}
+                sections={contentSections(content)}
+                lines={contentLines(content)}
+                layout={layoutOf(content)}
+                language={content.language}
+                onChange={(layout) => setContent(withLayout(content, layout))}
+              />
+            )}
+          </>
+        }
+      >
+        {pages.length === 0 ? (
+          <Skeleton className="aspect-[210/297] w-full rounded-md" />
+        ) : (
+          pages.map((page, index) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={index} src={page} alt={`Aperçu du CV, page ${index + 1}`} className="aspect-[210/297] w-full rounded-md bg-white shadow-card ring-1 ring-border" />
+          ))
+        )}
+      </CvWorkspace>
     </Modal>
   );
 }

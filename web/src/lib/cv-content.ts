@@ -1,6 +1,6 @@
 /** Le contenu d'un CV généré, tel qu'il se modifie : aligné sur le schéma du service documents. */
 
-import { EXTRA_LINES, EXTRAS, SECTIONS, type CvLanguage, type CvLayout, type Section } from "@/lib/cv-layout";
+import { EXTRA_LINES, EXTRAS, SECTIONS, type CvColors, type CvLanguage, type CvLayout, type Section } from "@/lib/cv-layout";
 
 export type CvContent = {
   language: CvLanguage;
@@ -39,6 +39,7 @@ export type CvContent = {
   titles: Record<string, string>;
   hidden: string[];
   font?: string | null;
+  colors?: CvColors | null;
 };
 
 const MAIN = ["profile", "skills", "experience", "education"];
@@ -54,7 +55,7 @@ export function normalizeCv(content: CvContent): CvContent {
 
 export function layoutOf(content: CvContent): CvLayout {
   const labels = Object.fromEntries(Object.entries(content.titles).map(([key, title]) => [key, { [content.language]: title }]));
-  return { hidden: content.hidden, order: content.order, labels, font: content.font ?? null };
+  return { hidden: content.hidden, order: content.order, labels, font: content.font ?? null, colors: content.colors ?? null };
 }
 
 export function withLayout(content: CvContent, layout: CvLayout): CvContent {
@@ -64,7 +65,7 @@ export function withLayout(content: CvContent, layout: CvLayout): CvContent {
       return title ? [[key, title]] : [];
     }),
   );
-  return { ...content, hidden: layout.hidden, order: layout.order, titles, font: layout.font ?? null };
+  return { ...content, hidden: layout.hidden, order: layout.order, titles, font: layout.font ?? null, colors: layout.colors ?? null };
 }
 
 const CONTACT_HEADER: Record<string, { key: string; label: string }> = {

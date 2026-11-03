@@ -1,5 +1,6 @@
 """Contrats du service : entrées (profil, offre), contenu des documents, réponses du LLM, API."""
 
+import re
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -90,6 +91,20 @@ FONTS = {
 }
 
 
+def hex_color(value: str | None) -> str | None:
+    """Une couleur illisible revient à celle par défaut : le template ne doit jamais échouer."""
+    return value if value and re.fullmatch(r"#[0-9A-Fa-f]{6}", value) else None
+
+
+HexColor = Annotated[str | None, AfterValidator(hex_color)]
+
+
+class CvColors(BaseModel):
+    background: HexColor = None
+    text: HexColor = None
+    rule: HexColor = None
+
+
 class CvLayout(Loose):
     """L'affichage du CV choisi par la personne. Ne contient aucun texte du CV."""
 
@@ -97,6 +112,7 @@ class CvLayout(Loose):
     order: list[str] = []
     labels: dict[str, dict[str, str | None]] = {}
     font: str | None = None
+    colors: CvColors | None = None
 
 
 class Search(Loose):
@@ -267,6 +283,7 @@ class CvContent(BaseModel):
     titles: dict[str, str] = Field(default={}, description="Noms choisis par la personne")
     hidden: list[str] = Field(default=[], description="Gardé dans le contenu, absent du rendu")
     font: Annotated[str | None, AfterValidator(known_font)] = None
+    colors: CvColors | None = None
 
 
 class LetterContent(BaseModel):
@@ -275,6 +292,7 @@ class LetterContent(BaseModel):
     headline: str | None = None
     contact: list[ContactItem] = []
     font: Annotated[str | None, AfterValidator(known_font)] = None
+    colors: CvColors | None = None
     recipient: list[str]
     place_date: str
     subject: str

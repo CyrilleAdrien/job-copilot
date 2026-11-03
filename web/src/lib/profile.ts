@@ -56,7 +56,10 @@ export type CvLayout = {
   order: string[];
   labels: Record<string, { fr?: string | null; en?: string | null }>;
   font?: string | null;
+  colors?: CvColors | null;
 };
+
+export type CvColors = { background?: string | null; text?: string | null; rule?: string | null };
 
 /** Un profil de recherche : ses postes, ses filtres et sa façon de retenir les offres. */
 export type SearchProfile = {
