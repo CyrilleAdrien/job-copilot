@@ -32,6 +32,8 @@ from jobcopilot_documents.schemas import (
 )
 from jobcopilot_documents.settings import get_documents_settings
 from jobcopilot_documents.upstream import UpstreamError, fetch_profile
+from jobcopilot_documents.word import CONTENT_TYPE as WORD_TYPE
+from jobcopilot_documents.word import cv_to_docx, letter_to_docx
 
 router = APIRouter(tags=["documents"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -148,30 +150,43 @@ async def read_document(document_id: uuid.UUID, session: Session) -> DocumentDet
     return DocumentDetail.model_validate(row, from_attributes=True)
 
 
+def disposition(row: DocumentRow, extension: str, mode: str) -> dict[str, str]:
+    name = row.content.get("name") or row.content.get("signature") or "document"
+    prefix = "CV" if row.kind == "cv" else ("Lettre" if row.language == "fr" else "Letter")
+    filename = f"{prefix} {name}.{extension}"
+    ascii_name = filename.encode("ascii", "ignore").decode() or f"document.{extension}"
+    return {
+        "Content-Disposition": f'{mode}; filename="{ascii_name}"; '
+        f"filename*=UTF-8''{quote(filename)}"
+    }
+
+
 @router.get("/documents/{document_id}/pdf")
 async def read_pdf(document_id: uuid.UUID, session: Session, ctx: Ctx) -> Response:
     row = await load_document(session, document_id)
     pdf = await ctx.storage.get(row.s3_key)
-    name = row.content.get("name") or row.content.get("signature") or "document"
-    prefix = "CV" if row.kind == "cv" else ("Lettre" if row.language == "fr" else "Letter")
-    filename = f"{prefix} {name}.pdf"
-    ascii_name = filename.encode("ascii", "ignore").decode() or "document.pdf"
-    return Response(
-        pdf,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'inline; filename="{ascii_name}"; '
-            f"filename*=UTF-8''{quote(filename)}"
-        },
-    )
+    return Response(pdf, media_type="application/pdf", headers=disposition(row, "pdf", "inline"))
+
+
+@router.get("/documents/{document_id}/docx")
+async def read_docx(document_id: uuid.UUID, session: Session, ctx: Ctx) -> Response:
+    """La version Word, refaite à la demande depuis le contenu enregistré."""
+    row = await load_document(session, document_id)
+    model = CONTENT[row.kind].model_validate(row.content)
+    if isinstance(model, CvContent):
+        data = await asyncio.to_thread(cv_to_docx, model, await pipeline.photo_for(ctx, model))
+    else:
+        data = await asyncio.to_thread(letter_to_docx, model)
+    return Response(data, media_type=WORD_TYPE, headers=disposition(row, "docx", "attachment"))
 
 
 @router.get("/documents/{document_id}/pages/{page}")
-async def read_page(document_id: uuid.UUID, page: int, session: Session) -> Response:
+async def read_page(document_id: uuid.UUID, page: int, session: Session, ctx: Ctx) -> Response:
     """Aperçu PNG d'une page, rendu à la volée depuis le contenu enregistré."""
     row = await load_document(session, document_id)
     model = CONTENT[row.kind].model_validate(row.content)
-    image = await render_page(pipeline.TEMPLATES[row.kind], model, page)
+    photo = await pipeline.photo_for(ctx, model)
+    image = await render_page(pipeline.TEMPLATES[row.kind], model, page, photo)
     if image is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Page introuvable.")
     return Response(
@@ -191,7 +206,8 @@ async def update_content(
         errors = json.loads(exc.json(include_url=False, include_context=False))
         raise HTTPException(422, errors) from exc
     try:
-        pdf, pages = await render(pipeline.TEMPLATES[row.kind], model)
+        photo = await pipeline.photo_for(ctx, model)
+        pdf, pages = await render(pipeline.TEMPLATES[row.kind], model, photo)
     except RenderError as exc:
         raise HTTPException(422, str(exc)) from exc
     version = row.version + 1
@@ -215,19 +231,34 @@ async def profile_cv(ctx: Ctx, language: Language) -> CvContent:
 
 @router.get("/profile-preview", response_model=ProfilePreview)
 async def profile_preview(ctx: Ctx, language: Language = "fr") -> ProfilePreview:
-    _, pages = await render(pipeline.TEMPLATES["cv"], await profile_cv(ctx, language))
+    cv = await profile_cv(ctx, language)
+    _, pages = await render(pipeline.TEMPLATES["cv"], cv, await pipeline.photo_for(ctx, cv))
     return ProfilePreview(pages=pages)
 
 
 @router.get("/profile-preview/pdf")
 async def profile_preview_pdf(ctx: Ctx, language: Language = "fr") -> Response:
-    pdf, _ = await render(pipeline.TEMPLATES["cv"], await profile_cv(ctx, language))
+    cv = await profile_cv(ctx, language)
+    pdf, _ = await render(pipeline.TEMPLATES["cv"], cv, await pipeline.photo_for(ctx, cv))
     return Response(pdf, media_type="application/pdf", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/profile-preview/docx")
+async def profile_preview_docx(ctx: Ctx, language: Language = "fr") -> Response:
+    cv = await profile_cv(ctx, language)
+    data = await asyncio.to_thread(cv_to_docx, cv, await pipeline.photo_for(ctx, cv))
+    headers = {
+        "Content-Disposition": 'attachment; filename="CV.docx"',
+        "Cache-Control": "no-store",
+    }
+    return Response(data, media_type=WORD_TYPE, headers=headers)
 
 
 @router.get("/profile-preview/pages/{page}")
 async def profile_preview_page(ctx: Ctx, page: int, language: Language = "fr") -> Response:
-    image = await render_page(pipeline.TEMPLATES["cv"], await profile_cv(ctx, language), page)
+    cv = await profile_cv(ctx, language)
+    photo = await pipeline.photo_for(ctx, cv)
+    image = await render_page(pipeline.TEMPLATES["cv"], cv, page, photo)
     if image is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Page introuvable.")
     return Response(image, media_type="image/png", headers={"Cache-Control": "no-store"})

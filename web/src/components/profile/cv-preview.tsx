@@ -10,6 +10,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchProfilePreview,
+  profilePreviewWordUrl,
   profilePreviewPageUrl,
   profilePreviewPdfUrl,
   type Language,
@@ -38,12 +39,20 @@ export function CvPreview({ stamp }: { stamp: number }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl label="Langue des titres" segments={languages} value={language} onChange={setLanguage} />
-        <Button variant="secondary" size="sm" asChild>
-          <a href={profilePreviewPdfUrl(language)} download="CV.pdf">
-            <Download aria-hidden />
-            Télécharger le PDF
-          </a>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" asChild>
+            <a href={profilePreviewPdfUrl(language)} download="CV.pdf">
+              <Download aria-hidden />
+              Télécharger le PDF
+            </a>
+          </Button>
+          <Button variant="secondary" size="sm" asChild>
+            <a href={profilePreviewWordUrl(language)} download="CV.docx">
+              <Download aria-hidden />
+              Télécharger le Word
+            </a>
+          </Button>
+        </div>
       </div>
       {failed ? (
         <EmptyState

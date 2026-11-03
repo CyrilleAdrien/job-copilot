@@ -57,6 +57,10 @@ export function pdfUrl(document: DocumentInfo) {
   return `${BASE}/documents/${document.id}/pdf?v=${document.version}`;
 }
 
+export function wordUrl(document: DocumentInfo) {
+  return `${BASE}/documents/${document.id}/docx?v=${document.version}`;
+}
+
 export function pageUrl(document: DocumentInfo, page: number) {
   return `${BASE}/documents/${document.id}/pages/${page}?v=${document.version}`;
 }
@@ -138,3 +142,4 @@ export const profilePreviewPageUrl = (language: Language, page: number, stamp: n
   `${BASE}/profile-preview/pages/${page}?language=${language}&v=${stamp}`;
 
 export const profilePreviewPdfUrl = (language: Language) => `${BASE}/profile-preview/pdf?language=${language}`;
+export const profilePreviewWordUrl = (language: Language) => `${BASE}/profile-preview/docx?language=${language}`;
