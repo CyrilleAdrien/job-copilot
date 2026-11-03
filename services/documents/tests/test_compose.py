@@ -114,17 +114,107 @@ def test_contact_lists_coordinates_with_their_icon(profile):
     assert items[7].text == "Permis B"
 
 
-def test_cv_leaves_out_private_details_by_default(profile):
+def with_details(profile) -> Profile:
     data = profile.model_dump()
     data["identity"] |= {
         "address": "1 rue de la Paix",
-        "birth_date": "1998-03-14",
+        "birth_date": "1998-03-01",
         "nationality": "Française",
+        "driving_licence": "B",
     }
-    data["referees"] = [{"name": "Sam Durand"}]
-    text = build_cv(Profile.model_validate(data), [0], None, "fr").model_dump_json()
+    data["referees"] = [{"name": "Sam Durand", "role": "Responsable"}]
+    return Profile.model_validate(data)
+
+
+def test_cv_leaves_out_private_details_by_default(profile):
+    text = build_cv(with_details(profile), [0], None, "fr").model_dump_json()
     for private in ("rue de la Paix", "1998", "Française", "Sam Durand"):
         assert private not in text
+
+
+def laid_out(profile, **layout) -> Profile:
+    data = profile.model_dump()
+    data["searches"][0]["cv_layout"] = {"hidden": [], "order": [], "labels": {}} | layout
+    return Profile.model_validate(data)
+
+
+def test_cv_shows_private_details_when_asked(profile):
+    cv = build_cv(laid_out(with_details(profile)), [0], None, "fr", "devops")
+    items = {item.kind: item.text for item in cv.contact}
+    assert items["location"] == "1 rue de la Paix, Lyon"
+    assert items["birth"] == "1er mars 1998"
+    assert items["nationality"] == "Française"
+    referees = next(section for section in cv.sections if section.key == "referees")
+    assert referees.title == "Références"
+    assert referees.entries[0].meta == ["Responsable"]
+
+
+def test_cv_hides_each_chosen_element(profile):
+    hidden = [
+        "photo", "location", "email", "phone", "links", "licence", "availability", "contracts",
+        "profile", "skills", "experience", "education", "projects", "languages", "soft_skills",
+        "interests", "certifications", "volunteering", "address", "birth_date", "nationality",
+        "referees",
+    ]  # fmt: skip
+    cv = build_cv(laid_out(with_details(profile), hidden=hidden), [0, 1], None, "fr", "devops")
+    assert cv.show_photo is False
+    assert cv.contact == []
+    assert cv.details == []
+    assert cv.highlight is None
+    assert cv.summary is None
+    assert cv.skills == cv.experiences == cv.education == cv.extras == []
+    assert cv.sections == []
+    assert render_sync("cv", cv).startswith(b"%PDF")
+
+
+def test_masking_never_changes_the_profile_used_by_the_writer(profile):
+    before = profile.model_dump_json()
+    build_cv(laid_out(profile, hidden=["experience"]), [0], None, "fr", "devops")
+    assert profile.model_dump_json() == before
+
+
+def test_order_is_followed_and_completed(profile):
+    cv = build_cv(
+        laid_out(profile, order=["projects", "experience", "ancienne"]), [0], None, "fr", "devops"
+    )
+    assert cv.order[:3] == ["projects", "experience", "profile"]
+    assert "ancienne" not in cv.order
+    assert cv.order[-1] == "extras"
+    assert len(cv.order) == len(set(cv.order))
+
+
+def pdf_text_order(cv) -> list[str]:
+    """Les titres de section, dans l'ordre où le Word les écrit : même ordre que le template."""
+    document = Document(BytesIO(cv_to_docx(cv)))
+    return [p.text for p in document.paragraphs if p.style.name == "Heading 2"]
+
+
+def test_word_follows_the_order_and_section_names(profile):
+    layout = {
+        "order": ["projects", "experience"],
+        "labels": {
+            "projects": {"fr": "Réalisations", "en": None},
+            "experience": {"fr": "Parcours", "en": "Career"},
+            "custom:Conférences": {"fr": "Interventions"},
+        },
+    }
+    profile.custom_sections = [CustomSection(title="Conférences", items=["DevOps Days"])]
+    titles = pdf_text_order(build_cv(laid_out(profile, **layout), [0], None, "fr", "devops"))
+    assert titles[:2] == ["Réalisations", "Parcours"]
+    assert "Interventions" in titles
+    english = pdf_text_order(build_cv(laid_out(profile, **layout), [0], None, "en", "devops"))
+    # Sans nom pour cette langue, la rubrique garde son nom par défaut.
+    assert english[:2] == ["Projects", "Career"]
+
+
+def test_template_renders_any_order_and_old_documents(profile):
+    new = build_cv(
+        laid_out(profile, order=["extras", "projects", "experience"]), [0], None, "fr", "devops"
+    )
+    assert render_sync("cv", new).startswith(b"%PDF")
+    old = new.model_copy(update={"order": [], "titles": {}})
+    assert render_sync("cv", old).startswith(b"%PDF")
+    assert Document(BytesIO(cv_to_docx(old))).paragraphs
 
 
 def test_cv_includes_education_details_and_new_sections(profile):

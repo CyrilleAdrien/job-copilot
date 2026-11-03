@@ -10,6 +10,8 @@
   (profile: "Profil", skills: "Compétences", experience: "Expérience professionnelle",
    education: "Formation", extras: "Informations complémentaires", available: "Disponibilité")
 }
+// Le nom choisi par la personne, sinon le nom par défaut.
+#let title-of(key) = data.at("titles", default: (:)).at(key, default: labels.at(key))
 
 #set document(title: data.name + " - CV", author: data.name)
 #set page(paper: "a4", margin: (x: 1.6cm, top: 1.3cm, bottom: 1.2cm))
@@ -34,22 +36,23 @@
   )
 }
 
-#if data.summary != none and data.summary != "" [
-  #section(labels.profile)
+// Chaque rubrique est une fonction : `order` décide de leur place, sans changer leur rendu.
+#let profile-block() = if data.summary != none and data.summary != "" [
+  #section(title-of("profile"))
   #for part in data.summary.split("\n").filter(x => x.trim() != "") {
     par(part)
   }
 ]
 
-#if data.skills.len() > 0 [
-  #section(labels.skills)
+#let skills-block() = if data.skills.len() > 0 [
+  #section(title-of("skills"))
   #for category in data.skills {
     block(above: 0.5em, below: 0.5em)[*#category.name :* #category.items.join(", ")]
   }
 ]
 
-#if data.experiences.len() > 0 [
-  #section(labels.experience)
+#let experience-block() = if data.experiences.len() > 0 [
+  #section(title-of("experience"))
   #for (i, exp) in data.experiences.enumerate() {
     if i > 0 { v(0.7em) }
     block(sticky: true, below: 0.5em, stack(
@@ -71,8 +74,8 @@
   }
 ]
 
-#if data.education.len() > 0 [
-  #section(labels.education)
+#let education-block() = if data.education.len() > 0 [
+  #section(title-of("education"))
   #for item in data.education {
     let when = item.at("period", default: none)
     if when == none and item.year != none { when = str(item.year) }
@@ -86,7 +89,7 @@
   }
 ]
 
-#for part in data.sections [
+#let other-block(part) = [
   #section(part.title)
   #for entry in part.entries {
     block(above: 0.6em, below: 0.6em, breakable: false, {
@@ -100,9 +103,37 @@
   ]
 ]
 
-#if data.extras.len() > 0 [
-  #section(labels.extras)
+#let extras-block() = if data.extras.len() > 0 [
+  #section(title-of("extras"))
   #for line in data.extras {
     block(above: 0.5em, below: 0.5em)[*#line.label :* #line.text]
   }
 ]
+
+#let main-blocks = (
+  profile: profile-block,
+  skills: skills-block,
+  experience: experience-block,
+  education: education-block,
+  extras: extras-block,
+)
+// Les documents enregistrés avant le choix de l'ordre gardent l'ordre classique.
+#let order = data.at("order", default: ())
+#if order.len() == 0 {
+  profile-block()
+  skills-block()
+  experience-block()
+  education-block()
+  for part in data.sections { other-block(part) }
+  extras-block()
+} else {
+  for key in order {
+    if key in main-blocks {
+      main-blocks.at(key)()
+    } else {
+      for part in data.sections.filter(part => part.at("key", default: none) == key) {
+        other-block(part)
+      }
+    }
+  }
+}

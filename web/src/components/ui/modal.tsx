@@ -13,21 +13,28 @@ export function Modal({
   onClose,
   title,
   description,
+  size = "default",
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   description?: string;
+  size?: "default" | "wide";
   children: ReactNode;
 }) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
+  // La dernière fonction, sans relancer l'effet : il reprendrait le focus à chaque rendu du parent.
+  const closing = useRef(onClose);
+  useEffect(() => {
+    closing.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
-    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    const close = (event: KeyboardEvent) => event.key === "Escape" && closing.current();
     document.addEventListener("keydown", close);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -37,7 +44,7 @@ export function Modal({
       document.body.style.overflow = overflow;
       previous?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <AnimatePresence>
@@ -61,7 +68,7 @@ export function Modal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 4 }}
             transition={spring.snappy}
-            className="relative flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-[16px] border border-border bg-background shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] outline-none"
+            className={`relative flex max-h-[88dvh] w-full ${size === "wide" ? "max-w-6xl" : "max-w-xl"} flex-col overflow-hidden rounded-[16px] border border-border bg-background shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] outline-none`}
           >
             <header className="flex items-start gap-4 border-b border-border px-6 py-4">
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">

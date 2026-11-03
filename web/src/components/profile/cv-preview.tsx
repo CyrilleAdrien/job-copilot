@@ -1,9 +1,10 @@
 "use client";
 
-import { Download, FileWarning } from "lucide-react";
+import { Download, FileWarning, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Page } from "@/components/documents/document-viewer";
+import { CvLayoutModal } from "@/components/profile/cv-layout-modal";
 import { SearchPicker } from "@/components/profile/search-picker";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,7 +17,7 @@ import {
   profilePreviewPdfUrl,
   type Language,
 } from "@/lib/documents";
-import { mainSearch, type SearchProfile } from "@/lib/profile";
+import { mainSearch, type Profile } from "@/lib/profile";
 
 const languages: { value: Language; label: string }[] = [
   { value: "fr", label: "Français" },
@@ -24,8 +25,19 @@ const languages: { value: Language; label: string }[] = [
 ];
 
 /** Le CV enregistré d'une recherche, mis en page avec le template, tel qu'il sortirait sans ciblage. */
-export function CvPreview({ stamp, searches }: { stamp: number; searches: SearchProfile[] }) {
+export function CvPreview({
+  stamp,
+  profile,
+  onSaved,
+}: {
+  stamp: number;
+  profile: Profile;
+  onSaved: (profile: Profile) => void;
+}) {
+  const { searches } = profile;
   const [chosen, setChosen] = useState<number | null>(null);
+  const [customizing, setCustomizing] = useState(false);
+  const [refresh, setRefresh] = useState(0);
   // Une recherche archivée entre-temps n'est plus proposée : on revient à la principale.
   const index = chosen !== null && searches[chosen] && !searches[chosen].archived ? chosen : mainSearch({ searches });
   const search = searches[index].id;
@@ -39,7 +51,7 @@ export function CvPreview({ stamp, searches }: { stamp: number; searches: Search
     fetchProfilePreview(language, search)
       .then((preview) => setPages(preview.pages))
       .catch(() => setFailed(true));
-  }, [language, stamp, search]);
+  }, [language, stamp, search, refresh]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,6 +59,10 @@ export function CvPreview({ stamp, searches }: { stamp: number; searches: Search
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl label="Langue des titres" segments={languages} value={language} onChange={setLanguage} />
         <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => setCustomizing(true)}>
+            <SlidersHorizontal aria-hidden />
+            Personnaliser
+          </Button>
           <Button variant="secondary" size="sm" asChild>
             <a href={profilePreviewPdfUrl(language, search)} download="CV.pdf">
               <Download aria-hidden />
@@ -73,8 +89,8 @@ export function CvPreview({ stamp, searches }: { stamp: number; searches: Search
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-4">
           {Array.from({ length: pages }, (_, index) => (
             <Page
-              key={`${language}-${stamp}-${index}`}
-              src={profilePreviewPageUrl(language, index + 1, stamp, search)}
+              key={`${language}-${stamp}-${refresh}-${search}-${index}`}
+              src={profilePreviewPageUrl(language, index + 1, stamp + refresh, search)}
               label={`CV, page ${index + 1}`}
             />
           ))}
@@ -84,6 +100,19 @@ export function CvPreview({ stamp, searches }: { stamp: number; searches: Search
         Toutes les sections du profil, sans adaptation à une offre. Les CV générés pour une offre ne gardent que
         l&apos;essentiel.
       </p>
+      {customizing && (
+        <CvLayoutModal
+          key={search}
+          open
+          profile={profile}
+          index={index}
+          onSaved={onSaved}
+          onClose={() => {
+            setCustomizing(false);
+            setRefresh((value) => value + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

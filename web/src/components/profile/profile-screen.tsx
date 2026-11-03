@@ -120,7 +120,7 @@ export function ProfileScreen() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={view} {...fadeUp} transition={spring.smooth}>
               {view === "cv" ? (
-                <CvPreview stamp={stamp} searches={profile.searches} />
+                <CvPreview stamp={stamp} profile={profile} onSaved={setProfile} />
               ) : view === "searches" ? (
                 <SearchManager profile={profile} onChange={setProfile} onError={setError} />
               ) : (

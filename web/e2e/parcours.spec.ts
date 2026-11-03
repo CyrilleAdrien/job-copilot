@@ -80,6 +80,57 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.keyboard.press("Escape");
   });
 
+  await test.step("le CV se personnalise sans toucher à son contenu", async () => {
+    const layout = async () => (await read(request, "/api/profile/")).searches[0].cv_layout;
+    const before = (await read(request, "/api/profile/")).searches[0].cv;
+    await page.goto("/profil");
+    await expect(page.getByRole("group", { name: "CV de la recherche" })).toHaveCount(0);
+    await page.getByRole("radio", { name: "CV", exact: true }).click();
+    await expect(page.getByRole("group", { name: "CV de la recherche" })).toBeVisible();
+    await page.getByRole("button", { name: "Personnaliser" }).click();
+    const dialog = page.getByRole("dialog", { name: "Personnaliser le CV" });
+
+    // Les informations privées restent masquées tant qu'on ne les coche pas.
+    await expect(dialog.getByRole("checkbox", { name: "Afficher Références" })).not.toBeChecked();
+
+    await dialog.getByRole("checkbox", { name: "Afficher Expérience professionnelle" }).uncheck();
+    await expect(dialog.getByText("Expérience professionnelle", { exact: true })).toHaveClass(/line-through/);
+    await expect.poll(async () => (await layout()).hidden).toContain("experience");
+
+    await dialog.getByRole("button", { name: "Renommer Compétences" }).click();
+    await dialog.getByRole("textbox", { name: "Nom de la rubrique Compétences" }).fill("Savoir-faire");
+    await expect.poll(async () => (await layout()).labels.skills?.fr).toBe("Savoir-faire");
+    await dialog.getByRole("textbox", { name: "Nom de la rubrique Compétences" }).press("Enter");
+
+    // Au clavier, puis à la souris : les projets passent avant les expériences.
+    await dialog.getByRole("button", { name: "Monter Certifications" }).click();
+    await expect.poll(async () => (await layout()).order.indexOf("certifications")).toBeLessThan(
+      (await layout()).order.indexOf("projects") + 1,
+    );
+    const rows = dialog.getByRole("listitem");
+    const row = rows.filter({ hasText: "Projets" });
+    const handle = await row.locator("button").first().boundingBox();
+    const top = await rows.first().boundingBox();
+    await page.mouse.move(handle!.x + handle!.width / 2, handle!.y + handle!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle!.x + handle!.width / 2, top!.y - 4, { steps: 20 });
+    await page.mouse.up();
+    await expect.poll(async () => (await layout()).order[0]).toBe("projects");
+
+    // L'aperçu suit, sans passer par l'IA.
+    await expect
+      .poll(() => dialog.getByRole("img", { name: "Aperçu du CV, page 1" }).evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+
+    expect((await read(request, "/api/profile/")).searches[0].cv).toEqual(before);
+    expect((await request.get("/api/documents/profile-preview?search=devops")).ok()).toBeTruthy();
+
+    await dialog.getByRole("button", { name: "Réinitialiser" }).click();
+    await expect.poll(async () => (await layout()).order).toEqual([]);
+    await dialog.getByRole("button", { name: "Terminer" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
   await test.step("un CV se génère pour une offre", async () => {
     await page.goto(`/offres/${offer.id}`);
     await page.getByRole("button", { name: /^Générer le CV/ }).click();
