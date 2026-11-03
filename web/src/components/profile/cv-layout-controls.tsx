@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, CircleHelp, GripVertical, PenLine } from "lucide-re
 import { Reorder, useDragControls } from "motion/react";
 import { useState } from "react";
 
+import { Fold } from "@/components/ui/fold";
 import { Input } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -60,8 +61,7 @@ export function LayoutControls({
         </p>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium">En-tête</h3>
+      <Fold title="En-tête">
         <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
           {header.map((element) => (
             <Shown
@@ -72,10 +72,9 @@ export function LayoutControls({
             />
           ))}
         </div>
-      </section>
+      </Fold>
 
-      <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium">Rubriques</h3>
+      <Fold title="Rubriques">
         <p className="text-[13px] text-text-secondary">
           Fais glisser une rubrique pour changer son ordre. Tu peux aussi lui donner ton propre nom : son rôle reste le même.
         </p>
@@ -94,7 +93,7 @@ export function LayoutControls({
             />
           ))}
         </Reorder.Group>
-      </section>
+      </Fold>
     </>
   );
 }

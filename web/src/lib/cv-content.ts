@@ -144,29 +144,3 @@ export function cleanCv(content: CvContent): CvContent {
     sections: content.sections.map((part) => ({ ...part, bullets: lines(part.bullets) })),
   };
 }
-
-/**
- * Met en gras la sélection, ou le retire si elle l'est déjà. Chaque ligne est traitée à part : une
- * réalisation reste une ligne. Les espaces autour de la sélection restent hors du gras.
- */
-export function toggleBold(text: string, start: number, end: number): { text: string; start: number; end: number } {
-  if (start === end) return { text, start, end };
-  const before = text.slice(0, start);
-  const after = text.slice(end);
-  const selected = text.slice(start, end);
-  const wrapped = before.endsWith("**") && after.startsWith("**");
-  if (wrapped) {
-    const next = before.slice(0, -2) + selected + after.slice(2);
-    return { text: next, start: start - 2, end: end - 2 };
-  }
-  const replaced = selected
-    .split("\n")
-    .map((line) => {
-      const inner = line.trim();
-      if (!inner) return line;
-      const bare = inner.startsWith("**") && inner.endsWith("**") && inner.length > 4 ? inner.slice(2, -2) : `**${inner}**`;
-      return line.replace(inner, () => bare);
-    })
-    .join("\n");
-  return { text: before + replaced + after, start, end: start + replaced.length };
-}

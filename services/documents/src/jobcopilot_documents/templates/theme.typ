@@ -23,16 +23,104 @@
   if chosen == none { ("Carlito",) } else { (chosen, "Carlito") }
 }
 
-// Le gras posé dans l'éditeur : **ainsi**. Un ** isolé reste du texte.
-#let rich(value) = {
-  let parts = value.split("**")
-  if calc.even(parts.len()) {
-    value
+// Le texte enrichi : **gras**, *italique*, __souligné__. Mêmes règles que rich.py et rich-text.ts.
+#let rich-tokens(value) = {
+  let chars = value.clusters()
+  let size = chars.len()
+  let out = ()
+  let italic = false
+  let under = false
+  let i = 0
+  let blank(c) = c.trim() == ""
+  // Une fonction Typst garde une copie de ses variables : la position lui est passée à chaque appel.
+  let mark-at(at, opened, width) = if opened {
+    at > 0 and not blank(chars.at(at - 1))
   } else {
-    for (i, part) in parts.enumerate() {
-      if calc.odd(i) { strong(part) } else { part }
+    at + width < size and not blank(chars.at(at + width))
+  }
+  while i < size {
+    let c = chars.at(i)
+    let next = if i + 1 < size { chars.at(i + 1) } else { "" }
+    if c == "\\" and next != "" and next in "*_\\-.0123456789" {
+      out.push(("text", next))
+      i += 2
+    } else if c == "*" and next == "*" {
+      out.push(("bold", "**"))
+      i += 2
+    } else if c == "_" and next == "_" and mark-at(i, under, 2) {
+      under = not under
+      out.push(("under", "__"))
+      i += 2
+    } else if c == "*" and mark-at(i, italic, 1) {
+      italic = not italic
+      out.push(("italic", "*"))
+      i += 1
+    } else {
+      out.push(("text", c))
+      i += 1
     }
   }
+  out
+}
+
+// Une ligne avec ses styles. Une marque sans sa paire redevient du texte.
+#let rich(value) = {
+  let parsed = rich-tokens(value)
+  let paired(kind) = calc.even(parsed.filter(t => t.at(0) == kind).len())
+  let toggles = (bold: paired("bold"), italic: paired("italic"), under: paired("under"))
+  let state = (bold: false, italic: false, under: false)
+  let result = []
+  let buffer = ""
+  let styled(body, style) = {
+    let c = [#body]
+    if style.italic { c = emph(c) }
+    if style.bold { c = strong(c) }
+    if style.under { c = underline(c) }
+    c
+  }
+  for (kind, piece) in parsed {
+    if kind != "text" and toggles.at(kind) {
+      if buffer != "" {
+        result += styled(buffer, state)
+        buffer = ""
+      }
+      state.insert(kind, not state.at(kind))
+    } else {
+      buffer += piece
+    }
+  }
+  if buffer != "" { result += styled(buffer, state) }
+  result
+}
+
+// Un texte sur plusieurs lignes : paragraphes, listes à puces (- ) et numérotées (1. ).
+#let rich-block(value) = {
+  let flush(kind, items) = if kind == "bullet" {
+    list(..items.map(rich))
+  } else if kind == "number" {
+    enum(..items.map(rich))
+  }
+  let kind = none
+  let items = ()
+  for raw in value.split("\n") {
+    let line = raw.trim()
+    if line == "" { continue }
+    let found = line.match(regex("^\\d+\\. "))
+    let current = if line.starts-with("- ") { "bullet" } else if found != none { "number" } else { "text" }
+    if current != kind {
+      flush(kind, items)
+      items = ()
+      kind = current
+    }
+    if current == "text" {
+      par(rich(line))
+    } else if current == "bullet" {
+      items.push(line.slice(2))
+    } else {
+      items.push(line.slice(found.end))
+    }
+  }
+  flush(kind, items)
 }
 
 // Une coordonnée : son icône, puis son texte, cliquable s'il a une adresse.

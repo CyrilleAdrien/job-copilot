@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanCv, contactLabel, contentLines, contentSections, headerElements, layoutOf, normalizeCv, toggleBold, withLayout, type CvContent } from "@/lib/cv-content";
+import { cleanCv, contactLabel, contentLines, contentSections, headerElements, layoutOf, normalizeCv, withLayout, type CvContent } from "@/lib/cv-content";
 
 const base: CvContent = {
   language: "fr",
@@ -26,26 +26,6 @@ const base: CvContent = {
   hidden: ["address"],
   font: "Lato",
 };
-
-describe("toggleBold", () => {
-  it("met la sélection en gras, sans les espaces autour", () => {
-    expect(toggleBold("un mot ici", 3, 6).text).toBe("un **mot** ici");
-    expect(toggleBold("un mot ici", 2, 7).text).toBe("un **mot** ici");
-  });
-
-  it("retire le gras d'un passage déjà en gras", () => {
-    expect(toggleBold("un **mot** ici", 5, 8)).toEqual({ text: "un mot ici", start: 3, end: 6 });
-    expect(toggleBold("un **mot** ici", 3, 10).text).toBe("un mot ici");
-  });
-
-  it("garde une réalisation par ligne", () => {
-    expect(toggleBold("un\ndeux", 0, 7).text).toBe("**un**\n**deux**");
-  });
-
-  it("ne change rien sans sélection", () => {
-    expect(toggleBold("texte", 2, 2)).toEqual({ text: "texte", start: 2, end: 2 });
-  });
-});
 
 describe("normalizeCv", () => {
   it("donne des clés et un ordre complet aux anciens CV", () => {

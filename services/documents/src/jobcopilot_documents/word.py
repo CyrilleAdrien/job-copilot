@@ -17,6 +17,7 @@ from docx.table import _Cell
 from docx.text.paragraph import Paragraph
 
 from jobcopilot_documents.compose import visible_cv
+from jobcopilot_documents.rich import parse_blocks, parse_inline
 from jobcopilot_documents.schemas import FONTS, ContactItem, CvContent, CvSection, LetterContent
 
 CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -201,14 +202,32 @@ def line_with_date(document, title: str, when: str | None, width: float) -> None
 
 
 def add_rich(paragraph: Paragraph, text: str) -> Paragraph:
-    """Le gras posé dans l'éditeur : **ainsi**. Un ** isolé reste du texte."""
-    parts = text.split("**")
-    if len(parts) % 2 == 0:
-        parts = [text]
-    for index, part in enumerate(parts):
-        if part:
-            paragraph.add_run(part).bold = True if index % 2 else None
+    """Une ligne avec ses styles : **gras**, *italique*, __souligné__."""
+    for part in parse_inline(text):
+        run = paragraph.add_run(part.text)
+        run.bold = part.bold or None
+        run.italic = part.italic or None
+        run.underline = part.underline or None
     return paragraph
+
+
+def add_rich_block(document, text: str) -> None:
+    """Un texte sur plusieurs lignes : paragraphes, listes à puces et numérotées."""
+    number = 0
+    for kind, line in parse_blocks(text):
+        number = number + 1 if kind == "number" else 0
+        if kind == "bullet":
+            add_rich(document.add_paragraph(style="List Bullet"), line)
+        elif kind == "number":
+            # Le numéro est écrit : les listes de Word se suivraient d'une rubrique à l'autre.
+            paragraph = document.add_paragraph()
+            paragraph.paragraph_format.left_indent = Cm(0.6)
+            paragraph.paragraph_format.first_line_indent = Cm(-0.6)
+            paragraph.add_run(f"{number}.\t")
+            paragraph.paragraph_format.tab_stops.add_tab_stop(Cm(0.6))
+            add_rich(paragraph, line)
+        else:
+            add_rich(document.add_paragraph(), line)
 
 
 def labeled(document, label: str, text: str) -> None:
@@ -227,9 +246,7 @@ def add_profile(document, cv: CvContent, title: str, _width: float) -> None:
     if not cv.summary:
         return
     add_section(document, title)
-    for part in cv.summary.split("\n"):
-        if part.strip():
-            add_rich(document.add_paragraph(), part.strip())
+    add_rich_block(document, cv.summary)
 
 
 def add_skills(document, cv: CvContent, title: str, _width: float) -> None:
@@ -251,7 +268,7 @@ def add_experience(document, cv: CvContent, title: str, width: float) -> None:
         parts = [experience.company, experience.location]
         add_muted(where, " · ".join(part for part in parts if part))
         if experience.context:
-            add_rich(document.add_paragraph(), experience.context)
+            add_rich_block(document, experience.context)
         for group in experience.groups:
             if group.title:
                 heading = document.add_paragraph()
@@ -274,7 +291,7 @@ def add_education(document, cv: CvContent, title: str, width: float) -> None:
             " · ".join(part for part in (item.school, item.location) if part),
         )
         if item.details:
-            add_rich(document.add_paragraph(), item.details)
+            add_rich_block(document, item.details)
 
 
 def add_extras(document, cv: CvContent, title: str, _width: float) -> None:
@@ -305,7 +322,7 @@ def add_other_section(document, section: CvSection) -> None:
         if entry.meta:
             add_muted(paragraph, " · " + " · ".join(entry.meta))
         if entry.text:
-            add_rich(document.add_paragraph(), entry.text)
+            add_rich_block(document, entry.text)
     for bullet in section.bullets:
         add_rich(document.add_paragraph(style="List Bullet"), bullet)
 

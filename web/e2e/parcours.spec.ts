@@ -90,6 +90,10 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.getByRole("button", { name: "Personnaliser" }).click();
     const dialog = page.getByRole("dialog", { name: "Personnaliser le CV" });
 
+    // Les sections sont repliées par défaut.
+    await expect(dialog.getByRole("checkbox", { name: "Afficher Références" })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Rubriques" }).click();
+
     // Les informations privées restent masquées tant qu'on ne les coche pas.
     await expect(dialog.getByRole("checkbox", { name: "Afficher Références" })).not.toBeChecked();
 
@@ -145,18 +149,39 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     const before = (await read(request, "/api/profile/")).searches[0].cv;
     await page.getByRole("button", { name: "Modifier", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Modifier le CV" });
+    // Les sections sont repliées : rien n'apparaît avant d'ouvrir la bonne.
+    await expect(dialog.getByRole("textbox", { name: "Résumé", exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "En-tête" }).click();
     await dialog.getByLabel("Titre").first().fill("Titre corrigé à la main");
 
-    // Le gras s'applique à la sélection, à la souris.
+    await dialog.getByRole("button", { name: "Profil", exact: true }).click();
     const summary = dialog.getByRole("textbox", { name: "Résumé", exact: true });
-    await summary.fill("Un passage important du résumé.");
-    await summary.evaluate((field: HTMLTextAreaElement) => field.setSelectionRange(3, 20));
-    await dialog.getByRole("button", { name: "Mettre en gras dans Résumé" }).click();
-    await expect(summary).toHaveValue("Un **passage important** du résumé.");
+    const tools = dialog.getByRole("toolbar", { name: "Résumé", exact: true });
+    await summary.fill("Un passage important");
+    // Le gras s'applique à la sélection, et le texte s'affiche déjà en gras.
+    for (let i = 0; i < "important".length; i += 1) await page.keyboard.press("Shift+ArrowLeft");
+    await tools.getByRole("button", { name: "Gras" }).click();
+    await expect(summary.locator("strong")).toHaveText("important");
+    await expect(tools.getByRole("button", { name: "Gras" })).toHaveAttribute("aria-pressed", "true");
+    // L'éditeur rend le focus juste après le clic : on attend avant de continuer au clavier.
+    await expect(summary).toBeFocused();
+    await page.waitForTimeout(150);
+    await page.keyboard.press("ArrowRight");
+    await tools.getByRole("button", { name: "Gras" }).click();
+    await page.waitForTimeout(150);
+    await page.keyboard.type(" et ");
+    await tools.getByRole("button", { name: "Italique" }).click();
+    await page.keyboard.type("penché");
+    await tools.getByRole("button", { name: "Italique" }).click();
+    await tools.getByRole("button", { name: "Liste à puces" }).click();
+    await expect(summary.locator("ul li")).toHaveCount(1);
+    await tools.getByRole("button", { name: "Liste à puces" }).click();
 
     await dialog.getByRole("radio", { name: "Affichage" }).click();
     await dialog.getByLabel("Police").selectOption("Tinos");
+    await dialog.getByRole("button", { name: "En-tête" }).click();
     await dialog.getByRole("checkbox", { name: "Afficher Téléphone" }).uncheck();
+    await dialog.getByRole("button", { name: "Rubriques" }).click();
     await dialog.getByRole("button", { name: "Monter Expérience professionnelle" }).click();
     await dialog.getByRole("button", { name: "Renommer Compétences" }).click();
     await dialog.getByRole("textbox", { name: "Nom de la rubrique Compétences" }).fill("Savoir-faire");
@@ -179,7 +204,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     expect(cv.version).toBe(2);
     const { content } = await read(request, `/api/documents/documents/${cv.id}`);
     expect(content.headline).toBe("Titre corrigé à la main");
-    expect(content.summary).toContain("**passage important**");
+    expect(content.summary).toBe("Un passage **important** et *penché*");
     expect(content.font).toBe("Tinos");
     expect(content.hidden).toContain("phone");
     expect(content.titles.skills).toBe("Savoir-faire");
