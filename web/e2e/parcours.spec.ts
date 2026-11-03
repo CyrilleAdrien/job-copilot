@@ -108,16 +108,25 @@ test("parcours complet, du profil à la suppression des données", async ({ page
 
     // Au clavier, puis à la souris : les projets passent avant les expériences.
     await dialog.getByRole("button", { name: "Monter Certifications" }).click();
-    await expect.poll(async () => (await layout()).order.indexOf("certifications")).toBeLessThan(
-      (await layout()).order.indexOf("projects") + 1,
-    );
+    await expect
+      .poll(async () => {
+        const { order } = await layout();
+        return order.indexOf("certifications") !== -1 && order.indexOf("certifications") < order.indexOf("projects");
+      })
+      .toBe(true);
     const rows = dialog.getByRole("listitem");
     const row = rows.filter({ hasText: "Projets" });
     const handle = await row.locator("button").first().boundingBox();
     const top = await rows.first().boundingBox();
     await page.mouse.move(handle!.x + handle!.width / 2, handle!.y + handle!.height / 2);
     await page.mouse.down();
-    await page.mouse.move(handle!.x + handle!.width / 2, top!.y - 4, { steps: 20 });
+    // À la vitesse d'une main : la liste réagit image par image, et une machine lente en saute.
+    const from = handle!.y + handle!.height / 2;
+    const distance = from - (top!.y - 4);
+    for (let step = 1; step <= 40; step += 1) {
+      await page.mouse.move(handle!.x + handle!.width / 2, from - (distance * step) / 40);
+      await page.waitForTimeout(40);
+    }
     await page.mouse.up();
     await expect.poll(async () => (await layout()).order[0]).toBe("projects");
 
