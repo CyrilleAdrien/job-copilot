@@ -90,6 +90,10 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.getByRole("button", { name: "Personnaliser" }).click();
     const dialog = page.getByRole("dialog", { name: "Personnaliser le CV" });
 
+    // Les sections sont repliées par défaut.
+    await expect(dialog.getByRole("checkbox", { name: "Afficher Références" })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Rubriques" }).click();
+
     // Les informations privées restent masquées tant qu'on ne les coche pas.
     await expect(dialog.getByRole("checkbox", { name: "Afficher Références" })).not.toBeChecked();
 
@@ -104,16 +108,25 @@ test("parcours complet, du profil à la suppression des données", async ({ page
 
     // Au clavier, puis à la souris : les projets passent avant les expériences.
     await dialog.getByRole("button", { name: "Monter Certifications" }).click();
-    await expect.poll(async () => (await layout()).order.indexOf("certifications")).toBeLessThan(
-      (await layout()).order.indexOf("projects") + 1,
-    );
+    await expect
+      .poll(async () => {
+        const { order } = await layout();
+        return order.indexOf("certifications") !== -1 && order.indexOf("certifications") < order.indexOf("projects");
+      })
+      .toBe(true);
     const rows = dialog.getByRole("listitem");
     const row = rows.filter({ hasText: "Projets" });
     const handle = await row.locator("button").first().boundingBox();
     const top = await rows.first().boundingBox();
     await page.mouse.move(handle!.x + handle!.width / 2, handle!.y + handle!.height / 2);
     await page.mouse.down();
-    await page.mouse.move(handle!.x + handle!.width / 2, top!.y - 4, { steps: 20 });
+    // À la vitesse d'une main : la liste réagit image par image, et une machine lente en saute.
+    const from = handle!.y + handle!.height / 2;
+    const distance = from - (top!.y - 4);
+    for (let step = 1; step <= 40; step += 1) {
+      await page.mouse.move(handle!.x + handle!.width / 2, from - (distance * step) / 40);
+      await page.waitForTimeout(40);
+    }
     await page.mouse.up();
     await expect.poll(async () => (await layout()).order[0]).toBe("projects");
 
@@ -139,6 +152,85 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     const word = await request.get("/api/documents/profile-preview/docx");
     expect(word.ok()).toBeTruthy();
     expect(word.headers()["content-type"]).toContain("wordprocessingml");
+  });
+
+  await test.step("un CV généré se modifie, sans toucher au profil", async () => {
+    const before = (await read(request, "/api/profile/")).searches[0].cv;
+    await page.getByRole("button", { name: "Modifier", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Modifier le CV" });
+    // Les sections sont repliées : rien n'apparaît avant d'ouvrir la bonne.
+    await expect(dialog.getByRole("textbox", { name: "Résumé", exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "En-tête" }).click();
+    await dialog.getByLabel("Titre").first().fill("Titre corrigé à la main");
+
+    await dialog.getByRole("button", { name: "Profil", exact: true }).click();
+    const summary = dialog.getByRole("textbox", { name: "Résumé", exact: true });
+    const tools = dialog.getByRole("toolbar", { name: "Résumé", exact: true });
+    await summary.fill("Un passage important");
+    // Le gras s'applique à la sélection, et le texte s'affiche déjà en gras.
+    for (let i = 0; i < "important".length; i += 1) await page.keyboard.press("Shift+ArrowLeft");
+    await tools.getByRole("button", { name: "Gras" }).click();
+    await expect(summary.locator("strong")).toHaveText("important");
+    await expect(tools.getByRole("button", { name: "Gras" })).toHaveAttribute("aria-pressed", "true");
+    // L'éditeur rend le focus juste après le clic : on attend avant de continuer au clavier.
+    await expect(summary).toBeFocused();
+    await page.waitForTimeout(150);
+    await page.keyboard.press("ArrowRight");
+    await tools.getByRole("button", { name: "Gras" }).click();
+    await page.waitForTimeout(150);
+    await page.keyboard.type(" et ");
+    await tools.getByRole("button", { name: "Italique" }).click();
+    await page.keyboard.type("penché");
+    await tools.getByRole("button", { name: "Italique" }).click();
+    await tools.getByRole("button", { name: "Liste à puces" }).click();
+    await expect(summary.locator("ul li")).toHaveCount(1);
+    await tools.getByRole("button", { name: "Liste à puces" }).click();
+
+    await dialog.getByRole("radio", { name: "Affichage" }).click();
+    await dialog.getByLabel("Police").selectOption("Tinos");
+    await dialog.getByRole("button", { name: "Couleurs" }).click();
+    await dialog.getByRole("button", { name: "Bleu nuit" }).click();
+    await expect(dialog.getByRole("textbox", { name: "Code de la couleur : Texte" })).toHaveValue("#1F2A44");
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Fond" }).fill("#FBF7EF");
+    // Un texte illisible sur son fond est signalé.
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Texte" }).fill("#FBF7F0");
+    await expect(dialog.getByText(/difficile à lire/)).toBeVisible();
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Texte" }).fill("#1F2A44");
+    await dialog.getByRole("textbox", { name: "Code de la couleur : Traits et puces" }).press("Tab");
+    await dialog.getByRole("button", { name: "Couleurs" }).click();
+    await dialog.getByRole("button", { name: "En-tête" }).click();
+    await dialog.getByRole("checkbox", { name: "Afficher Téléphone" }).uncheck();
+    await dialog.getByRole("button", { name: "Rubriques" }).click();
+    await dialog.getByRole("button", { name: "Monter Expérience professionnelle" }).click();
+    await dialog.getByRole("button", { name: "Renommer Compétences" }).click();
+    await dialog.getByRole("textbox", { name: "Nom de la rubrique Compétences" }).fill("Savoir-faire");
+    await dialog.getByRole("textbox", { name: "Nom de la rubrique Compétences" }).press("Enter");
+
+    // L'aperçu suit la saisie sans rien enregistrer.
+    await expect
+      .poll(() => dialog.getByRole("img", { name: "Aperçu du CV, page 1" }).evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+
+    // Fermer sans enregistrer demande confirmation, et on peut revenir.
+    await dialog.getByRole("button", { name: "Annuler" }).click();
+    await dialog.getByRole("button", { name: "Continuer" }).click();
+
+    await dialog.getByRole("button", { name: "Enregistrer" }).click();
+    await expect(dialog).toHaveCount(0);
+
+    const generations = await read(request, `/api/documents/generations?offer_id=${offer.id}&limit=1`);
+    const cv = generations[0].documents.find((item: { kind: string }) => item.kind === "cv");
+    expect(cv.version).toBe(2);
+    const { content } = await read(request, `/api/documents/documents/${cv.id}`);
+    expect(content.headline).toBe("Titre corrigé à la main");
+    expect(content.summary).toBe("Un passage **important** et *penché*");
+    expect(content.font).toBe("Tinos");
+    expect(content.colors).toEqual({ background: "#FBF7EF", text: "#1F2A44", rule: "#2F6FED" });
+    expect(content.hidden).toContain("phone");
+    expect(content.titles.skills).toBe("Savoir-faire");
+    expect((await request.get(`/api/documents/documents/${cv.id}/docx`)).ok()).toBeTruthy();
+    expect((await request.get(`/api/documents/documents/${cv.id}/pdf`)).ok()).toBeTruthy();
+    expect((await read(request, "/api/profile/")).searches[0].cv).toEqual(before);
   });
 
   await test.step("la candidature se crée puis passe à Envoyée", async () => {

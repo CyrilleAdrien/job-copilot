@@ -95,7 +95,6 @@ DEFAULT_ORDER = (
     "awards",
     "referees",
 )
-HIDDEN_BY_DEFAULT = ("address", "birth_date", "nationality", "referees")
 
 
 def link_kind(url: str) -> str:
@@ -113,26 +112,20 @@ def birth_date(value: str, language: Language) -> str:
     return f"{MONTHS['en'][month - 1]} {day}, {year}"
 
 
-def contact(
-    profile: Profile, language: Language, hidden: Collection[str] = HIDDEN_BY_DEFAULT
-) -> list[ContactItem]:
-    """Les coordonnées de l'en-tête, sans ce que la personne a choisi de masquer."""
+def contact(profile: Profile, language: Language) -> list[ContactItem]:
+    """Toutes les coordonnées. Ce qui est masqué ne disparaît qu'au rendu : voir `visible_cv`."""
     identity = profile.identity
-    shown = lambda key, value: bool(value) and key not in hidden  # noqa: E731
     items = []
-    place = [
-        value
-        for key, value in (("address", identity.address), ("location", identity.location))
-        if shown(key, value)
-    ]
-    if place:
-        items.append(ContactItem(text=", ".join(place), kind="location"))
-    if shown("email", identity.email):
+    if identity.address:
+        items.append(ContactItem(text=identity.address, kind="address"))
+    if identity.location:
+        items.append(ContactItem(text=identity.location, kind="location"))
+    if identity.email:
         items.append(ContactItem(text=identity.email, url=f"mailto:{identity.email}", kind="email"))
-    if shown("phone", identity.phone):
+    if identity.phone:
         number = identity.phone.replace(" ", "")
         items.append(ContactItem(text=identity.phone, url=f"tel:{number}", kind="phone"))
-    for link in identity.links if "links" not in hidden else []:
+    for link in identity.links:
         web = link.url.lower().startswith(("http://", "https://"))
         items.append(
             ContactItem(
@@ -141,14 +134,51 @@ def contact(
                 kind=link_kind(link.url) if web else "link",
             )
         )
-    if shown("licence", identity.driving_licence):
+    if identity.driving_licence:
         label = f"{WORDS[language]['licence']} {identity.driving_licence}"
         items.append(ContactItem(text=label, kind="licence"))
-    if shown("birth_date", identity.birth_date):
+    if identity.birth_date:
         items.append(ContactItem(text=birth_date(identity.birth_date, language), kind="birth"))
-    if shown("nationality", identity.nationality):
+    if identity.nationality:
         items.append(ContactItem(text=identity.nationality, kind="nationality"))
     return items
+
+
+# La clé qui masque une coordonnée, quand elle diffère de son type.
+CONTACT_KEYS = {"github": "links", "linkedin": "links", "link": "links", "birth": "birth_date"}
+
+
+def visible_contact(items: list[ContactItem], hidden: Collection[str]) -> list[ContactItem]:
+    return [item for item in items if CONTACT_KEYS.get(item.kind, item.kind) not in hidden]
+
+
+def visible_cv(cv: CvContent) -> CvContent:
+    """Ce qui s'affiche : le PDF et le Word partent de là, le contenu complet reste enregistré."""
+    hidden, titles = cv.hidden, cv.titles
+    if not hidden and not titles:
+        return cv
+    return cv.model_copy(
+        update={
+            "show_photo": cv.show_photo and "photo" not in hidden,
+            "contact": visible_contact(cv.contact, hidden),
+            "details": [] if "contracts" in hidden else cv.details,
+            "highlight": None if "availability" in hidden else cv.highlight,
+            "summary": None if "profile" in hidden else cv.summary,
+            "skills": [] if "skills" in hidden else cv.skills,
+            "experiences": [] if "experience" in hidden else cv.experiences,
+            "education": [] if "education" in hidden else cv.education,
+            "sections": [
+                part.model_copy(update={"title": titles.get(part.key, part.title)})
+                for part in cv.sections
+                if part.key not in hidden
+            ],
+            "extras": [
+                line.model_copy(update={"label": titles.get(line.key, line.label)})
+                for line in cv.extras
+                if line.key not in hidden
+            ],
+        }
+    )
 
 
 def education_period(start: str | None, end: str | None) -> str | None:
@@ -176,12 +206,8 @@ def present(*values: str | int | None) -> list[str]:
     return [str(value) for value in values if value]
 
 
-def section_title(layout: CvLayout, key: str, language: Language, default: str) -> str:
-    return (layout.labels.get(key) or {}).get(language) or default
-
-
-def sections(profile: Profile, language: Language, layout: CvLayout) -> list[CvSection]:
-    """Sections secondaires, reprises du profil telles quelles, sans celles masquées."""
+def sections(profile: Profile, language: Language) -> list[CvSection]:
+    """Sections secondaires, reprises du profil telles quelles."""
     words = WORDS[language]
     found = [
         (
@@ -252,15 +278,13 @@ def sections(profile: Profile, language: Language, layout: CvLayout) -> list[CvS
         ),
     ]
     result = [
-        CvSection(key=key, title=section_title(layout, key, language, words[key]), entries=entries)
-        for key, entries in found
-        if entries and key not in layout.hidden
+        CvSection(key=key, title=words[key], entries=entries) for key, entries in found if entries
     ]
-    for item in profile.custom_sections:
-        key = f"custom:{item.title}"
-        if item.items and key not in layout.hidden:
-            title = section_title(layout, key, language, item.title)
-            result.append(CvSection(key=key, title=title, bullets=item.items))
+    result += [
+        CvSection(key=f"custom:{item.title}", title=item.title, bullets=item.items)
+        for item in profile.custom_sections
+        if item.items
+    ]
     return result
 
 
@@ -299,7 +323,6 @@ def build_cv(
     identity = profile.identity
     chosen = chosen_search(profile, search)
     layout = chosen.cv_layout if chosen else CvLayout()
-    hidden = layout.hidden
     rewritten = {item.index: item.groups for item in draft.experiences} if draft else {}
     experiences = [
         experience(source, language, rewritten.get(index) or None)
@@ -313,34 +336,22 @@ def build_cv(
         ("soft_skills", words["soft"], ", ".join(profile.soft_skills)),
         ("interests", words["interests"], ", ".join(profile.interests)),
     )
-    extras = [
-        LabeledLine(label=section_title(layout, key, language, label), text=text)
-        for key, label, text in lines
-        if text and key not in hidden
-    ]
-
-    details = []
-    if "contracts" not in hidden:
-        details = [CONTRACTS.get(c, c) for c in contract_types(profile, search)[:2]]
-    other_sections = sections(profile, language, layout)
+    extras = [LabeledLine(key=key, label=label, text=text) for key, label, text in lines if text]
+    other_sections = sections(profile, language)
     titles = {
-        key: label
-        for key in ("profile", "skills", "experience", "education", "extras")
-        if (label := (layout.labels.get(key) or {}).get(language))
+        key: label for key, names in layout.labels.items() if (label := (names or {}).get(language))
     }
     return CvContent(
         language=language,
         name=identity.full_name,
         headline=(draft.headline if draft else None) or identity.headline,
-        show_photo="photo" not in hidden,
-        contact=contact(profile, language, hidden),
-        details=details,
-        highlight=identity.availability if "availability" not in hidden else None,
-        summary=None
-        if "profile" in hidden
-        else (draft.summary if draft else None) or identity.summary,
-        skills=[] if "skills" in hidden else profile.skills,
-        experiences=[] if "experience" in hidden else experiences,
+        show_photo=True,
+        contact=contact(profile, language),
+        details=[CONTRACTS.get(c, c) for c in contract_types(profile, search)[:2]],
+        highlight=identity.availability,
+        summary=(draft.summary if draft else None) or identity.summary,
+        skills=profile.skills,
+        experiences=experiences,
         education=[
             CvEducation(
                 degree=item.degree,
@@ -350,12 +361,15 @@ def build_cv(
                 location=item.location,
                 details=item.details,
             )
-            for item in ([] if "education" in hidden else profile.education)
+            for item in profile.education
         ],
         sections=other_sections,
         extras=extras,
         order=section_order(layout, other_sections),
         titles=titles,
+        hidden=layout.hidden,
+        font=layout.font,
+        colors=layout.colors,
     )
 
 
@@ -370,9 +384,16 @@ def place_date(place: str | None, language: Language, today: date) -> str:
 
 
 def build_letter(
-    profile: Profile, offer: Offer, draft: LetterDraft, language: Language, today: date
+    profile: Profile,
+    offer: Offer,
+    draft: LetterDraft,
+    language: Language,
+    today: date,
+    search: str | None = None,
 ) -> LetterContent:
     identity = profile.identity
+    chosen = chosen_search(profile, search)
+    layout = chosen.cv_layout if chosen else CvLayout()
     city = re.split(r"[/,]", identity.location)[0].strip() if identity.location else None
     sender = [identity.full_name]
     sender += [value for value in (identity.location, identity.phone, identity.email) if value]
@@ -381,7 +402,9 @@ def build_letter(
         language=language,
         sender=sender,
         headline=identity.headline,
-        contact=contact(profile, language),
+        contact=visible_contact(contact(profile, language), layout.hidden),
+        font=layout.font,
+        colors=layout.colors,
         recipient=recipient,
         place_date=place_date(city, language, today),
         subject=draft.subject,

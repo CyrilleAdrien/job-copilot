@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultLayout, EXTRA_LINES, HEADER_ELEMENTS, moveKey, orderedSections, setLabel, toggleHidden } from "@/lib/cv-layout";
+import { COLOR_THEMES, contrastRatio, defaultLayout, EXTRA_LINES, HEADER_ELEMENTS, isHexColor, moveKey, orderedSections, setLabel, toggleHidden } from "@/lib/cv-layout";
 import { cvView, emptyProfile, emptySearch, emptyExperience } from "@/lib/profile";
 
 function view() {
@@ -60,5 +60,22 @@ describe("disposition du CV", () => {
     const shown = HEADER_ELEMENTS.filter((element) => element.present(current, search)).map((element) => element.key);
     expect(shown).toEqual(["photo", "contracts"]);
     expect(EXTRA_LINES.filter((line) => line.present(current)).map((line) => line.key)).toEqual(["interests"]);
+  });
+});
+
+describe("couleurs", () => {
+  it("reconnaît une couleur complète", () => {
+    expect(isHexColor("#1F2a44")).toBe(true);
+    for (const value of ["#12", "rouge", "1F2A44", "#1F2A4Z"]) expect(isHexColor(value)).toBe(false);
+  });
+
+  it("calcule le contraste", () => {
+    expect(contrastRatio("#000000", "#FFFFFF")).toBeCloseTo(21);
+    expect(contrastRatio("#FFFFFF", "#000000")).toBeCloseTo(21);
+    expect(contrastRatio("#777777", "#777777")).toBeCloseTo(1);
+  });
+
+  it("propose des ensembles dont le texte reste lisible", () => {
+    for (const { colors } of COLOR_THEMES) expect(contrastRatio(colors.text, colors.background)).toBeGreaterThan(7);
   });
 });

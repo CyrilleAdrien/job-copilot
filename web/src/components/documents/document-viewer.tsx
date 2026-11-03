@@ -4,6 +4,7 @@ import { Download, ExternalLink, PenLine, RotateCcw, TriangleAlert } from "lucid
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
+import { CvEditorModal } from "@/components/documents/cv-editor-modal";
 import { LetterEditor } from "@/components/documents/letter-editor";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -30,6 +31,7 @@ export function DocumentViewer({
 }) {
   const [kind, setKind] = useState<DocumentKind>("cv");
   const [editing, setEditing] = useState(false);
+  const [editingCv, setEditingCv] = useState(false);
   const document = generation.documents.find((item) => item.kind === kind) ?? generation.documents[0];
   const warnings = generation.warnings.filter((warning) => warning.kind === document.kind);
 
@@ -39,6 +41,7 @@ export function DocumentViewer({
       documents: generation.documents.map((item) => (item.id === updated.id ? updated : item)),
     });
     setEditing(false);
+    setEditingCv(false);
   }
 
   return (
@@ -61,8 +64,8 @@ export function DocumentViewer({
           <span className="text-sm font-medium">{kindLabels[document.kind]}</span>
         )}
         <div className="flex items-center gap-1">
-          {document.kind === "letter" && !editing && (
-            <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+          {!editing && (
+            <Button variant="ghost" size="sm" onClick={() => (document.kind === "cv" ? setEditingCv(true) : setEditing(true))}>
               <PenLine aria-hidden />
               Modifier
             </Button>
@@ -121,6 +124,10 @@ export function DocumentViewer({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {editingCv && document.kind === "cv" && (
+        <CvEditorModal key={`${document.id}-${document.version}`} document={document} onSaved={replace} onClose={() => setEditingCv(false)} />
+      )}
 
       <Button variant="ghost" size="sm" className="w-fit" onClick={onRegenerate}>
         <RotateCcw aria-hidden />

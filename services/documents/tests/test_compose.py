@@ -3,14 +3,23 @@ from io import BytesIO
 
 import httpx
 from docx import Document
+from docx.oxml.ns import qn
 
-from jobcopilot_documents.compose import build_cv, build_letter, period, place_date
+from jobcopilot_documents.compose import (
+    build_cv,
+    build_letter,
+    period,
+    place_date,
+    visible_cv,
+)
 from jobcopilot_documents.language import detect_language
 from jobcopilot_documents.render import render_sync
 from jobcopilot_documents.schemas import (
+    FONTS,
     Award,
     Course,
     CustomSection,
+    CvColors,
     CvDraft,
     DraftExperience,
     Education,
@@ -127,9 +136,13 @@ def with_details(profile) -> Profile:
 
 
 def test_cv_leaves_out_private_details_by_default(profile):
-    text = build_cv(with_details(profile), [0], None, "fr").model_dump_json()
+    cv = build_cv(with_details(profile), [0], None, "fr")
+    shown = visible_cv(cv).model_dump_json()
     for private in ("rue de la Paix", "1998", "Française", "Sam Durand"):
-        assert private not in text
+        assert private not in shown
+    # Le contenu les garde : on peut les réafficher sans générer de nouveau.
+    assert "rue de la Paix" in cv.model_dump_json()
+    assert "rue de la Paix" not in word_text(cv_to_docx(cv))
 
 
 def laid_out(profile, **layout) -> Profile:
@@ -139,9 +152,10 @@ def laid_out(profile, **layout) -> Profile:
 
 
 def test_cv_shows_private_details_when_asked(profile):
-    cv = build_cv(laid_out(with_details(profile)), [0], None, "fr", "devops")
+    cv = visible_cv(build_cv(laid_out(with_details(profile)), [0], None, "fr", "devops"))
     items = {item.kind: item.text for item in cv.contact}
-    assert items["location"] == "1 rue de la Paix, Lyon"
+    assert items["address"] == "1 rue de la Paix"
+    assert items["location"] == "Lyon"
     assert items["birth"] == "1er mars 1998"
     assert items["nationality"] == "Française"
     referees = next(section for section in cv.sections if section.key == "referees")
@@ -156,7 +170,8 @@ def test_cv_hides_each_chosen_element(profile):
         "interests", "certifications", "volunteering", "address", "birth_date", "nationality",
         "referees",
     ]  # fmt: skip
-    cv = build_cv(laid_out(with_details(profile), hidden=hidden), [0, 1], None, "fr", "devops")
+    built = build_cv(laid_out(with_details(profile), hidden=hidden), [0, 1], None, "fr", "devops")
+    cv = visible_cv(built)
     assert cv.show_photo is False
     assert cv.contact == []
     assert cv.details == []
@@ -164,7 +179,8 @@ def test_cv_hides_each_chosen_element(profile):
     assert cv.summary is None
     assert cv.skills == cv.experiences == cv.education == cv.extras == []
     assert cv.sections == []
-    assert render_sync("cv", cv).startswith(b"%PDF")
+    assert render_sync("cv", built).startswith(b"%PDF")
+    assert len(built.experiences) == 2
 
 
 def test_masking_never_changes_the_profile_used_by_the_writer(profile):
@@ -355,3 +371,133 @@ def test_search_view_uses_the_cv_of_the_chosen_search():
     data["searches"][2]["primary"] = True
     assert search_view(data)["identity"]["headline"] == "Vente"
     assert search_view(data, "nurse")["identity"]["headline"] == "Infirmière"
+
+
+def test_every_font_is_embedded_and_really_used(profile):
+    sizes = set()
+    for font in FONTS:
+        data = profile.model_dump()
+        data["searches"][0]["cv_layout"] = {"font": font}
+        cv = build_cv(Profile.model_validate(data), [0], None, "fr", "devops")
+        assert cv.font == font
+        sizes.add(len(render_sync("cv", cv)))
+    assert len(sizes) == len(FONTS)
+
+
+def test_unknown_font_falls_back(profile):
+    data = profile.model_dump()
+    data["searches"][0]["cv_layout"] = {"font": "Comic Sans"}
+    assert build_cv(Profile.model_validate(data), [0], None, "fr", "devops").font is None
+
+
+def test_word_uses_the_font_name_people_know(profile):
+    data = profile.model_dump()
+    data["searches"][0]["cv_layout"] = {"font": "Arimo"}
+    cv = build_cv(Profile.model_validate(data), [0], None, "fr", "devops")
+    assert Document(BytesIO(cv_to_docx(cv))).styles["Normal"].font.name == "Arial"
+    assert (
+        Document(BytesIO(cv_to_docx(cv.model_copy(update={"font": None}))))
+        .styles["Normal"]
+        .font.name
+        == "Calibri"
+    )
+
+
+def test_letter_follows_font_and_hidden_details(profile, offer):
+    data = with_details(profile).model_dump()
+    data["searches"][0]["cv_layout"] = {"font": "Lato", "hidden": ["phone", "birth_date"]}
+    draft = LetterDraft(subject="S", greeting="G", paragraphs=["P"], closing="C")
+    letter = build_letter(
+        Profile.model_validate(data), offer, draft, "fr", date(2026, 11, 3), "devops"
+    )
+    assert letter.font == "Lato"
+    kinds = {item.kind for item in letter.contact}
+    assert "phone" not in kinds and "birth" not in kinds and "address" in kinds
+    assert render_sync("letter", letter).startswith(b"%PDF")
+
+
+def test_bold_is_rendered_in_pdf_and_word(profile):
+    cv = build_cv(profile, [0], None, "fr")
+    cv.summary = "Un **passage important** du résumé."
+    plain = cv.model_copy(update={"summary": "Un passage important du résumé."})
+    assert render_sync("cv", cv) != render_sync("cv", plain)
+    paragraph = next(p for p in Document(BytesIO(cv_to_docx(cv))).paragraphs if "passage" in p.text)
+    assert paragraph.text == "Un passage important du résumé."
+    assert [run.text for run in paragraph.runs if run.bold] == ["passage important"]
+
+
+def test_lone_stars_stay_text(profile):
+    cv = build_cv(profile, [0], None, "fr")
+    cv.summary = "Note ** sans fin"
+    assert "Note ** sans fin" in word_text(cv_to_docx(cv))
+    assert render_sync("cv", cv).startswith(b"%PDF")
+
+
+def test_changing_names_and_hidden_after_generation(profile):
+    cv = build_cv(profile, [0, 1], None, "fr")
+    edited = cv.model_copy(
+        update={
+            "hidden": ["projects", "phone"],
+            "titles": {
+                "certifications": "Titres",
+                "experience": "Parcours",
+                "languages": "Idiomes",
+            },
+        }
+    )
+    shown = visible_cv(edited)
+    assert "Projets" not in [part.title for part in shown.sections]
+    assert "Titres" in [part.title for part in shown.sections]
+    assert "Idiomes" in [line.label for line in shown.extras]
+    assert "phone" not in [item.kind for item in shown.contact]
+    assert "Parcours" in word_text(cv_to_docx(edited))
+
+
+def colored(profile, **colors) -> Profile:
+    data = profile.model_dump()
+    data["searches"][0]["cv_layout"] = {"colors": colors}
+    return Profile.model_validate(data)
+
+
+def test_colors_change_the_pdf_of_the_cv_and_letter(profile, offer):
+    plain = build_cv(profile, [0], None, "fr", "devops")
+    dark = colored(profile, background="#101820", text="#F5F5F5", rule="#2F6FED")
+    cv = build_cv(dark, [0], None, "fr", "devops")
+    assert cv.colors.background == "#101820"
+    assert render_sync("cv", cv) != render_sync("cv", plain)
+    draft = LetterDraft(subject="S", greeting="G", paragraphs=["P"], closing="C")
+    letter = build_letter(dark, offer, draft, "fr", date(2026, 11, 3), "devops")
+    assert letter.colors.rule == "#2F6FED"
+    assert render_sync("letter", letter).startswith(b"%PDF")
+
+
+def test_each_color_can_be_set_alone(profile):
+    for colors in ({"background": "#FBF7EF"}, {"text": "#1F2A44"}, {"rule": "#2F6FED"}):
+        cv = build_cv(colored(profile, **colors), [0], None, "fr", "devops")
+        assert render_sync("cv", cv).startswith(b"%PDF")
+
+
+def test_invalid_colors_fall_back(profile):
+    cv = build_cv(colored(profile, text="rouge", rule="#12"), [0], None, "fr", "devops")
+    assert cv.colors.text is None and cv.colors.rule is None
+    assert render_sync("cv", cv).startswith(b"%PDF")
+
+
+def test_default_colors_leave_the_pdf_unchanged(profile):
+    cv = build_cv(profile, [0], None, "fr", "devops")
+    assert cv.colors is None
+    # Aucun fond n'est posé, pour imprimer sans couleur de page.
+    assert render_sync("cv", cv.model_copy(update={"colors": CvColors()})) == render_sync("cv", cv)
+
+
+def test_word_applies_the_colors(profile):
+    dark = colored(profile, background="#101820", text="#F5F5F5", rule="#2F6FED")
+    data = cv_to_docx(build_cv(dark, [0], None, "fr", "devops"))
+    document = Document(BytesIO(data))
+    assert str(document.styles["Normal"].font.color.rgb) == "F5F5F5"
+    assert document.element.find(qn("w:background")).get(qn("w:color")) == "101820"
+    assert 'w:color="2F6FED"' in document.element.xml
+    # Le document suivant repart des couleurs par défaut.
+    default = Document(BytesIO(cv_to_docx(build_cv(profile, [0], None, "fr", "devops"))))
+    assert str(default.styles["Normal"].font.color.rgb) == "1F1F1F"
+    assert default.element.find(qn("w:background")) is None

@@ -96,7 +96,9 @@ async def run(ctx: Context, generation_id: uuid.UUID, request: GenerationRequest
             letter = None
             if request.letter:
                 letter_draft = await ctx.writer.write_letter(profile, offer, selection, language)
-                letter = build_letter(profile, offer, letter_draft, language, date.today())
+                letter = build_letter(
+                    profile, offer, letter_draft, language, date.today(), request.search
+                )
                 warnings += check_letter(profile, offer, letter)
             row.warnings = [warning.model_dump() for warning in warnings]
             await advance(3)

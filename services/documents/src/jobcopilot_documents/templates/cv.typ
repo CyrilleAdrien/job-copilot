@@ -14,8 +14,8 @@
 #let title-of(key) = data.at("titles", default: (:)).at(key, default: labels.at(key))
 
 #set document(title: data.name + " - CV", author: data.name)
-#set page(paper: "a4", margin: (x: 1.6cm, top: 1.3cm, bottom: 1.2cm))
-#set text(font: "Carlito", size: 10pt, fill: ink, lang: data.language)
+#set page(paper: "a4", margin: (x: 1.6cm, top: 1.3cm, bottom: 1.2cm), fill: page-fill)
+#set text(font: fonts-for(data), size: 10pt, fill: ink, lang: data.language)
 #set par(leading: 0.5em, spacing: 0.6em)
 #set list(indent: 0.2em, body-indent: 0.5em, spacing: 0.5em, marker: text(fill: gold, size: 8pt, baseline: -0.05em)[●])
 
@@ -39,15 +39,13 @@
 // Chaque rubrique est une fonction : `order` décide de leur place, sans changer leur rendu.
 #let profile-block() = if data.summary != none and data.summary != "" [
   #section(title-of("profile"))
-  #for part in data.summary.split("\n").filter(x => x.trim() != "") {
-    par(part)
-  }
+  #rich-block(data.summary)
 ]
 
 #let skills-block() = if data.skills.len() > 0 [
   #section(title-of("skills"))
   #for category in data.skills {
-    block(above: 0.5em, below: 0.5em)[*#category.name :* #category.items.join(", ")]
+    block(above: 0.5em, below: 0.5em)[*#category.name :* #rich(category.items.join(", "))]
   }
 ]
 
@@ -61,14 +59,14 @@
       secondary((exp.company, exp.location).filter(x => x != none).join(" · ")),
     ))
     if exp.context != none and exp.context != "" {
-      block(above: 0.5em, below: 0.5em, exp.context)
+      block(above: 0.5em, below: 0.5em, rich-block(exp.context))
     }
     for group in exp.groups {
       if group.title != none {
         block(sticky: true, above: 0.9em, below: 0.5em, text(weight: "bold", group.title))
       }
       for bullet in group.bullets [
-        - #bullet
+        - #rich(bullet)
       ]
     }
   }
@@ -84,7 +82,7 @@
       line-with-date(strong(item.degree), if when != none { when } else { "" }),
       secondary((item.school, item.at("location", default: none)).filter(x => x != none).join(" · ")),
     )
-    if details != none and details != "" { lines.push(par(details)) }
+    if details != none and details != "" { lines.push(rich-block(details)) }
     block(above: 0.7em, below: 0.7em, breakable: false, stack(spacing: 5pt, ..lines))
   }
 ]
@@ -95,18 +93,18 @@
     block(above: 0.6em, below: 0.6em, breakable: false, {
       let title = if entry.url != none { link(entry.url, strong(entry.title)) } else { strong(entry.title) }
       (title, ..entry.meta.map(secondary)).join(sep)
-      if entry.text != none and entry.text != "" { block(above: 0.45em, below: 0pt, entry.text) }
+      if entry.text != none and entry.text != "" { block(above: 0.45em, below: 0pt, rich-block(entry.text)) }
     })
   }
   #for bullet in part.at("bullets", default: ()) [
-    - #bullet
+    - #rich(bullet)
   ]
 ]
 
 #let extras-block() = if data.extras.len() > 0 [
   #section(title-of("extras"))
   #for line in data.extras {
-    block(above: 0.5em, below: 0.5em)[*#line.label :* #line.text]
+    block(above: 0.5em, below: 0.5em)[*#line.label :* #rich(line.text)]
   }
 ]
 

@@ -1,4 +1,5 @@
 import { parseError } from "@/lib/api";
+import type { CvContent } from "@/lib/cv-content";
 
 export type Language = "fr" | "en";
 export type DocumentKind = "cv" | "letter";
@@ -110,6 +111,33 @@ export async function startGeneration(
 
 export async function fetchGeneration(id: string): Promise<Generation> {
   return json(await fetch(`${BASE}/generations/${id}`, { cache: "no-store" }));
+}
+
+export async function fetchCv(id: string): Promise<CvContent> {
+  const document = await json<{ content: CvContent }>(await fetch(`${BASE}/documents/${id}`, { cache: "no-store" }));
+  return document.content;
+}
+
+export async function saveCv(id: string, content: CvContent): Promise<DocumentInfo> {
+  return json(
+    await fetch(`${BASE}/documents/${id}/content`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(content),
+    }),
+  );
+}
+
+/** Le rendu d'un contenu en cours de modification : rien n'est enregistré. */
+export async function previewCv(id: string, content: CvContent): Promise<string[]> {
+  const preview = await json<{ pages: string[] }>(
+    await fetch(`${BASE}/documents/${id}/preview`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(content),
+    }),
+  );
+  return preview.pages.map((page) => `data:image/svg+xml;base64,${page}`);
 }
 
 export async function fetchLetter(id: string): Promise<LetterContent> {
