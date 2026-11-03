@@ -141,6 +141,53 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     expect(word.headers()["content-type"]).toContain("wordprocessingml");
   });
 
+  await test.step("un CV généré se modifie, sans toucher au profil", async () => {
+    const before = (await read(request, "/api/profile/")).searches[0].cv;
+    await page.getByRole("button", { name: "Modifier", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Modifier le CV" });
+    await dialog.getByLabel("Titre").first().fill("Titre corrigé à la main");
+
+    // Le gras s'applique à la sélection, à la souris.
+    const summary = dialog.getByRole("textbox", { name: "Résumé", exact: true });
+    await summary.fill("Un passage important du résumé.");
+    await summary.evaluate((field: HTMLTextAreaElement) => field.setSelectionRange(3, 20));
+    await dialog.getByRole("button", { name: "Mettre en gras dans Résumé" }).click();
+    await expect(summary).toHaveValue("Un **passage important** du résumé.");
+
+    await dialog.getByRole("radio", { name: "Affichage" }).click();
+    await dialog.getByLabel("Police").selectOption("Tinos");
+    await dialog.getByRole("checkbox", { name: "Afficher Téléphone" }).uncheck();
+    await dialog.getByRole("button", { name: "Monter Expérience professionnelle" }).click();
+    await dialog.getByRole("button", { name: "Renommer Compétences" }).click();
+    await dialog.getByRole("textbox", { name: "Nom de la rubrique Compétences" }).fill("Savoir-faire");
+    await dialog.getByRole("textbox", { name: "Nom de la rubrique Compétences" }).press("Enter");
+
+    // L'aperçu suit la saisie sans rien enregistrer.
+    await expect
+      .poll(() => dialog.getByRole("img", { name: "Aperçu du CV, page 1" }).evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+
+    // Fermer sans enregistrer demande confirmation, et on peut revenir.
+    await dialog.getByRole("button", { name: "Annuler" }).click();
+    await dialog.getByRole("button", { name: "Continuer" }).click();
+
+    await dialog.getByRole("button", { name: "Enregistrer" }).click();
+    await expect(dialog).toHaveCount(0);
+
+    const generations = await read(request, `/api/documents/generations?offer_id=${offer.id}&limit=1`);
+    const cv = generations[0].documents.find((item: { kind: string }) => item.kind === "cv");
+    expect(cv.version).toBe(2);
+    const { content } = await read(request, `/api/documents/documents/${cv.id}`);
+    expect(content.headline).toBe("Titre corrigé à la main");
+    expect(content.summary).toContain("**passage important**");
+    expect(content.font).toBe("Tinos");
+    expect(content.hidden).toContain("phone");
+    expect(content.titles.skills).toBe("Savoir-faire");
+    expect((await request.get(`/api/documents/documents/${cv.id}/docx`)).ok()).toBeTruthy();
+    expect((await request.get(`/api/documents/documents/${cv.id}/pdf`)).ok()).toBeTruthy();
+    expect((await read(request, "/api/profile/")).searches[0].cv).toEqual(before);
+  });
+
   await test.step("la candidature se crée puis passe à Envoyée", async () => {
     const popup = page.context().waitForEvent("page");
     await page.getByRole("button", { name: "Postuler" }).click();

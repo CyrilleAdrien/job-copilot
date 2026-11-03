@@ -7,6 +7,9 @@ from pathlib import Path
 import typst
 from pydantic import BaseModel
 
+from jobcopilot_documents.compose import visible_cv
+from jobcopilot_documents.schemas import CvContent
+
 TEMPLATES = Path(__file__).parent / "templates"
 FONTS = TEMPLATES / "fonts"
 
@@ -16,6 +19,8 @@ class RenderError(Exception):
 
 
 def compile_typst(template: str, content: BaseModel, photo: bytes | None = None, **options):
+    if isinstance(content, CvContent):
+        content = visible_cv(content)
     inputs = {"data": content.model_dump_json()}
     if photo is not None:
         # Typst ne reçoit que du texte : la photo passe en liste d'octets.

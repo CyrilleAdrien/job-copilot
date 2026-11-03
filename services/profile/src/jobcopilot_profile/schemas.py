@@ -187,6 +187,9 @@ class CvLayout(Schema):
     hidden: list[str] = Field(default_factory=lambda: list(HIDDEN_BY_DEFAULT), max_length=60)
     order: list[str] = Field(default=[], max_length=40)
     labels: dict[str, SectionLabel] = {}
+    font: str | None = Field(
+        default=None, max_length=60, description="Police du CV et de la lettre"
+    )
 
 
 def slugify(text: str) -> str:

@@ -2,9 +2,10 @@
 
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FloatingLayer } from "@/components/ui/floating";
 import { spring } from "@/lib/motion";
 
 /** Fenêtre centrée : se ferme avec Échap, le bouton de fermeture ou un clic sur le fond. */
@@ -25,6 +26,9 @@ export function Modal({
 }) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
+  // Hors de la page : un conteneur animé la coincerait sous le menu latéral.
+  const [used, setUsed] = useState(open);
+  if (open && !used) setUsed(true);
   // La dernière fonction, sans relancer l'effet : il reprendrait le focus à chaque rendu du parent.
   const closing = useRef(onClose);
   useEffect(() => {
@@ -47,6 +51,7 @@ export function Modal({
   }, [open]);
 
   return (
+    <FloatingLayer ready={used}>
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -86,5 +91,6 @@ export function Modal({
         </div>
       )}
     </AnimatePresence>
+    </FloatingLayer>
   );
 }

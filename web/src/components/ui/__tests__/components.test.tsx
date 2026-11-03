@@ -138,4 +138,15 @@ describe("Modal", () => {
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("renders above the page, out of any parent", () => {
+    render(
+      <div data-testid="parent">
+        <Modal open onClose={vi.fn()} title="Fenêtre">
+          x
+        </Modal>
+      </div>,
+    );
+    expect(screen.getByTestId("parent")).not.toContainElement(screen.getByRole("dialog"));
+  });
 });

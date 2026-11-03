@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from io import BytesIO
 
 import boto3
@@ -287,3 +288,45 @@ async def test_generation_uses_the_cv_of_the_chosen_search(client, upstream, pro
     assert content["headline"] == "Commerciale"
     assert content["experiences"] == []
     assert content["details"] == ["CDD"]
+
+
+async def test_preview_renders_without_saving(client):
+    generation = await generate(client)
+    cv = next(item for item in generation["documents"] if item["kind"] == "cv")
+    content = (await client.get(f"/documents/{cv['id']}")).json()["content"]
+    edited = {**content, "headline": "Titre corrigé", "summary": "Un **résumé** en gras."}
+    response = await client.post(f"/documents/{cv['id']}/preview", json=edited)
+    assert response.status_code == 200
+    assert base64.b64decode(response.json()["pages"][0]).startswith(b"\x89PNG")
+    detail = (await client.get(f"/documents/{cv['id']}")).json()
+    assert detail["version"] == cv["version"]
+    assert detail["content"]["headline"] == content["headline"]
+
+
+async def test_preview_refuses_invalid_content(client):
+    generation = await generate(client)
+    cv = next(item for item in generation["documents"] if item["kind"] == "cv")
+    assert (
+        await client.post(f"/documents/{cv['id']}/preview", json={"name": 1})
+    ).status_code == 422
+
+
+async def test_cv_edits_create_a_new_version_for_pdf_and_word(client):
+    generation = await generate(client)
+    cv = next(item for item in generation["documents"] if item["kind"] == "cv")
+    content = (await client.get(f"/documents/{cv['id']}")).json()["content"]
+    edited = {
+        **content,
+        "headline": "Titre corrigé",
+        "font": "Tinos",
+        "hidden": [*content["hidden"], "phone"],
+        "titles": {"experience": "Parcours"},
+    }
+    saved = await client.put(f"/documents/{cv['id']}/content", json=edited)
+    assert saved.status_code == 200
+    assert saved.json()["version"] == cv["version"] + 1
+    word = await client.get(f"/documents/{cv['id']}/docx")
+    text = docx_text(word.content)
+    assert "Titre corrigé" in text and "Parcours" in text
+    assert "06 00 00 00 00" not in text
+    assert (await client.get(f"/documents/{cv['id']}/pdf")).content.startswith(b"%PDF")

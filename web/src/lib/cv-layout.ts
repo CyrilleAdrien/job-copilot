@@ -6,11 +6,25 @@ export type { CvLayout };
 
 export type CvLanguage = "fr" | "en";
 
+/** Les polices embarquées. Les plus connues sont des équivalents libres, de mêmes dimensions. */
+export const CV_FONTS = [
+  { value: "Carlito", label: "Calibri (Carlito)" },
+  { value: "Arimo", label: "Arial (Arimo)" },
+  { value: "Tinos", label: "Times New Roman (Tinos)" },
+  { value: "Caladea", label: "Cambria (Caladea)" },
+  { value: "Gelasio", label: "Georgia (Gelasio)" },
+  { value: "EB Garamond", label: "Garamond (EB Garamond)" },
+  { value: "Roboto", label: "Roboto" },
+  { value: "Open Sans", label: "Open Sans" },
+  { value: "Lato", label: "Lato" },
+  { value: "Montserrat", label: "Montserrat" },
+];
+
 /** Facultatifs sur un CV : affichés seulement si la personne le demande. */
 export const HIDDEN_BY_DEFAULT = ["address", "birth_date", "nationality", "referees"];
 
 export function defaultLayout(): CvLayout {
-  return { hidden: [...HIDDEN_BY_DEFAULT], order: [], labels: {} };
+  return { hidden: [...HIDDEN_BY_DEFAULT], order: [], labels: {}, font: null };
 }
 
 type Element = { key: string; label: string; present: (view: CvView, search: SearchProfile) => boolean };
@@ -39,7 +53,7 @@ export type Section = {
   present: (view: CvView) => boolean;
 };
 
-const SECTIONS: Section[] = [
+export const SECTIONS: Section[] = [
   { key: "profile", names: { fr: "Profil", en: "Profile" }, help: "Le résumé de ton parcours et de ce que tu apportes, en quelques phrases.", present: (view) => Boolean(view.identity.summary) },
   { key: "skills", names: { fr: "Compétences", en: "Skills" }, help: "Ce que tu sais faire et les outils que tu maîtrises, par catégorie.", present: (view) => view.skills.length > 0 },
   { key: "experience", names: { fr: "Expérience professionnelle", en: "Professional experience" }, help: "Les postes occupés, avec leurs dates et tes réalisations.", present: (view) => view.experiences.length > 0 },
@@ -53,7 +67,7 @@ const SECTIONS: Section[] = [
   { key: "referees", names: { fr: "Références", en: "References" }, help: "Les personnes qui peuvent recommander ton travail. Demande-leur leur accord avant.", present: (view) => view.referees.length > 0 },
 ];
 
-const EXTRAS: Section = {
+export const EXTRAS: Section = {
   key: "extras",
   names: { fr: "Informations complémentaires", en: "Additional information" },
   help: "Le bloc de fin de CV : langues, qualités et centres d'intérêt.",

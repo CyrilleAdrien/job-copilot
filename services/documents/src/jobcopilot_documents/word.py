@@ -1,7 +1,7 @@
 """Version Word des documents : le même contenu que le PDF, modifiable dans un traitement de texte.
 
-Le fichier reprend la structure et les couleurs du template. Il n'a pas les icônes de contact, et
-il utilise Calibri, la police dont Carlito (celle du PDF) reprend les dimensions.
+Le fichier reprend la structure et les couleurs du template, sans les icônes de contact. Il
+nomme la police choisie : Word la remplace si elle n'est pas installée sur l'ordinateur.
 """
 
 from io import BytesIO
@@ -16,10 +16,11 @@ from docx.shared import Cm, Pt, RGBColor
 from docx.table import _Cell
 from docx.text.paragraph import Paragraph
 
-from jobcopilot_documents.schemas import ContactItem, CvContent, CvSection, LetterContent
+from jobcopilot_documents.compose import visible_cv
+from jobcopilot_documents.schemas import FONTS, ContactItem, CvContent, CvSection, LetterContent
 
 CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-FONT = "Calibri"
+DEFAULT_FONT = "Calibri"
 INK = RGBColor(0x1F, 0x1F, 0x1F)
 MUTED = RGBColor(0x5F, 0x5F, 0x5F)
 GOLD = "FFC412"
@@ -46,9 +47,11 @@ LABELS = {
 }
 
 
-def set_style_font(style, size: float, *, bold: bool = False, color: RGBColor = INK) -> None:
+def set_style_font(
+    style, size: float, font: str = DEFAULT_FONT, *, bold: bool = False, color: RGBColor = INK
+) -> None:
     """Fixe la police du style. Les attributs de thème du modèle Word l'emporteraient sinon."""
-    style.font.name = FONT
+    style.font.name = font
     style.font.size = Pt(size)
     style.font.bold = bold
     style.font.italic = False
@@ -57,10 +60,13 @@ def set_style_font(style, size: float, *, bold: bool = False, color: RGBColor = 
     for attribute in ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme"):
         fonts.attrib.pop(qn(f"w:{attribute}"), None)
     for attribute in ("ascii", "hAnsi", "eastAsia", "cs"):
-        fonts.set(qn(f"w:{attribute}"), FONT)
+        fonts.set(qn(f"w:{attribute}"), font)
 
 
-def new_document(title: str, author: str, language: str, margin_x: float, size: float):
+def new_document(
+    title: str, author: str, language: str, margin_x: float, size: float, chosen: str | None = None
+):
+    font = FONTS.get(chosen, DEFAULT_FONT)
     document = Document()
     properties = document.core_properties
     properties.title, properties.author, properties.last_modified_by = title, author, author
@@ -72,19 +78,19 @@ def new_document(title: str, author: str, language: str, margin_x: float, size: 
     section.top_margin, section.bottom_margin = Cm(1.3), Cm(1.2)
 
     styles = document.styles
-    set_style_font(styles["Normal"], size)
+    set_style_font(styles["Normal"], size, font)
     styles["Normal"].paragraph_format.space_after = Pt(3)
     styles["Normal"].paragraph_format.space_before = Pt(0)
     styles["Normal"].paragraph_format.line_spacing = 1.05
     # Des titres Word : le plan du document reste lisible par les logiciels de tri de CV.
-    set_style_font(styles["Heading 1"], 23, bold=True)
+    set_style_font(styles["Heading 1"], 23, font, bold=True)
     styles["Heading 1"].paragraph_format.space_before = Pt(0)
     styles["Heading 1"].paragraph_format.space_after = Pt(2)
-    set_style_font(styles["Heading 2"], 10.5, bold=True)
+    set_style_font(styles["Heading 2"], 10.5, font, bold=True)
     styles["Heading 2"].font.all_caps = True
     styles["Heading 2"].paragraph_format.space_before = Pt(11)
     styles["Heading 2"].paragraph_format.space_after = Pt(5)
-    set_style_font(styles["List Bullet"], size)
+    set_style_font(styles["List Bullet"], size, font)
     styles["List Bullet"].paragraph_format.space_after = Pt(2)
     return document
 
@@ -194,10 +200,21 @@ def line_with_date(document, title: str, when: str | None, width: float) -> None
         add_muted(paragraph, f"\t{when}")
 
 
+def add_rich(paragraph: Paragraph, text: str) -> Paragraph:
+    """Le gras posé dans l'éditeur : **ainsi**. Un ** isolé reste du texte."""
+    parts = text.split("**")
+    if len(parts) % 2 == 0:
+        parts = [text]
+    for index, part in enumerate(parts):
+        if part:
+            paragraph.add_run(part).bold = True if index % 2 else None
+    return paragraph
+
+
 def labeled(document, label: str, text: str) -> None:
     paragraph = document.add_paragraph()
     paragraph.add_run(f"{label} : ").bold = True
-    paragraph.add_run(text)
+    add_rich(paragraph, text)
 
 
 def to_bytes(document) -> bytes:
@@ -212,7 +229,7 @@ def add_profile(document, cv: CvContent, title: str, _width: float) -> None:
     add_section(document, title)
     for part in cv.summary.split("\n"):
         if part.strip():
-            document.add_paragraph(part.strip())
+            add_rich(document.add_paragraph(), part.strip())
 
 
 def add_skills(document, cv: CvContent, title: str, _width: float) -> None:
@@ -234,7 +251,7 @@ def add_experience(document, cv: CvContent, title: str, width: float) -> None:
         parts = [experience.company, experience.location]
         add_muted(where, " · ".join(part for part in parts if part))
         if experience.context:
-            document.add_paragraph(experience.context)
+            add_rich(document.add_paragraph(), experience.context)
         for group in experience.groups:
             if group.title:
                 heading = document.add_paragraph()
@@ -242,7 +259,7 @@ def add_experience(document, cv: CvContent, title: str, width: float) -> None:
                 heading.paragraph_format.space_before = Pt(6)
                 heading.add_run(group.title).bold = True
             for bullet in group.bullets:
-                document.add_paragraph(bullet, style="List Bullet")
+                add_rich(document.add_paragraph(style="List Bullet"), bullet)
 
 
 def add_education(document, cv: CvContent, title: str, width: float) -> None:
@@ -257,7 +274,7 @@ def add_education(document, cv: CvContent, title: str, width: float) -> None:
             " · ".join(part for part in (item.school, item.location) if part),
         )
         if item.details:
-            document.add_paragraph(item.details)
+            add_rich(document.add_paragraph(), item.details)
 
 
 def add_extras(document, cv: CvContent, title: str, _width: float) -> None:
@@ -288,15 +305,16 @@ def add_other_section(document, section: CvSection) -> None:
         if entry.meta:
             add_muted(paragraph, " · " + " · ".join(entry.meta))
         if entry.text:
-            document.add_paragraph(entry.text)
+            add_rich(document.add_paragraph(), entry.text)
     for bullet in section.bullets:
-        document.add_paragraph(bullet, style="List Bullet")
+        add_rich(document.add_paragraph(style="List Bullet"), bullet)
 
 
 def cv_to_docx(cv: CvContent, photo: bytes | None = None) -> bytes:
+    cv = visible_cv(cv)
     labels = LABELS[cv.language]
     width = 21 - 2 * 1.6
-    document = new_document(f"{cv.name} - CV", cv.name, cv.language, 1.6, 10)
+    document = new_document(f"{cv.name} - CV", cv.name, cv.language, 1.6, 10, cv.font)
 
     notes = list(cv.details)
     if cv.highlight:
@@ -327,7 +345,7 @@ def cv_to_docx(cv: CvContent, photo: bytes | None = None) -> bytes:
 
 def letter_to_docx(letter: LetterContent) -> bytes:
     labels = LABELS[letter.language]
-    document = new_document(letter.subject, letter.signature, letter.language, 2.2, 11)
+    document = new_document(letter.subject, letter.signature, letter.language, 2.2, 11, letter.font)
     document.styles["Normal"].paragraph_format.space_after = Pt(8)
     section = document.sections[0]
     section.top_margin, section.bottom_margin = Cm(1.8), Cm(2)

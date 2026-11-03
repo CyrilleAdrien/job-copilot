@@ -55,6 +55,7 @@ export type CvLayout = {
   hidden: string[];
   order: string[];
   labels: Record<string, { fr?: string | null; en?: string | null }>;
+  font?: string | null;
 };
 
 /** Un profil de recherche : ses postes, ses filtres et sa façon de retenir les offres. */

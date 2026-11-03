@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -16,11 +17,12 @@ from jobcopilot_documents import pipeline
 from jobcopilot_documents.compose import build_cv
 from jobcopilot_documents.deps import Ctx, get_llm
 from jobcopilot_documents.models import DocumentRow, GenerationRow
-from jobcopilot_documents.render import RenderError, render, render_page
+from jobcopilot_documents.render import RenderError, render, render_page, render_pages_sync
 from jobcopilot_documents.schemas import (
     CvContent,
     DocumentDetail,
     DocumentInfo,
+    DocumentPreview,
     Generation,
     GenerationRequest,
     Language,
@@ -39,6 +41,7 @@ router = APIRouter(tags=["documents"])
 Session = Annotated[AsyncSession, Depends(get_session)]
 CONTENT = {"cv": CvContent, "letter": LetterContent}
 POLL_SECONDS = 0.4
+PREVIEW_PPI = 100
 HEARTBEAT_SECONDS = 15
 
 
@@ -192,6 +195,26 @@ async def read_page(document_id: uuid.UUID, page: int, session: Session, ctx: Ct
     return Response(
         image, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"}
     )
+
+
+@router.post("/documents/{document_id}/preview", response_model=DocumentPreview)
+async def preview_content(
+    document_id: uuid.UUID, content: dict, session: Session, ctx: Ctx
+) -> DocumentPreview:
+    """Le rendu d'un contenu en cours de modification. Rien n'est enregistré."""
+    row = await load_document(session, document_id)
+    try:
+        model = CONTENT[row.kind].model_validate(content)
+        photo = await pipeline.photo_for(ctx, model)
+        pages = await asyncio.to_thread(
+            render_pages_sync, pipeline.TEMPLATES[row.kind], model, PREVIEW_PPI, photo
+        )
+    except ValidationError as exc:
+        errors = json.loads(exc.json(include_url=False, include_context=False))
+        raise HTTPException(422, errors) from exc
+    except RenderError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return DocumentPreview(pages=[base64.b64encode(page).decode() for page in pages])
 
 
 @router.put("/documents/{document_id}/content", response_model=DocumentDetail)

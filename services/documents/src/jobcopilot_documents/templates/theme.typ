@@ -6,6 +6,7 @@
 
 #let icons = (
   location: "icons/map-pin.svg",
+  address: "icons/map-pin.svg",
   phone: "icons/phone.svg",
   email: "icons/mail.svg",
   github: "icons/github.svg",
@@ -15,6 +16,24 @@
   birth: "icons/cake.svg",
   nationality: "icons/flag.svg",
 )
+
+// La police choisie, Carlito pour tout caractère qu'elle n'aurait pas.
+#let fonts-for(data) = {
+  let chosen = data.at("font", default: none)
+  if chosen == none { ("Carlito",) } else { (chosen, "Carlito") }
+}
+
+// Le gras posé dans l'éditeur : **ainsi**. Un ** isolé reste du texte.
+#let rich(value) = {
+  let parts = value.split("**")
+  if calc.even(parts.len()) {
+    value
+  } else {
+    for (i, part) in parts.enumerate() {
+      if calc.odd(i) { strong(part) } else { part }
+    }
+  }
+}
 
 // Une coordonnée : son icône, puis son texte, cliquable s'il a une adresse.
 #let contact-item(item) = {

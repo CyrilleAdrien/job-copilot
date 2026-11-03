@@ -1,10 +1,10 @@
 """Contrats du service : entrées (profil, offre), contenu des documents, réponses du LLM, API."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 Language = Literal["fr", "en"]
 Kind = Literal["cv", "letter"]
@@ -74,12 +74,29 @@ class SpokenLanguage(Loose):
     level: str
 
 
+# Les polices embarquées, et le nom à donner à Word : celui de la police payante qu'elle remplace
+# quand elle en a les dimensions, le sien sinon.
+FONTS = {
+    "Carlito": "Calibri",
+    "Arimo": "Arial",
+    "Tinos": "Times New Roman",
+    "Caladea": "Cambria",
+    "Gelasio": "Georgia",
+    "EB Garamond": "Garamond",
+    "Roboto": "Roboto",
+    "Open Sans": "Open Sans",
+    "Lato": "Lato",
+    "Montserrat": "Montserrat",
+}
+
+
 class CvLayout(Loose):
     """L'affichage du CV choisi par la personne. Ne contient aucun texte du CV."""
 
     hidden: list[str] = ["address", "birth_date", "nationality", "referees"]
     order: list[str] = []
     labels: dict[str, dict[str, str | None]] = {}
+    font: str | None = None
 
 
 class Search(Loose):
@@ -204,8 +221,14 @@ class ContactItem(BaseModel):
 
 
 class LabeledLine(BaseModel):
+    key: str | None = Field(default=None, description="Sa clé dans `hidden` et `titles`")
     label: str
     text: str
+
+
+def known_font(value: str | None) -> str | None:
+    """Une police inconnue, venue d'un ancien fichier par exemple, revient à celle par défaut."""
+    return value if value in FONTS else None
 
 
 class CvEntry(BaseModel):
@@ -218,7 +241,7 @@ class CvEntry(BaseModel):
 
 
 class CvSection(BaseModel):
-    key: str | None = Field(default=None, description="Sa place dans `order`")
+    key: str | None = Field(default=None, description="Sa clé dans `order`, `hidden` et `titles`")
     title: str
     entries: list[CvEntry] = []
     bullets: list[str] = []
@@ -242,6 +265,8 @@ class CvContent(BaseModel):
     extras: list[LabeledLine] = []
     order: list[str] = Field(default=[], description="Ordre des rubriques ; vide : ordre classique")
     titles: dict[str, str] = Field(default={}, description="Noms choisis par la personne")
+    hidden: list[str] = Field(default=[], description="Gardé dans le contenu, absent du rendu")
+    font: Annotated[str | None, AfterValidator(known_font)] = None
 
 
 class LetterContent(BaseModel):
@@ -249,6 +274,7 @@ class LetterContent(BaseModel):
     sender: list[str]
     headline: str | None = None
     contact: list[ContactItem] = []
+    font: Annotated[str | None, AfterValidator(known_font)] = None
     recipient: list[str]
     place_date: str
     subject: str
@@ -333,6 +359,10 @@ class Generation(BaseModel):
     warnings: list[Warning]
     documents: list[DocumentInfo]
     created_at: datetime
+
+
+class DocumentPreview(BaseModel):
+    pages: list[str] = Field(description="Une image PNG par page, en base64")
 
 
 class DocumentDetail(DocumentInfo):
