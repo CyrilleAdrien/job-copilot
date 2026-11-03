@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   currentStep,
   paragraphsToText,
+  pdfUrl,
   textToParagraphs,
+  wordUrl,
+  type DocumentInfo,
   type Generation,
   type GenerationStep,
 } from "@/lib/documents";
@@ -30,5 +33,13 @@ describe("paragraphes de la lettre", () => {
   it("fait l'aller-retour", () => {
     const paragraphs = ["Premier.", "Second."];
     expect(textToParagraphs(paragraphsToText(paragraphs))).toEqual(paragraphs);
+  });
+});
+
+describe("wordUrl", () => {
+  it("points to the Word version of the same document version", () => {
+    const document = { id: "abc", version: 3 } as DocumentInfo;
+    expect(wordUrl(document)).toBe(pdfUrl(document).replace("/pdf?", "/docx?"));
+    expect(wordUrl(document)).toContain("v=3");
   });
 });

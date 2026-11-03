@@ -32,6 +32,8 @@ from jobcopilot_documents.schemas import (
 )
 from jobcopilot_documents.settings import get_documents_settings
 from jobcopilot_documents.upstream import UpstreamError, fetch_profile
+from jobcopilot_documents.word import CONTENT_TYPE as WORD_TYPE
+from jobcopilot_documents.word import cv_to_docx, letter_to_docx
 
 router = APIRouter(tags=["documents"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -148,22 +150,34 @@ async def read_document(document_id: uuid.UUID, session: Session) -> DocumentDet
     return DocumentDetail.model_validate(row, from_attributes=True)
 
 
+def disposition(row: DocumentRow, extension: str, mode: str) -> dict[str, str]:
+    name = row.content.get("name") or row.content.get("signature") or "document"
+    prefix = "CV" if row.kind == "cv" else ("Lettre" if row.language == "fr" else "Letter")
+    filename = f"{prefix} {name}.{extension}"
+    ascii_name = filename.encode("ascii", "ignore").decode() or f"document.{extension}"
+    return {
+        "Content-Disposition": f'{mode}; filename="{ascii_name}"; '
+        f"filename*=UTF-8''{quote(filename)}"
+    }
+
+
 @router.get("/documents/{document_id}/pdf")
 async def read_pdf(document_id: uuid.UUID, session: Session, ctx: Ctx) -> Response:
     row = await load_document(session, document_id)
     pdf = await ctx.storage.get(row.s3_key)
-    name = row.content.get("name") or row.content.get("signature") or "document"
-    prefix = "CV" if row.kind == "cv" else ("Lettre" if row.language == "fr" else "Letter")
-    filename = f"{prefix} {name}.pdf"
-    ascii_name = filename.encode("ascii", "ignore").decode() or "document.pdf"
-    return Response(
-        pdf,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'inline; filename="{ascii_name}"; '
-            f"filename*=UTF-8''{quote(filename)}"
-        },
-    )
+    return Response(pdf, media_type="application/pdf", headers=disposition(row, "pdf", "inline"))
+
+
+@router.get("/documents/{document_id}/docx")
+async def read_docx(document_id: uuid.UUID, session: Session, ctx: Ctx) -> Response:
+    """La version Word, refaite à la demande depuis le contenu enregistré."""
+    row = await load_document(session, document_id)
+    model = CONTENT[row.kind].model_validate(row.content)
+    if isinstance(model, CvContent):
+        data = await asyncio.to_thread(cv_to_docx, model, await pipeline.photo_for(ctx, model))
+    else:
+        data = await asyncio.to_thread(letter_to_docx, model)
+    return Response(data, media_type=WORD_TYPE, headers=disposition(row, "docx", "attachment"))
 
 
 @router.get("/documents/{document_id}/pages/{page}")
@@ -227,6 +241,17 @@ async def profile_preview_pdf(ctx: Ctx, language: Language = "fr") -> Response:
     cv = await profile_cv(ctx, language)
     pdf, _ = await render(pipeline.TEMPLATES["cv"], cv, await pipeline.photo_for(ctx, cv))
     return Response(pdf, media_type="application/pdf", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/profile-preview/docx")
+async def profile_preview_docx(ctx: Ctx, language: Language = "fr") -> Response:
+    cv = await profile_cv(ctx, language)
+    data = await asyncio.to_thread(cv_to_docx, cv, await pipeline.photo_for(ctx, cv))
+    headers = {
+        "Content-Disposition": 'attachment; filename="CV.docx"',
+        "Cache-Control": "no-store",
+    }
+    return Response(data, media_type=WORD_TYPE, headers=headers)
 
 
 @router.get("/profile-preview/pages/{page}")

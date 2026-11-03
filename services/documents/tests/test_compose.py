@@ -1,6 +1,8 @@
 from datetime import date
+from io import BytesIO
 
 import httpx
+from docx import Document
 
 from jobcopilot_documents.compose import build_cv, build_letter, period, place_date
 from jobcopilot_documents.language import detect_language
@@ -18,6 +20,7 @@ from jobcopilot_documents.schemas import (
     Profile,
 )
 from jobcopilot_documents.upstream import fetch_photo
+from jobcopilot_documents.word import cv_to_docx, letter_to_docx
 
 
 def test_period():
@@ -176,3 +179,54 @@ async def test_unreadable_photo_is_ignored():
     assert await answer(b"\x89PNG\r\n\x1a\nrest") == b"\x89PNG\r\n\x1a\nrest"
     assert await answer(b"not an image") is None
     assert await answer(b"\x89PNG\r\n\x1a\n", 404) is None
+
+
+def word_text(data: bytes) -> str:
+    return "\n".join(p.text for p in Document(BytesIO(data)).paragraphs)
+
+
+def test_word_cv_holds_the_same_content_as_the_pdf(profile):
+    profile.custom_sections = [CustomSection(title="Conférences", items=["DevOps Days"])]
+    cv = build_cv(profile, [0], None, "fr")
+    text = word_text(cv_to_docx(cv))
+    for expected in (
+        cv.name, cv.headline, cv.summary, cv.experiences[0].title, cv.experiences[0].period,
+        cv.education[0].degree, "Conférences", "DevOps Days", "alex@example.org",
+    ):  # fmt: skip
+        assert expected in text
+    document = Document(BytesIO(cv_to_docx(cv)))
+    assert document.core_properties.author == cv.name
+    assert [p.text for p in document.paragraphs if p.style.name == "Heading 1"] == [cv.name]
+
+
+def test_word_cv_shows_the_photo_only_when_asked(profile):
+    png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
+        b"\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xcf\xc0\xf0\x1f\x00\x05\x00\x01\xff"
+        b"\x89\x99=\x1d\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    cv = build_cv(profile, [0], None, "fr")
+    assert len(Document(BytesIO(cv_to_docx(cv, png))).inline_shapes) == 1
+    hidden = cv.model_copy(update={"show_photo": False})
+    assert len(Document(BytesIO(cv_to_docx(hidden, png))).inline_shapes) == 0
+    assert word_text(cv_to_docx(hidden, png)).startswith(cv.name)
+
+
+def test_word_cv_ignores_an_unreadable_photo_and_unsafe_links(profile):
+    cv = build_cv(profile, [0], None, "fr")
+    cv.contact[0].url = "javascript:alert(1)"
+    data = cv_to_docx(cv, b"not an image")
+    document = Document(BytesIO(data))
+    urls = [rel.target_ref for rel in document.part.rels.values() if rel.is_external]
+    assert not any(url.startswith("javascript") for url in urls)
+    assert len(document.inline_shapes) == 0
+
+
+def test_word_letter_holds_its_paragraphs(profile, offer):
+    draft = LetterDraft(
+        subject="Candidature", greeting="Madame,", paragraphs=["Un."], closing="Fin"
+    )
+    letter = build_letter(profile, offer, draft, "fr", date(2026, 11, 3))
+    text = word_text(letter_to_docx(letter))
+    for expected in ("Objet : Candidature", "Madame,", "Un.", "Fin", "Helio", letter.signature):
+        assert expected in text

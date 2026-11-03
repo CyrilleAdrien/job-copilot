@@ -1,8 +1,10 @@
 import asyncio
+from io import BytesIO
 
 import boto3
 import httpx
 import pytest
+from docx import Document
 from fakeredis import FakeAsyncRedis
 from moto import mock_aws
 
@@ -11,7 +13,15 @@ from jobcopilot_documents import pipeline
 from jobcopilot_documents.deps import get_context
 from jobcopilot_documents.main import app
 from jobcopilot_documents.storage import Storage
+from jobcopilot_documents.word import CONTENT_TYPE as WORD_TYPE
 from jobcopilot_documents.writer import DemoWriter
+
+
+def docx_text(data: bytes) -> str:
+    document = Document(BytesIO(data))
+    cells = [cell for table in document.tables for row in table.rows for cell in row.cells]
+    paragraphs = [*document.paragraphs, *(p for cell in cells for p in cell.paragraphs)]
+    return "\n".join(paragraph.text for paragraph in paragraphs)
 
 
 @pytest.fixture
@@ -83,6 +93,28 @@ async def test_pdf_is_served_inline(client):
     assert response.content.startswith(b"%PDF")
     assert response.headers["content-type"] == "application/pdf"
     assert 'filename="CV Alex Martin.pdf"' in response.headers["content-disposition"]
+
+
+async def test_word_version_of_each_document(client):
+    generation = await generate(client)
+    for document, filename in zip(
+        generation["documents"], ("CV Alex Martin.docx", "Lettre Alex Martin.docx"), strict=True
+    ):
+        response = await client.get(f"/documents/{document['id']}/docx")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == WORD_TYPE
+        assert f'attachment; filename="{filename}"' in response.headers["content-disposition"]
+        assert "Alex Martin" in docx_text(response.content)
+
+
+async def test_word_version_follows_edits(client):
+    generation = await generate(client)
+    letter = next(item for item in generation["documents"] if item["kind"] == "letter")
+    detail = (await client.get(f"/documents/{letter['id']}")).json()
+    content = {**detail["content"], "paragraphs": ["Paragraphe corrigé à la main."]}
+    assert (await client.put(f"/documents/{letter['id']}/content", json=content)).status_code == 200
+    response = await client.get(f"/documents/{letter['id']}/docx")
+    assert "Paragraphe corrigé à la main." in docx_text(response.content)
 
 
 async def test_pages_are_previewed_as_png(client):
@@ -167,6 +199,9 @@ async def test_profile_preview_renders_the_whole_profile(client):
     page = await client.get("/profile-preview/pages/1")
     assert page.headers["content-type"] == "image/png"
     assert (await client.get("/profile-preview/pages/9")).status_code == 404
+    word = await client.get("/profile-preview/docx", params={"language": "en"})
+    assert word.headers["content-type"] == WORD_TYPE
+    assert "Professional experience" in docx_text(word.content)
 
 
 async def test_profile_preview_without_profile(client, upstream):

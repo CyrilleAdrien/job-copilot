@@ -84,6 +84,10 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await page.goto(`/offres/${offer.id}`);
     await page.getByRole("button", { name: /^Générer le CV/ }).click();
     await expect(page.getByRole("button", { name: "Postuler" })).toBeVisible();
+
+    const word = await request.get("/api/documents/profile-preview/docx");
+    expect(word.ok()).toBeTruthy();
+    expect(word.headers()["content-type"]).toContain("wordprocessingml");
   });
 
   await test.step("la candidature se crée puis passe à Envoyée", async () => {

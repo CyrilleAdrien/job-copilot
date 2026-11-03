@@ -12,6 +12,7 @@ import {
   kindLabels,
   pageUrl,
   pdfUrl,
+  wordUrl,
   type DocumentInfo,
   type DocumentKind,
   type Generation,
@@ -76,6 +77,12 @@ export function DocumentViewer({
             <a href={pdfUrl(document)} download>
               <Download aria-hidden />
               PDF
+            </a>
+          </Button>
+          <Button variant="secondary" size="sm" asChild>
+            <a href={wordUrl(document)} download>
+              <Download aria-hidden />
+              Word
             </a>
           </Button>
         </div>
