@@ -1,10 +1,9 @@
 "use client";
 
-import { ArrowDown, ArrowUp, CircleHelp, GripVertical, PenLine } from "lucide-react";
+import { ArrowDown, ArrowUp, CircleHelp, GripVertical, Palette, PanelTop, PenLine, Rows3, Type, type LucideIcon } from "lucide-react";
 import { Reorder, useDragControls } from "motion/react";
 import { useState } from "react";
 
-import { Fold } from "@/components/ui/fold";
 import { Input } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -24,8 +23,19 @@ import {
 } from "@/lib/cv-layout";
 import { cn } from "@/lib/utils";
 
-/** Le réglage commun à la personnalisation d'une recherche et à la modification d'un CV généré. */
+export type CustomizeSection = "font" | "colors" | "header" | "sections";
+
+/** Le menu latéral de l'espace Personnaliser. */
+export const CUSTOMIZE_SECTIONS: { value: CustomizeSection; label: string; icon: LucideIcon }[] = [
+  { value: "font", label: "Police", icon: Type },
+  { value: "colors", label: "Couleurs", icon: Palette },
+  { value: "header", label: "En-tête", icon: PanelTop },
+  { value: "sections", label: "Rubriques", icon: Rows3 },
+];
+
+/** Une section de réglages, commune au CV d'une recherche et à un CV généré. */
 export function LayoutControls({
+  section,
   header,
   sections,
   lines,
@@ -33,6 +43,7 @@ export function LayoutControls({
   language,
   onChange,
 }: {
+  section: CustomizeSection;
   header: { key: string; label: string }[];
   sections: Section[];
   /** Les lignes du bloc « extras », qui se masquent une à une. */
@@ -41,10 +52,10 @@ export function LayoutControls({
   language: CvLanguage;
   onChange: (layout: CvLayout) => void;
 }) {
-  const keys = sections.map((section) => section.key);
+  const keys = sections.map((item) => item.key);
   const reorder = (order: string[]) => onChange(setOrder(layout, order));
-  return (
-    <>
+  if (section === "font") {
+    return (
       <section className="flex flex-col gap-2">
         <label htmlFor="cv-font" className="text-sm font-medium">
           Police
@@ -65,12 +76,20 @@ export function LayoutControls({
           Le PDF garde toujours cette police. Dans Word, elle est remplacée si elle n&apos;est pas installée sur l&apos;ordinateur.
         </p>
       </section>
-
-      <Fold title="Couleurs">
+    );
+  }
+  if (section === "colors") {
+    return (
+      <section className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Couleurs</h3>
         <ColorControls colors={layout.colors ?? null} onChange={(colors) => onChange({ ...layout, colors })} />
-      </Fold>
-
-      <Fold title="En-tête">
+      </section>
+    );
+  }
+  if (section === "header") {
+    return (
+      <section className="flex flex-col gap-2">
+        <h3 className="text-sm font-medium">En-tête</h3>
         <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
           {header.map((element) => (
             <Shown
@@ -81,29 +100,31 @@ export function LayoutControls({
             />
           ))}
         </div>
-      </Fold>
-
-      <Fold title="Rubriques">
-        <p className="text-[13px] text-text-secondary">
-          Fais glisser une rubrique pour changer son ordre. Tu peux aussi lui donner ton propre nom : son rôle reste le même.
-        </p>
-        <Reorder.Group axis="y" values={keys} onReorder={reorder} className="flex flex-col gap-2">
-          {sections.map((section, position) => (
-            <SectionRow
-              key={section.key}
-              section={section}
-              layout={layout}
-              language={language}
-              first={position === 0}
-              last={position === sections.length - 1}
-              onChange={onChange}
-              onMove={(offset) => reorder(moveKey(keys, section.key, offset))}
-              lines={section.key === "extras" ? lines : []}
-            />
-          ))}
-        </Reorder.Group>
-      </Fold>
-    </>
+      </section>
+    );
+  }
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium">Rubriques</h3>
+      <p className="text-[13px] text-text-secondary">
+        Fais glisser une rubrique pour changer son ordre. Tu peux aussi lui donner ton propre nom : son rôle reste le même.
+      </p>
+      <Reorder.Group axis="y" values={keys} onReorder={reorder} className="flex flex-col gap-2">
+        {sections.map((item, position) => (
+          <SectionRow
+            key={item.key}
+            section={item}
+            layout={layout}
+            language={language}
+            first={position === 0}
+            last={position === sections.length - 1}
+            onChange={onChange}
+            onMove={(offset) => reorder(moveKey(keys, item.key, offset))}
+            lines={item.key === "extras" ? lines : []}
+          />
+        ))}
+      </Reorder.Group>
+    </section>
   );
 }
 

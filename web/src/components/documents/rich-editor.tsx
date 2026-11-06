@@ -3,26 +3,36 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { List, ListOrdered, Redo2, RemoveFormatting, Undo2 } from "lucide-react";
-import { useId, type ReactNode } from "react";
+import { createContext, useContext, useId, type ReactNode } from "react";
 
 import { docToRich, richToDoc, type RichMode, type RichNode } from "@/lib/rich-text";
 import { cn } from "@/lib/utils";
 
-/** Un champ qui montre directement le gras, l'italique, le souligné et les listes. */
-export function RichEditor({
-  label,
-  value,
-  onChange,
-  mode = "text",
-  hint,
-}: {
+/** Change quand une valeur est restaurée : le champ, qui garde son propre état, repart d'elle. */
+export const EditorRevision = createContext(0);
+
+type RichEditorProps = {
   label: string;
   value: string;
   onChange: (value: string) => void;
   /** `text` : paragraphes et listes. `list` : une puce par ligne. `line` : une seule ligne. */
   mode?: RichMode;
   hint?: string;
-}) {
+};
+
+export function RichEditor(props: RichEditorProps) {
+  const revision = useContext(EditorRevision);
+  return <RichEditorField key={revision} {...props} />;
+}
+
+/** Un champ qui montre directement le gras, l'italique, le souligné et les listes. */
+function RichEditorField({
+  label,
+  value,
+  onChange,
+  mode = "text",
+  hint,
+}: RichEditorProps) {
   const labelId = useId();
   const editor = useEditor({
     immediatelyRender: false,

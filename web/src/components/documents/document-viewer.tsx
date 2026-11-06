@@ -4,8 +4,8 @@ import { Download, ExternalLink, PenLine, RotateCcw, TriangleAlert } from "lucid
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
-import { CvEditorModal } from "@/components/documents/cv-editor-modal";
 import { LetterEditor } from "@/components/documents/letter-editor";
+import { DocumentStudio } from "@/components/studio/document-studio";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -126,7 +126,14 @@ export function DocumentViewer({
       </AnimatePresence>
 
       {editingCv && document.kind === "cv" && (
-        <CvEditorModal key={`${document.id}-${document.version}`} document={document} onSaved={replace} onClose={() => setEditingCv(false)} />
+        <DocumentStudio
+          key={`${document.id}-${document.version}`}
+          document={document}
+          warnings={warnings}
+          onSaved={replace}
+          onRegenerate={onRegenerate}
+          onClose={() => setEditingCv(false)}
+        />
       )}
 
       <Button variant="ghost" size="sm" className="w-fit" onClick={onRegenerate}>
