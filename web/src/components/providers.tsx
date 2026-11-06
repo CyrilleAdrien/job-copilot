@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
 import { ProfileIdentityProvider } from "@/components/profile/profile-identity";
+import { SetupProvider } from "@/components/setup/setup-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -12,7 +13,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <MotionConfig reducedMotion="user">
         <TooltipProvider>
-          <ProfileIdentityProvider>{children}</ProfileIdentityProvider>
+          <ProfileIdentityProvider>
+            <SetupProvider>{children}</SetupProvider>
+          </ProfileIdentityProvider>
         </TooltipProvider>
       </MotionConfig>
     </ThemeProvider>

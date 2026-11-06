@@ -60,6 +60,11 @@ const steps: Step[] = [
   { id: "review", label: "Récapitulatif", title: "Tout est prêt", description: "Vérifie chaque CV avant de l'enregistrer." },
 ];
 
+/** Retour à l'assistant de configuration quand il a ouvert ce formulaire ; jamais une adresse libre. */
+function returnTo() {
+  return new URLSearchParams(window.location.search).get("retour") === "/configuration" ? "/configuration" : "/profil";
+}
+
 export function ProfileWizard() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -156,7 +161,7 @@ export function ProfileWizard() {
     setApiError(null);
     try {
       await saveProfile(toPayload(profile));
-      router.push("/profil");
+      router.push(returnTo());
     } catch (error) {
       setApiError(error instanceof ApiError ? error : new ApiError("Enregistrement impossible.", 0));
       setSaving(false);
@@ -167,7 +172,7 @@ export function ProfileWizard() {
     return (
       <Welcome
         onStart={() => setStarted(true)}
-        onImported={() => router.push("/profil")}
+        onImported={() => router.push(returnTo())}
         onError={setApiError}
         error={apiError}
       />

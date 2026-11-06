@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { useProfileIdentity } from "@/components/profile/profile-identity";
+import { useSetup } from "@/components/setup/setup-context";
 import { CalendarSync } from "@/components/calendar/calendar-sync";
 import { MailAccounts } from "@/components/mail/mail-accounts";
 import { Hint, ModelPanel, ProfilePanel, SourcesPanel, SystemPanel } from "@/components/settings/settings-panels";
@@ -47,6 +48,7 @@ function download({ blob, filename }: { blob: Blob; filename: string }) {
 export function SettingsScreen() {
   const router = useRouter();
   const { refresh } = useProfileIdentity();
+  const { refresh: refreshSetup } = useSetup();
   const [busy, setBusy] = useState<"export" | "erase" | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -85,7 +87,9 @@ export function SettingsScreen() {
     setMail(value(loadedMail));
     setCalendar(value(loadedCalendar));
     setLoaded(true);
-  }, []);
+    // Le menu se déverrouille dès qu'une étape est prête.
+    refreshSetup();
+  }, [refreshSetup]);
 
   useEffect(() => {
     load();
@@ -136,8 +140,8 @@ export function SettingsScreen() {
     try {
       await eraseAllData();
       window.localStorage.clear();
-      await refresh();
-      router.replace("/bienvenue");
+      await Promise.all([refresh(), refreshSetup()]);
+      router.replace("/configuration");
     } catch (e) {
       setError(e as ApiError);
       setConfirming(false);

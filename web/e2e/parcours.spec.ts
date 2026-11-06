@@ -54,6 +54,16 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await expect(avatar.getByRole("img", { name: "Photo de profil" })).toBeVisible();
   });
 
+  await test.step("l'aide détaille chaque étape, et une démonstration imposée passe l'assistant", async () => {
+    await page.goto("/aide");
+    await expect(page.getByRole("heading", { name: "5. Boîte mail" })).toBeVisible();
+    await expect(page.getByText(/adresse dédiée à tes candidatures/).first()).toBeVisible();
+    // Stack jetable : la démonstration vient de .env, l'assistant renvoie au tableau de bord.
+    await page.goto("/configuration");
+    await expect(page).toHaveURL(/:\d+\/$/);
+    await expect(page.getByRole("button", { name: /Démonstration/ })).toHaveCount(0);
+  });
+
   await test.step("les offres se collectent", async () => {
     await page.goto("/offres");
     await expect(page.getByRole("button", { name: /Déplier l'offre/ }).first()).toBeVisible();
@@ -421,7 +431,8 @@ test("parcours complet, du profil à la suppression des données", async ({ page
 
     await page.getByRole("button", { name: "Tout supprimer", exact: true }).click();
     await dialog.getByRole("button", { name: "Tout supprimer", exact: true }).click();
-    await expect(page).toHaveURL(/\/bienvenue$/);
+    // L'assistant rouvre ; sur cette stack, la démonstration vient de .env, il passe au tableau de bord.
+    await expect(page).toHaveURL(/:\d+\/$/);
     await expect(page.getByRole("link", { name: "Mon profil" })).not.toContainText("Alex Martin");
     await expect(page.getByRole("link", { name: "Mon profil" }).getByRole("img")).toHaveCount(0);
     expect(await page.evaluate(() => window.localStorage.length)).toBe(0);

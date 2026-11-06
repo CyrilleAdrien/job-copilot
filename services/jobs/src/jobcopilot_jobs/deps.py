@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_common import get_settings
 from jobcopilot_common.db import get_session
+from jobcopilot_common.mode import read_mode
 from jobcopilot_jobs import credentials
 from jobcopilot_jobs.connectors import Adzuna, Connector, Demo, FranceTravail
 from jobcopilot_jobs.schemas import Criteria
@@ -48,6 +49,9 @@ async def get_connectors(
     Les clés des réglages priment sur celles de .env.
     """
     settings = get_jobs_settings()
+    # Démonstration choisie dans l'assistant : seulement des offres fictives.
+    if await read_mode(cache) == "demo":
+        return [Demo()]
     stored = await credentials.load(session)
     france_travail = stored.get(
         FranceTravail.name,

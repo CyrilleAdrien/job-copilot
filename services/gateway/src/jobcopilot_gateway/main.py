@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
 
-from jobcopilot_gateway import data, system
+from jobcopilot_gateway import data, setup, system
 from jobcopilot_gateway.data import SERVICES, service_url
 from jobcopilot_gateway.guard import LocalOnly
 
@@ -29,6 +29,7 @@ app.add_middleware(LocalOnly)
 # Avant le relais générique, dont le motif /api/{service}/{path} couvrirait /api/data/export.
 app.include_router(data.router)
 app.include_router(system.router)
+app.include_router(setup.router)
 
 
 @app.get("/health", tags=["health"])

@@ -121,6 +121,10 @@ test("captures du README", async ({ page, request }) => {
     await page.goto("/calendrier");
     await capture(page, "calendrier");
 
+    await page.goto("/aide");
+    await expect(page.getByRole("heading", { name: "5. Boîte mail" })).toBeVisible();
+    await capture(page, "aide");
+
     await page.goto("/profil");
     await expect(page.getByRole("link", { name: "Mon profil" })).toContainText("Alex Martin");
     await capture(page, "profil");

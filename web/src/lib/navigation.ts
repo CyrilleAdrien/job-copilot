@@ -1,5 +1,6 @@
 import {
   BriefcaseBusiness,
+  CircleHelp,
   CalendarDays,
   FileStack,
   Inbox,
@@ -30,6 +31,7 @@ export const secondaryNav: NavItem[] = [
   { href: "/profil", label: "Profil", icon: UserRound },
   { href: "/design", label: "Design system", icon: Palette },
   { href: "/reglages", label: "Réglages", icon: Settings },
+  { href: "/aide", label: "Aide", icon: CircleHelp },
 ];
 
 export const allNav = [...mainNav, ...secondaryNav];

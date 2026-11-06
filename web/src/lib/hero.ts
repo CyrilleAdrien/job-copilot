@@ -8,6 +8,8 @@ const SCENES: [string, HeroScene][] = [
   ["/profil", "profile"],
   ["/bienvenue", "profile"],
   ["/reglages", "settings"],
+  ["/configuration", "settings"],
+  ["/aide", "settings"],
 ];
 
 /** L'illustration du bandeau : une étape du parcours de candidature, selon la page. */

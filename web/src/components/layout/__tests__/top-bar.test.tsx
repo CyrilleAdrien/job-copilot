@@ -6,7 +6,7 @@ import { CreateMenu } from "@/components/layout/create-menu";
 import { TopBar } from "@/components/layout/top-bar";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), useSearchParams: () => new URLSearchParams("q=data") }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => "/", useSearchParams: () => new URLSearchParams("q=data") }));
 vi.mock("@/components/ui/theme-toggle", () => ({ ThemeToggle: () => null }));
 
 describe("TopBar", () => {

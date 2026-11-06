@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from jobcopilot_common.db import get_session
 from jobcopilot_documents import pipeline
 from jobcopilot_documents.compose import build_cv
-from jobcopilot_documents.deps import Ctx, get_llm
+from jobcopilot_documents.deps import Ctx, demo_llm, get_llm
 from jobcopilot_documents.models import DocumentRow, GenerationRow
 from jobcopilot_documents.render import RenderError, render, render_page, render_svg_pages_sync
 from jobcopilot_documents.schemas import (
@@ -306,7 +306,7 @@ async def profile_preview_page(
 @router.get("/llm", response_model=LLMStatus)
 async def llm_status() -> LLMStatus:
     provider = get_documents_settings().llm_provider
-    if provider == "demo":
+    if await demo_llm():
         return LLMStatus(provider="demo", model="démonstration", ready=True)
     llm = get_llm()
     return LLMStatus(
