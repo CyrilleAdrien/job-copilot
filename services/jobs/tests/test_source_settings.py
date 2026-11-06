@@ -147,3 +147,17 @@ async def test_search_delay_defaults_then_is_saved(client):
 async def test_search_delay_stays_within_limits(client, minutes):
     response = await client.put("/search-settings", json={"refresh_minutes": minutes})
     assert response.status_code == 422
+
+
+async def test_demo_mode_from_the_assistant_collects_only_fictive_offers(database, cache):
+    from jobcopilot_common.mode import MODE_KEY
+    from jobcopilot_jobs.connectors import Demo
+    from jobcopilot_jobs.deps import get_connectors
+
+    async with get_sessionmaker()() as session:
+        real = await get_connectors(cache, httpx.AsyncClient(), session)
+        assert not any(isinstance(source, Demo) for source in real)
+
+        await cache.set(MODE_KEY, "demo")
+        demo = await get_connectors(cache, httpx.AsyncClient(), session)
+        assert [type(source) for source in demo] == [Demo]

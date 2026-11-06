@@ -8,16 +8,20 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
+from starlette.background import BackgroundTask
 
 from jobcopilot_common import get_settings
 from jobcopilot_common.llm import MODEL_KEY, LLMError, Ollama
+from jobcopilot_common.mode import read_mode
 
 TAGS_TIMEOUT = 5.0
 # Sous le délai du relais web : l'erreur affichée reste la nôtre.
 TEST_TIMEOUT = 55.0
+PULL_CONNECT_TIMEOUT = 10.0
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
@@ -50,6 +54,11 @@ class Ping(BaseModel):
     ok: bool
 
 
+class PullRequest(BaseModel):
+    # Le nom tel qu'Ollama l'attend : qwen2.5:7b, llama3.1:8b, hf.co/org/modele...
+    model: str = Field(min_length=1, max_length=200, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
+
+
 @lru_cache
 def get_cache() -> Redis:
     return Redis.from_url(get_settings().redis_url, decode_responses=True)
@@ -64,8 +73,11 @@ Cache = Annotated[Redis, Depends(get_cache)]
 Http = Annotated[httpx.AsyncClient, Depends(get_http)]
 
 
-def provider() -> str:
-    return os.getenv("LLM_PROVIDER", "ollama")
+async def provider(cache: Redis) -> str:
+    """demo par .env, ou quand l'assistant a lancé la démonstration : aucun modèle n'est appelé."""
+    if os.getenv("LLM_PROVIDER", "ollama") == "demo" or await read_mode(cache) == "demo":
+        return "demo"
+    return "ollama"
 
 
 async def installed_models(http: httpx.AsyncClient) -> list[ModelInfo] | None:
@@ -92,7 +104,7 @@ async def llm_state(cache: Cache, http: Http) -> LLMState:
     model = await Ollama(settings, http, cache).current_model()
     models = await installed_models(http)
     return LLMState(
-        provider=provider(),
+        provider=await provider(cache),
         url=settings.ollama_url,
         model=model,
         default_model=settings.ollama_model,
@@ -125,7 +137,7 @@ async def choose_model(choice: ModelChoice, cache: Cache, http: Http) -> LLMStat
 @router.post("/llm/test", response_model=LLMTest)
 async def test_model(cache: Cache) -> LLMTest:
     """Une vraie réponse du modèle, chronométrée. Le premier appel le charge en mémoire."""
-    if provider() == "demo":
+    if await provider(cache) == "demo":
         return LLMTest(model="démonstration", seconds=0)
     settings = get_settings()
     async with httpx.AsyncClient(timeout=TEST_TIMEOUT) as client:
@@ -143,3 +155,40 @@ async def test_model(cache: Cache) -> LLMTest:
         except LLMError as exc:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
         return LLMTest(model=await llm.current_model(), seconds=time.monotonic() - started)
+
+
+@router.post("/llm/pull")
+async def pull_model(request: PullRequest) -> StreamingResponse:
+    """Télécharge un modèle dans Ollama, sans terminal : la progression est relayée ligne par
+    ligne (JSON d'Ollama : status, total, completed), puis une dernière ligne status=success."""
+    client = httpx.AsyncClient(timeout=httpx.Timeout(PULL_CONNECT_TIMEOUT, read=None))
+    upstream_request = client.build_request(
+        "POST",
+        f"{get_settings().ollama_url}/api/pull",
+        json={"model": request.model, "stream": True},
+    )
+    try:
+        upstream = await client.send(upstream_request, stream=True)
+    except httpx.HTTPError as exc:
+        await client.aclose()
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Ollama ne répond pas.") from exc
+    if upstream.is_error:
+        await upstream.aread()
+        await upstream.aclose()
+        await client.aclose()
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, f"Téléchargement refusé par Ollama : {upstream.text[:200]}"
+        )
+
+    async def lines():
+        async for line in upstream.aiter_lines():
+            if line.strip():
+                yield line + "\n"
+
+    async def close() -> None:
+        await upstream.aclose()
+        await client.aclose()
+
+    return StreamingResponse(
+        lines(), media_type="application/x-ndjson", background=BackgroundTask(close)
+    )

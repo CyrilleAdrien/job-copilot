@@ -69,35 +69,30 @@ Le fichier `.env` garde ta configuration locale. Il n'est jamais versionné.
 
 ```bash
 make up       # crée la clé de chiffrement, construit et démarre la stack (quelques minutes la première fois)
-make models   # télécharge le modèle (environ 4,7 Go)
 make ready    # état de chaque service : "status": "ok" partout
 ```
 
-### 6. Ouvrir l'application
+### 6. Laisser l'assistant te guider
 
-Va sur http://job-copilot.localhost:3000 (Chrome, Edge, Firefox) ou http://localhost:3000 (Safari). L'écran de bienvenue propose deux chemins : remplir ton profil en cinq étapes, ou importer un `profile.yaml`. [`examples/profile.example.yaml`](examples/profile.example.yaml) montre le format complet.
+Va sur http://job-copilot.localhost:3000 (Chrome, Edge, Firefox) ou http://localhost:3000 (Safari). Au premier lancement, l'assistant de configuration s'ouvre et propose deux chemins :
 
-### 7. Brancher les sources
+- **Configurer l'outil** : les étapes s'enchaînent dans l'ordre, chacune avec son mode d'emploi. Le système est vérifié, le modèle d'IA se télécharge depuis l'interface (environ 4,7 Go ; `make models` fait la même chose en ligne de commande), puis tu remplis ton profil ou importes un `profile.yaml`. Les sources d'offres, la boîte mail et le calendrier sont facultatifs : chacun débloque l'écran qui en dépend.
+- **Essayer en démonstration** : un profil d'exemple, des offres, des réponses de recruteurs et un calendrier fictifs, sans compte ni IA. Le bouton « Démonstration · Quitter », en haut de l'écran, efface ces données et ramène à l'assistant.
 
-Tout se configure dans l'écran **Réglages**, étape par étape. Chaque étape affiche son état.
-
-| Quoi | Où s'inscrire | Gratuit |
+| Étape | Où s'inscrire | Indispensable |
 | --- | --- | --- |
-| Offres France Travail | [francetravail.io](https://francetravail.io), application avec l'API « Offres d'emploi v2 » | oui |
-| Offres Adzuna | [developer.adzuna.com](https://developer.adzuna.com) | oui |
-| Boîte mail | Un mot de passe d'application Gmail, Outlook ou iCloud | oui |
-| Calendrier | Un mot de passe d'application iCloud ou un serveur CalDAV | oui |
+| Système et modèle d'IA | rien : tout tourne sur ta machine | oui |
+| Profil | rien | oui |
+| Offres France Travail | [francetravail.io](https://francetravail.io), application avec l'API « Offres d'emploi v2 » | non, mais il faut au moins une source pour voir des offres |
+| Offres Adzuna | [developer.adzuna.com](https://developer.adzuna.com) | non |
+| Boîte mail | un mot de passe d'application Gmail, Outlook ou iCloud | non |
+| Calendrier | un mot de passe d'application iCloud, ou un serveur CalDAV | non |
 
-Les clés et les mots de passe sont testés, puis chiffrés en base avec la clé de ton `.env`.
+![Page Aide](docs/images/aide.png)
 
-**Pour essayer sans aucun compte**, mets ces lignes dans `.env` puis relance `make up`. Tu auras alors des offres, des réponses de recruteurs et un calendrier fictifs, et la génération se fera sans LLM :
+Les clés et les mots de passe sont testés, puis chiffrés en base avec la clé de ton `.env` ; ils ne sont jamais écrits ailleurs. La page **Aide** de l'application reprend chaque étape en détail, avec les instructions de chaque fournisseur, et **Réglages** permet de tout modifier ensuite.
 
-```bash
-JOBS_DEMO=true
-MAIL_DEMO=true
-CALENDAR_DEMO=true
-LLM_PROVIDER=demo
-```
+Pour la boîte mail, l'application lit les mails reçus et les analyse sur ton ordinateur, avec ton IA locale. Pour respecter la vie privée de tes contacts (RGPD), utilise de préférence une adresse dédiée à tes candidatures.
 
 ### Au quotidien
 
@@ -117,7 +112,7 @@ Pour tout effacer, utilise **Réglages > Mes données > Tout supprimer**. Export
 | `job-copilot.localhost` introuvable | Ton navigateur ne reconnaît pas cette adresse : utilise http://localhost:3000. |
 | Un port est déjà pris | Change `WEB_PORT` ou `GATEWAY_PORT` dans `.env`, puis `make up`. |
 | La génération est très lente sur Mac | Ollama tourne dans Docker sans GPU : reprends l'étape 4. |
-| La génération du CV échoue | Le modèle n'est peut-être pas téléchargé : `make models`, puis teste-le dans Réglages, étape Modèle IA. |
+| La génération du CV échoue | Le modèle n'est peut-être pas téléchargé : Réglages, étape Modèle IA, bouton Télécharger, puis Tester le modèle. |
 
 ## Architecture
 

@@ -3,13 +3,16 @@ from typing import Annotated
 
 import httpx
 from fastapi import Depends
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from jobcopilot_calendar.models import AccountRow
 from jobcopilot_calendar.remote import CaldavRemote, DemoRemote, Remote
 from jobcopilot_calendar.settings import get_calendar_settings
+from jobcopilot_common import get_settings
 from jobcopilot_common.crypto import decrypt
 from jobcopilot_common.db import get_session
+from jobcopilot_common.mode import is_demo
 
 DEMO_URL = "demo"
 
@@ -24,8 +27,19 @@ def demo_remote() -> DemoRemote:
     return DemoRemote()
 
 
+@lru_cache
+def get_cache() -> Redis:
+    return Redis.from_url(get_settings().redis_url, decode_responses=True)
+
+
+async def demo_calendar() -> bool:
+    """Calendrier de démonstration permis : par .env ou par le mode choisi dans l'assistant."""
+    return await is_demo(get_cache(), get_calendar_settings().calendar_demo)
+
+
 def remote_for(url: str, username: str, password: str) -> Remote:
-    if url == DEMO_URL and get_calendar_settings().calendar_demo:
+    # Un compte « demo » n'a pu être créé qu'en démonstration (voir discover).
+    if url == DEMO_URL:
         return demo_remote()
     return CaldavRemote(url, username, password, get_calendar_settings().caldav_timeout)
 

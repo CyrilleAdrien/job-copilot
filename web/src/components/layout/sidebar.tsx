@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Lock, Menu } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 
 import { CreateMenu } from "@/components/layout/create-menu";
 import { ProfileAvatar, useProfileIdentity } from "@/components/profile/profile-identity";
+import { useLock } from "@/components/setup/setup-context";
 import { spring } from "@/lib/motion";
 import { isActive, mainNav, secondaryNav, type NavItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,9 @@ export function Sidebar() {
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "true");
   }, []);
+
+  // L'assistant de premier lancement occupe tout l'écran.
+  if (pathname === "/configuration") return null;
 
   function toggle() {
     setCollapsed((current) => {
@@ -82,16 +86,24 @@ export function Sidebar() {
 function NavGroup({ items, pathname, collapsed }: { items: NavItem[]; pathname: string; collapsed: boolean }) {
   return (
     <div className="flex flex-col">
-      {items.map((item) => {
-        const active = isActive(pathname, item.href);
-        const Icon = item.icon;
-        return (
+      {items.map((item) => (
+        <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} />
+      ))}
+    </div>
+  );
+}
+
+/** Un écran verrouillé reste cliquable : il dit ce qui manque et où le régler. */
+function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+  const Icon = item.icon;
+  const lock = useLock(item.href);
+  const label = lock ? `${item.label} (à configurer)` : item.label;
+  return (
           <Link
-            key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            aria-label={collapsed ? item.label : undefined}
-            title={collapsed ? item.label : undefined}
+            aria-label={collapsed || lock ? label : undefined}
+            title={collapsed ? label : lock?.reason}
             className={cn(
               "group relative flex h-11 items-center gap-4 rounded-[12px] px-2.5 text-sm transition-colors duration-150",
               active ? "text-text" : "text-text-secondary hover:bg-surface-hover hover:text-text",
@@ -102,9 +114,13 @@ function NavGroup({ items, pathname, collapsed }: { items: NavItem[]; pathname: 
             )}
             <Icon className="relative size-6 shrink-0 transition-transform duration-150 group-hover:scale-110" strokeWidth={1.25} aria-hidden />
             {!collapsed && <span className="relative whitespace-nowrap">{item.label}</span>}
+            {lock && (
+              <Lock
+                className={cn("relative size-3.5 shrink-0 text-text-tertiary", collapsed ? "absolute right-1.5 top-1.5" : "ml-auto")}
+                strokeWidth={1.75}
+                aria-hidden
+              />
+            )}
           </Link>
-        );
-      })}
-    </div>
   );
 }

@@ -1,18 +1,23 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { DemoBadge } from "@/components/setup/demo-badge";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 /** Recherche dans les offres et apparence, en haut de chaque page. */
 export function TopBar() {
   const router = useRouter();
+  const pathname = usePathname();
   const current = useSearchParams().get("q") ?? "";
   const [text, setText] = useState(current);
 
   useEffect(() => setText(current), [current]);
+
+  // L'assistant de premier lancement occupe tout l'écran.
+  if (pathname === "/configuration") return null;
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -36,7 +41,8 @@ export function TopBar() {
           />
         </label>
       </form>
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <DemoBadge />
         <ThemeToggle />
       </div>
     </div>

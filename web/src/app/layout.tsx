@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { Providers } from "@/components/providers";
+import { SetupGate } from "@/components/setup/setup-context";
 
 import "./globals.css";
 
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <main className="min-w-0 flex-1 px-6 pb-12 lg:px-12">
               <Suspense>
                 <TopBar />
-                <div className="w-full">{children}</div>
+                <div className="w-full">
+                  <SetupGate>{children}</SetupGate>
+                </div>
               </Suspense>
             </main>
           </div>

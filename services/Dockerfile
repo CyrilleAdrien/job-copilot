@@ -12,6 +12,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY libs ./libs
 COPY services ./services
+# Profil d'exemple chargé par la démonstration de l'assistant (gateway).
+COPY examples ./examples
 RUN uv sync --frozen --no-dev --package jobcopilot-${SERVICE}
 
 RUN useradd --system --uid 1000 app

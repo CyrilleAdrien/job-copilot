@@ -2,6 +2,24 @@
 
 Le détail de chaque écran et de l'API servie par la gateway. Pour installer l'outil, voir le [README](../README.md) ; pour la carte des services, [architecture.md](architecture.md).
 
+## Premier lancement
+
+Tant qu'aucun mode n'est choisi et qu'aucun profil n'existe, l'application ouvre l'assistant `/configuration`. Il propose de configurer l'outil ou de l'essayer en démonstration.
+
+- **Configuration** : système, modèle d'IA, profil (indispensables), puis sources d'offres, boîte mail et calendrier (facultatifs). Chaque étape montre son mode d'emploi à côté du formulaire de Réglages correspondant. « Terminer » enregistre le mode réel.
+- **Démonstration** : profil d'exemple, boîte et calendrier fictifs, offres fictives, rédaction sans IA. Le mode est rangé dans Redis (persistant) et lu par chaque service à chaque appel : aucun redémarrage n'est nécessaire. « Démonstration · Quitter » efface tout, puis rouvre l'assistant. Les drapeaux de `.env` (`JOBS_DEMO`, `MAIL_DEMO`, `CALENDAR_DEMO`, `LLM_PROVIDER=demo`) forcent toujours la démonstration, pour les stacks de test.
+
+Un écran dont la configuration manque reste dans le menu, avec un cadenas. Ouvert, il dit ce qui manque, avec un lien vers l'étape et vers l'aide : Offres demande un profil et une source, la Boîte de réception une boîte connectée, le tableau de bord, les Candidatures et le Calendrier un profil.
+
+La page **Aide** (`/aide`) reprend chaque étape : à quoi elle sert, quoi faire dans l'ordre, les instructions de chaque fournisseur de mail et de calendrier, son état, et un lien vers Réglages.
+
+| Méthode | Chemin | Rôle |
+| --- | --- | --- |
+| `GET` | `/api/system/mode` | Mode choisi (`real`, `demo` ou `null`) et démonstration imposée par `.env` |
+| `PUT` | `/api/system/mode` | Choisir le mode ; quitter la démonstration exige d'effacer ses données (409) |
+| `POST` | `/api/system/demo` | Lancer la démonstration : profil, boîte, calendrier et offres fictifs. Peut être relancé |
+| `POST` | `/api/system/llm/pull` | Télécharger un modèle dans Ollama, progression en NDJSON |
+
 ## Profil
 
 Au premier lancement, http://job-copilot.localhost:3000/bienvenue propose deux chemins : remplir le profil en cinq étapes (identité, recherches, expériences, compétences, parcours) ou importer un `profile.yaml`. Chaque recherche a son propre CV, vide ou copié d'une autre recherche : le nom, le contact, la photo, les liens, le permis et les langues restent communs. Le formulaire couvre toutes les sections d'un CV : coordonnées complètes, permis, formation, certifications, formations suivies, projets, bénévolat, publications, récompenses, références, langues, savoir-être, centres d'intérêt et sections libres. Les langues, niveaux, technologies, postes et villes sont proposés pendant la saisie. Le fichier [`examples/profile.example.yaml`](../examples/profile.example.yaml) montre le format complet ; un ancien fichier, avec une seule section `search` ou un CV commun, reste accepté : son CV est copié dans chaque recherche. L'onglet CV de l'écran Profil permet de choisir, pour chaque recherche, ce qui s'affiche, l'ordre des rubriques, leur nom, la police et les couleurs, sans passer par l'IA. Par défaut, l'adresse complète, la date de naissance, la nationalité et les références restent masquées. Une fois un CV généré, le bouton Modifier ouvre le studio en plein écran : le texte d'un côté (gras, italique, souligné, listes à puces ou numérotées), l'aperçu de l'autre, et un onglet Personnaliser pour l'en-tête, les rubriques, les couleurs de fond, de texte et de traits, et la police parmi dix polices libres, dont des équivalents de Calibri, Arial et Times New Roman. Chaque modification s'annule et se rétablit. Fermer sans enregistrer demande confirmation, et le téléchargement attend la fin de l'enregistrement. Le même studio sert à la mise en page du CV de chaque recherche. L'écran Profil permet aussi de choisir une photo, affichée sur tout le site et sur les CV. Elle ne figure pas dans ce fichier.
@@ -51,7 +69,7 @@ Sans clé, `JOBS_DEMO=true` active des offres fictives pour essayer l'outil. Une
 
 Depuis une offre, « Préparer la candidature » ouvre sa fiche et génère un CV et, si tu le souhaites, une lettre de motivation. La langue suit celle de l'offre (français ou anglais), ou se choisit à la main. La progression s'affiche étape par étape (lecture de l'offre, sélection des expériences, rédaction, mise en page), puis l'aperçu des pages apparaît. La lettre se relit et se modifie avant téléchargement : chaque enregistrement refait le PDF dans une nouvelle version.
 
-Le LLM tourne en local avec Ollama (`make models` télécharge `OLLAMA_MODEL`, Qwen 2.5 7B par défaut). Il choisit les expériences utiles et reformule les missions du profil, sans rien ajouter. Un contrôle compare ensuite le texte généré au profil et signale les chiffres absents du profil ou les missions sans équivalent, à vérifier avant d'envoyer. Avec `LLM_PROVIDER=demo`, la génération se fait sans LLM : le contenu du profil est repris tel quel.
+Le LLM tourne en local avec Ollama (Qwen 2.5 7B par défaut, téléchargé depuis Réglages ou avec `make models`). Il choisit les expériences utiles et reformule les missions du profil, sans rien ajouter. Un contrôle compare ensuite le texte généré au profil et signale les chiffres absents du profil ou les missions sans équivalent, à vérifier avant d'envoyer. Avec `LLM_PROVIDER=demo`, la génération se fait sans LLM : le contenu du profil est repris tel quel.
 
 La mise en page est faite par [Typst](https://typst.app) : le template `cv` reprend une mise en page sobre sur une colonne (en-tête centré, titres de section soulignés, missions groupées par thème), avec la police Carlito fournie dans le dépôt (licence OFL). Les PDF sont rangés dans le stockage S3 local (SeaweedFS).
 

@@ -43,6 +43,10 @@ services:
     environment:
       <<: *env
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      # Une démonstration imposée par .env (stack de test) court-circuite l'assistant.
+      JOBS_DEMO: ${JOBS_DEMO:-false}
+      MAIL_DEMO: ${MAIL_DEMO:-false}
+      CALENDAR_DEMO: ${CALENDAR_DEMO:-false}
     depends_on: [profile, jobs, documents, applications, mail, calendar]
     networks: [internal]
 

@@ -8,6 +8,7 @@ from redis.asyncio import Redis
 from jobcopilot_common import get_settings
 from jobcopilot_common.db import get_sessionmaker
 from jobcopilot_common.llm import Ollama
+from jobcopilot_common.mode import is_demo
 from jobcopilot_documents.pipeline import Context
 from jobcopilot_documents.settings import get_documents_settings
 from jobcopilot_documents.storage import get_storage
@@ -29,8 +30,13 @@ def get_llm() -> Ollama:
     return Ollama(get_settings(), cache=get_cache())
 
 
-def get_context() -> Context:
-    demo = get_documents_settings().llm_provider == "demo"
+async def demo_llm() -> bool:
+    """Sans LLM : par .env (LLM_PROVIDER=demo) ou par le mode choisi dans l'assistant."""
+    return await is_demo(get_cache(), get_documents_settings().llm_provider == "demo")
+
+
+async def get_context() -> Context:
+    demo = await demo_llm()
     return Context(
         sessions=get_sessionmaker(),
         http=get_http(),

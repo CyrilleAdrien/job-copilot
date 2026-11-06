@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Check, CircleCheck, CircleX, KeyRound, Play, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, CircleCheck, CircleX, Download, KeyRound, Play, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 
@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ApiError } from "@/lib/api";
+import { pullModel, type PullProgress } from "@/lib/setup";
 import {
   chooseModel,
   dependencyStates,
@@ -108,7 +109,7 @@ export function ModelPanel({ llm, onChange }: { llm: LlmState | null; onChange: 
   }
 
   if (llm === null) return <p className="text-[13px] text-text-secondary">La passerelle ne répond pas : relance la stack avec <code>make up</code>.</p>;
-  if (llm.provider === "demo") return <p className="text-[13px] text-text-secondary">LLM_PROVIDER=demo : les textes viennent de modèles fixes. Pour utiliser Ollama, change cette ligne dans <code>.env</code> puis lance <code>make up</code>.</p>;
+  if (llm.provider === "demo") return <p className="text-[13px] text-text-secondary">Mode démonstration : les CV, les lettres et les réponses reprennent ton profil et des modèles de texte fixes, sans IA. Aucun modèle n&apos;est nécessaire.</p>;
 
   return (
     <div className="flex flex-col gap-4">
@@ -118,7 +119,7 @@ export function ModelPanel({ llm, onChange }: { llm: LlmState | null; onChange: 
       {!llm.reachable ? (
         <p className="text-[13px] text-danger">Ollama ne répond pas. Lance-le, puis vérifie de nouveau.</p>
       ) : llm.installed.length === 0 ? (
-        <p className="text-[13px] text-danger">Aucun modèle installé : lance <code>make models</code>.</p>
+        <p className="text-[13px] text-text-secondary">Aucun modèle installé pour l&apos;instant : télécharge-le ci-dessous.</p>
       ) : (
         <label className="flex flex-col gap-1.5 text-[13px] font-medium">
           Modèle utilisé
@@ -162,18 +163,81 @@ export function ModelPanel({ llm, onChange }: { llm: LlmState | null; onChange: 
         )}
       </div>
       {error && <ErrorBanner error={error} />}
+      {llm.reachable && <ModelDownload suggested={llm.model_installed ? "" : llm.model} onDone={onChange} />}
     </div>
   );
 }
 
-export function ProfilePanel({ profile }: { profile: { name: string; searches: number } | null }) {
+const gigabytes = (bytes: number) => `${(bytes / 1e9).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} Go`;
+
+/** Télécharge un modèle sans terminal, puis le choisit. Relancé, Ollama reprend où il s'était arrêté. */
+function ModelDownload({ suggested, onDone }: { suggested: string; onDone: (llm: LlmState) => void }) {
+  const [model, setModel] = useState(suggested);
+  const [progress, setProgress] = useState<PullProgress | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<ApiError | null>(null);
+  const share = progress?.total ? Math.min(1, (progress.completed ?? 0) / progress.total) : null;
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setProgress({ status: "Connexion à Ollama" });
+    try {
+      await pullModel(model.trim(), setProgress);
+      onDone(await chooseModel(model.trim()));
+      setProgress(null);
+    } catch (e) {
+      setError(e as ApiError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} aria-label="Télécharger un modèle" className="flex flex-col gap-3 rounded-[12px] border border-border bg-background-subtle p-3.5">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-medium">{suggested ? "Télécharger le modèle" : "Télécharger un autre modèle"}</h3>
+        <p className="text-[13px] text-text-secondary">
+          Le modèle par défaut, qwen2.5:7b, pèse environ 4,7 Go. D&apos;autres noms sont sur{" "}
+          <a href="https://ollama.com/library" target="_blank" rel="noreferrer" className="font-medium text-accent-strong hover:underline">
+            ollama.com/library
+          </a>
+          .
+        </p>
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <Input label="Nom du modèle" value={model} disabled={busy} placeholder="qwen2.5:7b" onChange={(event) => setModel(event.target.value)} className="max-w-xs" />
+        <Button type="submit" size="sm" variant={suggested ? "primary" : "secondary"} loading={busy} disabled={!model.trim()}>
+          <Download aria-hidden />
+          Télécharger
+        </Button>
+      </div>
+      {progress && (
+        <div role="status" className="flex flex-col gap-1.5">
+          <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
+            <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${(share ?? 0) * 100}%` }} />
+          </div>
+          <span className="text-[12px] text-text-secondary">
+            {share !== null && progress.total
+              ? `${Math.round(share * 100)} % · ${gigabytes(progress.completed ?? 0)} sur ${gigabytes(progress.total)}`
+              : progress.status}
+          </span>
+        </div>
+      )}
+      {error && <ErrorBanner error={error} />}
+    </form>
+  );
+}
+
+export function ProfilePanel({ profile, returnTo }: { profile: { name: string; searches: number } | null; returnTo?: "/configuration" }) {
   return (
     <div className="flex flex-col items-start gap-3">
       <p className="text-[13px] text-text-secondary">
         {profile ? "Ton identité, ton parcours et tes critères de recherche servent aux offres, aux CV et aux lettres." : "Ton profil donne les critères de recherche et le contenu des CV. Les étapes suivantes en dépendent."}
       </p>
       <Button variant="secondary" size="sm" asChild>
-        <Link href={profile ? "/profil" : "/bienvenue"}>
+        <Link href={profile ? "/profil" : returnTo ? `/bienvenue?retour=${returnTo}` : "/bienvenue"}>
           {profile ? "Modifier mon profil" : "Remplir mon profil"}
           <ArrowUpRight aria-hidden />
         </Link>
@@ -228,7 +292,7 @@ function SourceRow({ source, onChange }: { source: SourceInfo; onChange: () => v
   }
 
   // La source de démonstration n'a pas de clé à régler.
-  if (!form) return <li className="py-3 text-sm first:pt-0">{source.label}<span className="text-text-tertiary"> : offres fictives activées dans .env.</span></li>;
+  if (!form) return <li className="py-3 text-sm first:pt-0">{source.label}<span className="text-text-tertiary"> : offres fictives, sans clé.</span></li>;
 
   return (
     <li className="flex flex-col gap-3 py-3 first:pt-0">

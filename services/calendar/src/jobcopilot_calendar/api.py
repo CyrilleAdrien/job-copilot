@@ -6,7 +6,14 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
 
 from jobcopilot_calendar import ics
-from jobcopilot_calendar.deps import DEMO_URL, AccountRemote, Http, RemoteFactory, Session
+from jobcopilot_calendar.deps import (
+    DEMO_URL,
+    AccountRemote,
+    Http,
+    RemoteFactory,
+    Session,
+    demo_calendar,
+)
 from jobcopilot_calendar.models import AccountRow, EventRow
 from jobcopilot_calendar.remote import RemoteError
 from jobcopilot_calendar.schemas import (
@@ -96,7 +103,7 @@ async def providers() -> list[Provider]:
         url=DEMO_URL,
         help="Calendrier fictif, en mémoire : pour essayer la synchronisation sans compte.",
     )
-    return [*PROVIDERS, demo] if get_calendar_settings().calendar_demo else PROVIDERS
+    return [*PROVIDERS, demo] if await demo_calendar() else PROVIDERS
 
 
 # --- Calendrier distant (CalDAV) ---
@@ -105,6 +112,10 @@ async def providers() -> list[Provider]:
 @router.post("/accounts/discover", response_model=list[RemoteCalendarOut])
 async def discover(payload: Credentials, remote_for: RemoteFactory) -> list[RemoteCalendarOut]:
     """Vérifie les identifiants et liste les calendriers où l'on peut écrire."""
+    if payload.url == DEMO_URL and not await demo_calendar():
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Le calendrier de démonstration est désactivé."
+        )
     if not payload.url.startswith(("https://", DEMO_URL)) and not payload.url.startswith(
         "http://localhost"
     ):
@@ -134,6 +145,10 @@ async def add_account(
     """Un seul calendrier connecté : les événements à venir y sont recopiés tout de suite."""
     if await current_account(session) is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Un calendrier est déjà connecté.")
+    if payload.url == DEMO_URL and not await demo_calendar():
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Le calendrier de démonstration est désactivé."
+        )
     try:
         password = encrypt(payload.password)
     except SecretKeyMissing as exc:

@@ -4,6 +4,7 @@ import { ArrowUpRight, CircleHelp, KeyRound, Lock } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { MailPrivacy } from "@/components/mail/mail-privacy";
 import { ErrorBanner } from "@/components/profile/error-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ export function AccountForm({ onAdded, onCancel }: { onAdded: (account: MailAcco
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
+      <MailPrivacy />
       {providers.length > 0 && (
         <SegmentedControl
           label="Fournisseur"

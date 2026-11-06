@@ -22,6 +22,7 @@ from jobcopilot_mail.deps import (
     MailboxFactoryDep,
     SenderFactoryDep,
     Session,
+    demo_mail,
     smtp_server_of,
 )
 from jobcopilot_mail.drafting import DraftContext
@@ -142,7 +143,7 @@ async def providers() -> list[Provider]:
         host=DEMO_HOST,
         help="Boîte fictive : des réponses inventées à tes candidatures envoyées.",
     )
-    return [*PROVIDERS, demo] if get_mail_settings().mail_demo else PROVIDERS
+    return [*PROVIDERS, demo] if await demo_mail() else PROVIDERS
 
 
 async def account_out(session: Session, row: AccountRow) -> Account:
@@ -181,7 +182,7 @@ async def add_account(
     L'envoi est testé aussi, mais sa panne ne bloque pas : la boîte reste utile en lecture.
     """
     demo = payload.host == DEMO_HOST
-    if demo and not get_mail_settings().mail_demo:
+    if demo and not await demo_mail():
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "La boîte de démonstration est désactivée."
         )
