@@ -26,7 +26,7 @@
   <text class="t" x="90" y="282" font-size="25" opacity="0.82">candidature jusqu'à l'entretien.</text>
   <g transform="translate(90 310)">
     <rect width="250" height="44" rx="22" fill="#1f1f1f"/>
-    <text class="t" x="125" y="29" font-size="18" text-anchor="middle" style="fill:#ffffff">100 % local, open source</text>
+    <text class="t" x="125" y="29" font-size="18" text-anchor="middle" style="fill:#ffffff">100 % local, sans compte</text>
   </g>
 
   <!-- Le trajet : offre, CV, envoi, entretien -->

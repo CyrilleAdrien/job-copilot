@@ -4,10 +4,10 @@
 
 <p align="center">
   <a href="https://github.com/CyrilleAdrien/job-copilot/actions/workflows/ci.yml"><img src="https://github.com/CyrilleAdrien/job-copilot/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-1f1f1f" alt="Licence MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-PolyForm%20Noncommercial-1f1f1f" alt="Licence PolyForm Noncommercial 1.0.0"></a>
 </p>
 
-job-copilot est un assistant de candidature open source qui s'installe sur ton ordinateur. Il cherche les offres qui correspondent à ton profil, écrit un CV et une lettre adaptés à chacune avec un LLM local, puis suit chaque candidature : envoi, réponses du recruteur, entretiens.
+job-copilot est un assistant de candidature qui s'installe sur ton ordinateur. Il cherche les offres qui correspondent à ton profil, écrit un CV et une lettre adaptés à chacune avec un LLM local, puis suit chaque candidature : envoi, réponses du recruteur, entretiens.
 
 - **Local** : profil, CV, mails et candidatures restent sur ta machine. Pas de compte, pas de serveur central.
 - **Semi-automatique** : l'outil prépare tout, tu valides chaque envoi. Aucun bot sur LinkedIn ou Indeed.
@@ -164,4 +164,6 @@ Le style graphique s'inspire de Kaggle : police Google Sans Flex, boutons noirs,
 
 ## Licence
 
-[MIT](LICENSE)
+[PolyForm Noncommercial 1.0.0](LICENSE) : tu peux utiliser, étudier et modifier job-copilot pour un usage personnel ou non commercial (recherche d'emploi, étude, recherche, association, organisme public). Toute utilisation commerciale, revente ou intégration dans un produit ou un service payant demande l'accord écrit de l'auteur.
+
+Copyright (c) 2026 Cyrille FOTSO.

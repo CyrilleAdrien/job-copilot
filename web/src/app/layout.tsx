@@ -10,7 +10,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "job-copilot", template: "%s · job-copilot" },
-  description: "Assistant de candidature open source, installé en local.",
+  description: "Assistant de candidature, installé en local.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

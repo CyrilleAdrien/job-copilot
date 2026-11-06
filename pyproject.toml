@@ -1,9 +1,9 @@
 [project]
 name = "job-copilot"
 version = "0.1.0"
-description = "Assistant de candidature open source, installé en local"
+description = "Assistant de candidature, installé en local"
 requires-python = ">=3.12"
-license = "MIT"
+license = "PolyForm-Noncommercial-1.0.0"
 
 [tool.uv]
 package = false
