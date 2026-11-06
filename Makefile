@@ -1,4 +1,4 @@
-.PHONY: setup secret up down logs ready models lint test test-db web e2e
+.PHONY: setup secret up down logs ready models lint test test-db web e2e screenshots
 
 setup: ## Prépare le fichier .env et l'environnement Python de dev
 	test -f .env || cp .env.example .env
@@ -64,4 +64,11 @@ e2e: ## Parcours complet Playwright sur une stack jetable, séparée de tes donn
 	SECRET_KEY=$$(openssl rand -hex 32) $(E2E_COMPOSE) up -d --build --wait --wait-timeout 300
 	cd web && npx playwright install chromium
 	(cd web && E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test); \
+	  status=$$?; SECRET_KEY=unused $(E2E_COMPOSE) down -v; exit $$status
+
+screenshots: ## Captures du README (docs/images) sur une stack jetable, avec les données de démonstration
+	SECRET_KEY=unused $(E2E_COMPOSE) down -v
+	SECRET_KEY=$$(openssl rand -hex 32) $(E2E_COMPOSE) up -d --build --wait --wait-timeout 300
+	cd web && npx playwright install chromium
+	(cd web && E2E_BASE_URL=http://127.0.0.1:3100 npx playwright test -c playwright.screenshots.config.ts); \
 	  status=$$?; SECRET_KEY=unused $(E2E_COMPOSE) down -v; exit $$status

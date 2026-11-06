@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" role="img" aria-labelledby="title desc">
+  <title id="title">job-copilot</title>
+  <desc id="desc">De l'offre à l'entretien : une offre, un CV sur mesure, l'envoi, puis l'entretien au calendrier.</desc>
+  <defs>
+    <style>
+      .t { font-family: "Google Sans Flex", "Google Sans", Inter, "Helvetica Neue", Arial, sans-serif; fill: #1f1f1f; }
+      .ink { fill: none; stroke: #1f1f1f; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+      .paper { fill: #ffffff; stroke: #1f1f1f; stroke-width: 2.5; }
+      .sand { fill: #ece3d0; stroke: #1f1f1f; stroke-width: 2.5; }
+      .gold { fill: #ffc412; stroke: #1f1f1f; stroke-width: 2.5; }
+      .trail { fill: none; stroke: #1f1f1f; stroke-width: 2.5; stroke-dasharray: 2 9; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="400" rx="32" fill="#fbf7ef"/>
+
+  <!-- Logo et nom -->
+  <g transform="translate(88 92) scale(2.25)">
+    <rect width="32" height="32" rx="8" fill="#1f1f1f"/>
+    <path d="M5.5 15.5 26.5 6 20 25.5 14 20.5Z" fill="#ffffff"/>
+    <path d="M26.5 6 14 20.5 13.5 26.5 17.5 23Z" fill="#ffc412"/>
+  </g>
+  <text class="t" x="176" y="150" font-size="58" font-weight="500" letter-spacing="-1">job-copilot</text>
+  <text class="t" x="90" y="214" font-size="25" opacity="0.82">Trouve les offres faites pour toi, envoie</text>
+  <text class="t" x="90" y="248" font-size="25" opacity="0.82">un CV sur mesure et suis chaque</text>
+  <text class="t" x="90" y="282" font-size="25" opacity="0.82">candidature jusqu'à l'entretien.</text>
+  <g transform="translate(90 310)">
+    <rect width="250" height="44" rx="22" fill="#1f1f1f"/>
+    <text class="t" x="125" y="29" font-size="18" text-anchor="middle" style="fill:#ffffff">100 % local, open source</text>
+  </g>
+
+  <!-- Le trajet : offre, CV, envoi, entretien -->
+  <path class="trail" d="M1008 176C1020 172 1018 166 1024 162M1080 132C1110 126 1126 150 1140 176"/>
+
+  <!-- Offre avec son score -->
+  <rect class="sand" x="716" y="196" width="150" height="96" rx="16" transform="rotate(-7 791 244)"/>
+  <rect class="paper" x="724" y="214" width="164" height="100" rx="16"/>
+  <rect class="gold" x="740" y="230" width="30" height="30" rx="8"/>
+  <path class="ink" d="M782 240h70M782 254h44"/>
+  <rect class="sand" x="740" y="276" width="48" height="22" rx="11"/>
+  <circle cx="858" cy="284" r="15" fill="none" stroke="#d9d2c3" stroke-width="4"/>
+  <circle cx="858" cy="284" r="15" fill="none" stroke="#ffc412" stroke-width="4" stroke-linecap="round" stroke-dasharray="66 95" transform="rotate(-90 858 284)"/>
+
+  <!-- CV -->
+  <rect class="sand" x="900" y="108" width="118" height="150" rx="12" transform="rotate(5 959 183)"/>
+  <rect class="paper" x="890" y="100" width="118" height="150" rx="12"/>
+  <circle class="gold" cx="918" cy="128" r="14"/>
+  <circle cx="918" cy="124" r="4" fill="none" stroke="#1f1f1f" stroke-width="2.5"/>
+  <path class="ink" d="M910 138c2-6 14-6 16 0"/>
+  <path class="ink" d="M942 122h48M942 134h32M906 162h86M906 176h86M906 190h62M906 210h86M906 224h52"/>
+
+  <!-- Envoi -->
+  <circle class="paper" cx="1050" cy="140" r="34"/>
+  <path class="ink" d="M1032 141l36-16-12 34-9-12zM1047 147l21-22"/>
+
+  <!-- Entretien au calendrier -->
+  <rect class="paper" x="1106" y="178" width="118" height="104" rx="14"/>
+  <path class="sand" d="M1106 192a14 14 0 0 1 14-14h90a14 14 0 0 1 14 14v18h-118z"/>
+  <path class="ink" d="M1134 168v20M1196 168v20"/>
+  <g fill="#1f1f1f">
+    <circle cx="1130" cy="230" r="3"/><circle cx="1152" cy="230" r="3"/><circle cx="1196" cy="230" r="3"/>
+    <circle cx="1130" cy="256" r="3"/><circle cx="1152" cy="256" r="3"/><circle cx="1174" cy="256" r="3"/>
+  </g>
+  <circle class="gold" cx="1174" cy="230" r="11"/>
+  <circle class="gold" cx="1222" cy="282" r="26"/>
+  <path class="ink" d="M1210 282l8 8 15-17"/>
+</svg>
