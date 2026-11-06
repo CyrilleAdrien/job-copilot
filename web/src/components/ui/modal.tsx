@@ -16,6 +16,7 @@ export function Modal({
   description,
   size = "default",
   actions,
+  bar,
   children,
 }: {
   open: boolean;
@@ -26,6 +27,8 @@ export function Modal({
   size?: "default" | "full";
   /** Boutons placés dans l'en-tête, à gauche de la fermeture. */
   actions?: ReactNode;
+  /** Remplace l'en-tête : le titre reste lu par les lecteurs d'écran. */
+  bar?: ReactNode;
   children: ReactNode;
 }) {
   const titleId = useId();
@@ -84,6 +87,14 @@ export function Modal({
                 : "relative flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-[16px] border border-border bg-background shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] outline-none"
             }
           >
+            {bar ? (
+              <>
+                <h2 id={titleId} className="sr-only">
+                  {title}
+                </h2>
+                {bar}
+              </>
+            ) : (
             <header className={`flex shrink-0 flex-wrap gap-x-4 gap-y-2 border-b border-border px-6 ${full ? "items-center py-3" : "items-start py-4"}`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <h2 id={titleId} className="text-[17px] font-medium">
@@ -96,6 +107,7 @@ export function Modal({
                 <X aria-hidden />
               </Button>
             </header>
+            )}
             {full ? (
               <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">{children}</div>
             ) : (

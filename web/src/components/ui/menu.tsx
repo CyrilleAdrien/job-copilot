@@ -13,6 +13,8 @@ export type MenuItem = {
   icon?: ReactNode;
   /** Un lien, ou une action. */
   href?: string;
+  /** Un fichier à télécharger plutôt qu'une page à ouvrir. */
+  download?: boolean;
   onSelect?: () => void;
   tone?: "danger";
   /** Trait de séparation au-dessus de l'entrée. */
@@ -110,7 +112,11 @@ export function Menu({
               return (
                 <div key={item.label}>
                   {item.separated && <div role="separator" className="mx-2 my-1 h-px bg-border" />}
-                  {item.href ? (
+                  {item.href && item.download ? (
+                    <a href={item.href} download role="menuitem" onClick={() => setOpen(false)} className={className}>
+                      {content}
+                    </a>
+                  ) : item.href ? (
                     <Link href={item.href} role="menuitem" onClick={() => setOpen(false)} className={className}>
                       {content}
                     </Link>

@@ -4,8 +4,8 @@ import { Download, FileWarning, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Page } from "@/components/documents/document-viewer";
-import { CvLayoutModal } from "@/components/profile/cv-layout-modal";
 import { SearchPicker } from "@/components/profile/search-picker";
+import { SearchStudio } from "@/components/studio/search-studio";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -101,11 +101,10 @@ export function CvPreview({
         l&apos;essentiel.
       </p>
       {customizing && (
-        <CvLayoutModal
-          key={search}
-          open
+        <SearchStudio
           profile={profile}
           index={index}
+          onIndex={setChosen}
           onSaved={onSaved}
           onClose={() => {
             setCustomizing(false);

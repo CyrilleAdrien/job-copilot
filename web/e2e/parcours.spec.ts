@@ -140,7 +140,7 @@ test("parcours complet, du profil à la suppression des données", async ({ page
 
     await dialog.getByRole("button", { name: "Réinitialiser" }).click();
     await expect.poll(async () => (await layout()).order).toEqual([]);
-    await dialog.getByRole("button", { name: "Terminer" }).click();
+    await dialog.getByRole("button", { name: "Fermer", exact: true }).click();
     await expect(dialog).toHaveCount(0);
   });
 
@@ -186,8 +186,14 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await expect(summary.locator("ul li")).toHaveCount(1);
     await tools.getByRole("button", { name: "Liste à puces" }).click();
 
-    await dialog.getByRole("radio", { name: "Affichage" }).click();
+    await dialog.getByRole("tab", { name: "Personnaliser" }).click();
+    await dialog.getByRole("button", { name: "Police" }).click();
     await dialog.getByLabel("Police").selectOption("Tinos");
+    // Annuler et rétablir, y compris pour le choix de la police.
+    await dialog.getByRole("button", { name: "Annuler la dernière modification" }).click();
+    await expect(dialog.getByLabel("Police")).toHaveValue("Carlito");
+    await dialog.getByRole("button", { name: "Rétablir la modification" }).click();
+    await expect(dialog.getByLabel("Police")).toHaveValue("Tinos");
     await dialog.getByRole("button", { name: "Couleurs" }).click();
     await dialog.getByRole("button", { name: "Bleu nuit" }).click();
     await expect(dialog.getByRole("textbox", { name: "Code de la couleur : Texte" })).toHaveValue("#1F2A44");
@@ -197,7 +203,6 @@ test("parcours complet, du profil à la suppression des données", async ({ page
     await expect(dialog.getByText(/difficile à lire/)).toBeVisible();
     await dialog.getByRole("textbox", { name: "Code de la couleur : Texte" }).fill("#1F2A44");
     await dialog.getByRole("textbox", { name: "Code de la couleur : Traits et puces" }).press("Tab");
-    await dialog.getByRole("button", { name: "Couleurs" }).click();
     await dialog.getByRole("button", { name: "En-tête" }).click();
     await dialog.getByRole("checkbox", { name: "Afficher Téléphone" }).uncheck();
     await dialog.getByRole("button", { name: "Rubriques" }).click();
@@ -212,9 +217,11 @@ test("parcours complet, du profil à la suppression des données", async ({ page
       .toBeGreaterThan(0);
 
     // Fermer sans enregistrer demande confirmation, et on peut revenir.
-    await dialog.getByRole("button", { name: "Annuler" }).click();
+    await dialog.getByRole("button", { name: "Fermer", exact: true }).click();
     await dialog.getByRole("button", { name: "Continuer" }).click();
 
+    // Télécharger attend l'enregistrement : le fichier doit être celui qu'on voit.
+    await expect(dialog.getByRole("button", { name: "Télécharger" })).toBeDisabled();
     await dialog.getByRole("button", { name: "Enregistrer" }).click();
     await expect(dialog).toHaveCount(0);
 
